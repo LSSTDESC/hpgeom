@@ -40,24 +40,21 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     int ndim_b = PyArray_NDIM((PyArrayObject *)b_arr);
 
     if (ndim_a != ndim_b) {
-        fprintf(stdout, "Mismatched dims!\n");
+        PyErr_SetString(PyExc_ValueError, "a and b arrays have mismatched dimensions.");
         goto fail;
     }
     bool is_scalar = (ndim_a == 0);
-    if (is_scalar) {
-        fprintf(stdout, "scalar!\n");
-    }
 
     npy_intp a_size = PyArray_SIZE((PyArrayObject *)a_arr);
     npy_intp b_size = PyArray_SIZE((PyArrayObject *)b_arr);
 
     if (a_size != b_size) {
-        fprintf(stdout, "Mismatched sizes!\n");
+        PyErr_SetString(PyExc_ValueError, "a and b arrays have mismatched sizes.");
         goto fail;
     }
 
     if ((pixels = (int64_t *) calloc(a_size, sizeof(int64_t))) == NULL) {
-        // raise
+        PyErr_SetString(PyExc_RuntimeError, "Could not allocate memory for pixels.");
         goto fail;
     }
 
@@ -71,8 +68,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         scheme = RING;
     }
     if (!check_nside(nside, scheme, err)) {
-        // raise with error string
-        fprintf(stderr, "%s", err);
+        PyErr_SetString(PyExc_RuntimeError, err);
         goto fail;
     }
     hpx = healpix_info_from_nside(nside, scheme);
@@ -80,14 +76,17 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     for (i=0; i<a_size; i++) {
         if (lonlat) {
             if (!lonlat_to_thetaphi(a_data[i], b_data[i], &theta, &phi, (bool) degrees, err)) {
-                // raise with err string
+                PyErr_SetString(PyExc_ValueError, err);
                 goto fail;
             }
         } else {
+            if (!check_theta_phi(a_data[i], b_data[i], err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
             theta = a_data[i];
             phi = b_data[i];
         }
-        /* check ranges somewhere around here.*/
         pixels[i] = ang2pix(hpx, theta, phi);
     }
 
@@ -108,8 +107,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     Py_XDECREF(a_arr);
     Py_XDECREF(b_arr);
 
-    // Should raise.
-    Py_RETURN_NONE;
+    return NULL;
 }
 
 PyDoc_STRVAR(angle_to_pixel_doc,

@@ -17,6 +17,21 @@ int check_nside(int64_t nside, Scheme scheme, char *err) {
 }
 
 
+int check_theta_phi(double theta, double phi, char *err) {
+    err[0] = '\0';
+
+    if (theta < 0.0 || theta > M_TWO_PI) {
+        snprintf(err, ERR_SIZE, "longitude = %g out of range [0, 2*pi]", theta);
+        return 0;
+    }
+    if (phi < 0 || phi > M_TWO_PI) {
+        snprintf(err, ERR_SIZE, "colatitude = %g out of range [0, 2*pi]", phi);
+        return 0;
+    }
+    return 1;
+}
+
+
 int lonlat_to_thetaphi(double lon, double lat, double *theta, double *phi, bool degrees, char *err) {
     int status = 0;
 
