@@ -68,7 +68,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         scheme = RING;
     }
     if (!check_nside(nside, scheme, err)) {
-        PyErr_SetString(PyExc_RuntimeError, err);
+        PyErr_SetString(PyExc_ValueError, err);
         goto fail;
     }
     hpx = healpix_info_from_nside(nside, scheme);
@@ -124,9 +124,9 @@ PyDoc_STRVAR(angle_to_pixel_doc,
              "b : `np.ndarray` (N,)\n"
              "    Latitude or co-latitude\n"
              "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?  Default is True.\n"
+             "    Use nest ordering scheme?\n"
              "lonlat : `bool`, optional\n"
-             "    Use longitude/latitude instead of longitude/co-latitude (radians).  Default is True.\n"
+             "    Use longitude/latitude instead of longitude/co-latitude (radians).\n"
              "degrees : `bool`, optional\n"
              "    If lonlat is True then this sets if the units are degrees or radians.\n"
              "\n"

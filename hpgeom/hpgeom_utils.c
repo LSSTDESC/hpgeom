@@ -13,6 +13,11 @@ int check_nside(int64_t nside, Scheme scheme, char *err) {
         snprintf(err, ERR_SIZE, "nside %lld must be power of 2 for NEST pixels", nside);
         return 0;
     }
+
+    if (nside > MAX_NSIDE) {
+        snprintf(err, ERR_SIZE, "nside %lld must not be greater than 2**%d", nside, MAX_ORDER);
+        return 0;
+    }
     return 1;
 }
 

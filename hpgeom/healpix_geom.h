@@ -29,6 +29,9 @@
 #define D2R             0.017453292519943295
 #define R2D             57.295779513082323
 
+#define MAX_ORDER 29
+#define MAX_NSIDE (int64_t)(1)<<MAX_ORDER
+
 typedef enum Scheme {
     RING,
     NEST
