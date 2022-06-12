@@ -9,6 +9,7 @@
 #include "healpix_geom.h"
 
 
+// add radians option...
 
 static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     int64_t nside;

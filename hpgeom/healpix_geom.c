@@ -105,6 +105,7 @@ hpx_info hpx_info_from_nside(int64_t nside, enum Scheme scheme) {
     if ((nside <= 0) || ((nside)&(nside-1))) {
         // illegal value for nside
         // what to do?  External check_nside probably...
+        // ah non-even order (-1) is okay for ring...
         return hpx_info_from_order(-1, scheme);
     } else {
         order = ilog2(nside);
@@ -112,6 +113,7 @@ hpx_info hpx_info_from_nside(int64_t nside, enum Scheme scheme) {
     }
 }
 
+// add check_nside code
 
 int64_t ang2pix(hpx_info hpx, double theta, double phi) {
     if ((theta < 0.01) || (theta > 3.14159-0.01)) {
@@ -179,11 +181,10 @@ int64_t loc2pix(hpx_info hpx, double z, double phi, double sth, bool have_sth) {
                     int64_t ir = hpx.nside + 1 + jp - jm; // in {1,2n+1}
                     int64_t kshift = 1-(ir&1); // kshift=1 if ir even, 0 otherwise
 
-                    // could do bit operations if we have order_
-                    //int64_t t1 = jp+jm-nside_+kshift+1+nl4+nl4;
-                    //int64_t ip = (order_>0) ?
-                    //    (t1>>1)&(nl4-1) : ((t1>>1)%nl4); // in {0,4n-1}
-                    int64_t ip = (int64_t)((jp+jm - hpx.nside+kshift+1)/2); // in {0, 4n-1}
+                    int64_t t1 = jp+jm-hpx.nside+kshift+1+nl4+nl4;
+                    int64_t ip = (hpx.order>0) ?
+                        (t1>>1)&(nl4-1) : ((t1>>1)%nl4); // in {0,4n-1}
+                    //int64_t ip = (int64_t)((jp+jm - hpx.nside+kshift+1)/2); // in {0, 4n-1}
 
                     return hpx.ncap + (ir-1)*nl4 + ip;
                     //return 2*nside_*(nside_-1) + nl4*(ir-1) + ip;
@@ -204,8 +205,8 @@ int64_t loc2pix(hpx_info hpx, double z, double phi, double sth, bool have_sth) {
                     if (z>0.) {
                         return 2*ir*(ir-1) + ip;
                     }else{
-                        // FIX THIS
-                        return 12*hpx.nside*hpx.nside - 2*ir*(ir+1) + ip;
+                        //return 12*hpx.nside*hpx.nside - 2*ir*(ir+1) + ip;
+                        return hpx.npix - 2*ir*(ir+1) + ip;
                     }
                 }
         }
@@ -218,8 +219,11 @@ int64_t loc2pix(hpx_info hpx, double z, double phi, double sth, bool have_sth) {
                     int64_t jp = (int64_t)(temp1-temp2); // index of  ascending edge line
                     int64_t jm = (int64_t)(temp1+temp2); // index of descending edge line
                     //if we know the order we can do bit operations here, if useful
-                    int64_t ifp = jp/hpx.nside;  // in {0,4}
-                    int64_t ifm = jm/hpx.nside;
+                    //int64_t ifp = jp/hpx.nside;  // in {0,4}
+                    //int64_t ifm = jm/hpx.nside;
+                    int64_t ifp = jp >> hpx.order;  // in {0,4}
+                    int64_t ifm = jm >> hpx.order;
+
                     int face_num = (ifp==ifm) ? (ifp|4) : ((ifp<ifm) ? ifp : (ifm+8));
 
                     int ix = jm & (hpx.nside-1),
@@ -326,7 +330,8 @@ void pix2loc(int64_t nside_, int is_nest, int64_t pix, double &z, double &phi, d
 
 
 int64_t xyf2nest(hpx_info hpx, int ix, int iy, int face_num) {
-    return (face_num*hpx.nside*hpx.nside) + spread_bits64(ix) + (spread_bits64(iy)<<1);
+    //return (face_num*hpx.nside*hpx.nside) + spread_bits64(ix) + (spread_bits64(iy)<<1);
+    return ((int64_t)face_num<<(2*hpx.order)) + spread_bits64(ix) + (spread_bits64(iy)<<1);
 }
 /*
 
@@ -378,6 +383,7 @@ int compress_bits64(int64_t v) {
    ... spread_bits  (check)
    ... order_
 */
+// This should definitely be renamed and go elsewhere
 int hpix_lonlat_degrees_to_thetaphi_radians(double lon, double lat, double* theta, double* phi) {
 
     int status=0;
