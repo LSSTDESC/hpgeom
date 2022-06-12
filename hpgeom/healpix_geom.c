@@ -83,8 +83,8 @@ int64_t imodulo(int64_t v1, int64_t v2) {
 }
 
 
-hpx_info hpx_info_from_order(int order, enum Scheme scheme) {
-    hpx_info hpx;
+healpix_info healpix_info_from_order(int order, enum Scheme scheme) {
+    healpix_info hpx;
 
     hpx.order = order;
     hpx.nside = (int64_t)(1) << order;
@@ -99,23 +99,23 @@ hpx_info hpx_info_from_order(int order, enum Scheme scheme) {
 }
 
 
-hpx_info hpx_info_from_nside(int64_t nside, enum Scheme scheme) {
+healpix_info healpix_info_from_nside(int64_t nside, enum Scheme scheme) {
     int order;
 
     if ((nside <= 0) || ((nside)&(nside-1))) {
         // illegal value for nside
         // what to do?  External check_nside probably...
         // ah non-even order (-1) is okay for ring...
-        return hpx_info_from_order(-1, scheme);
+        return healpix_info_from_order(-1, scheme);
     } else {
         order = ilog2(nside);
-        return hpx_info_from_order(order, scheme);
+        return healpix_info_from_order(order, scheme);
     }
 }
 
 // add check_nside code
 
-int64_t ang2pix(hpx_info hpx, double theta, double phi) {
+int64_t ang2pix(healpix_info hpx, double theta, double phi) {
     if ((theta < 0.01) || (theta > 3.14159-0.01)) {
         return loc2pix(hpx, cos(theta), phi, 0.0, false);
     } else {
@@ -163,7 +163,7 @@ void pix2vec(int64_t nside_, int is_nest, int64_t pix, double &x, double &y, dou
 }
 */
 
-int64_t loc2pix(hpx_info hpx, double z, double phi, double sth, bool have_sth) {
+int64_t loc2pix(healpix_info hpx, double z, double phi, double sth, bool have_sth) {
     double za = fabs(z);
     double tt = fmod(phi*M_2_PI,4.0); // in [0,4)
 
@@ -329,7 +329,7 @@ void pix2loc(int64_t nside_, int is_nest, int64_t pix, double &z, double &phi, d
 */
 
 
-int64_t xyf2nest(hpx_info hpx, int ix, int iy, int face_num) {
+int64_t xyf2nest(healpix_info hpx, int ix, int iy, int face_num) {
     //return (face_num*hpx.nside*hpx.nside) + spread_bits64(ix) + (spread_bits64(iy)<<1);
     return ((int64_t)face_num<<(2*hpx.order)) + spread_bits64(ix) + (spread_bits64(iy)<<1);
 }
@@ -384,11 +384,11 @@ int compress_bits64(int64_t v) {
    ... order_
 */
 // This should definitely be renamed and go elsewhere
+/*
 int hpix_lonlat_degrees_to_thetaphi_radians(double lon, double lat, double* theta, double* phi) {
 
     int status=0;
 
-    /* We need to allow wrapping here. */
     if (lon < 0.0 || lon > 360.) {
         char err[128];
         sprintf(err, "lon = %g out of range [0, 360]", lon);
@@ -411,3 +411,4 @@ _hpix_conv_bail:
 
     return status;
 }
+*/

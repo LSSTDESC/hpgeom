@@ -6,6 +6,7 @@ ext = Extension(
     "hpgeom._hpgeom",
     [
         "hpgeom/healpix_geom.c",
+        "hpgeom/hpgeom_utils.c",
         "hpgeom/hpgeom.c",
     ],
 )

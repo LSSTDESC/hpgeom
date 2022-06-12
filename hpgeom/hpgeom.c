@@ -5,8 +5,8 @@
 #include <numpy/arrayobject.h>
 #include <stdio.h>
 
-//#include "healpix_utils.h"
 #include "healpix_geom.h"
+#include "hpgeom_utils.h"
 
 
 // add radians option...
@@ -27,7 +27,8 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     int status;
     double *a_data, *b_data;
     double theta, phi;
-    hpx_info hpx;
+    healpix_info hpx;
+    char err[ERR_SIZE];
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "lOO|pp", kwlist,
                                      &nside, &a_obj, &b_obj,
@@ -60,13 +61,17 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     } else {
         scheme = RING;
     }
-    hpx = hpx_info_from_nside(nside, scheme);
+    if (!check_nside(nside, scheme, err)) {
+        // raise with error string
+        fprintf(stderr, err);
+        goto fail;
+    }
+    hpx = healpix_info_from_nside(nside, scheme);
 
     for (i=0; i<n_a; i++) {
-        /* I think that here should be the conversion from lon/lat to theta/phi */
         if (lonlat) {
-            if (!hpix_lonlat_degrees_to_thetaphi_radians(a_data[i], b_data[i], &theta, &phi)) {
-                // raise
+            if (!lonlat_to_thetaphi(a_data[i], b_data[i], &theta, &phi, true, err)) {
+                // raise with err string
                 goto fail;
             }
         } else {
