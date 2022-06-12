@@ -26,6 +26,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     int status;
     double *a_data, *b_data;
     double theta, phi;
+    hpx_info hpx;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "lOO|pp", kwlist,
                                      &nside, &a_obj, &b_obj,
@@ -52,6 +53,14 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     a_data = (double *) PyArray_DATA((PyArrayObject *)a_arr);
     b_data = (double *) PyArray_DATA((PyArrayObject *)b_arr);
 
+    enum Scheme scheme;
+    if (nest) {
+        scheme = NEST;
+    } else {
+        scheme = RING;
+    }
+    hpx = hpx_info_from_nside(nside, scheme);
+
     for (i=0; i<n_a; i++) {
         /* I think that here should be the conversion from lon/lat to theta/phi */
         if (lonlat) {
@@ -64,7 +73,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
             phi = b_data[i];
         }
         /* check ranges somewhere around here.*/
-        pixels[i] = ang2pix(nside, nest, theta, phi);
+        pixels[i] = ang2pix(hpx, theta, phi);
     }
 
     dims[0] = (npy_intp) n_a;

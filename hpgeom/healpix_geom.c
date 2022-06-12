@@ -51,14 +51,73 @@
  *  etc.
  */
 
+int64_t isqrt(int64_t i) { return sqrt(((double)(i)) + 0.5); }
+
+int ilog2(int64_t arg) {
+  int res = 0;
+  while (arg > 0x0000FFFF) {
+    res += 16;
+    arg >>= 16;
+  }
+
+  if (arg > 0x000000FF) {
+    res |= 8;
+    arg >>= 8;
+  }
+  if (arg > 0x0000000F) {
+    res |= 4;
+    arg >>= 4;
+  }
+  if (arg > 0x00000003) {
+    res |= 2;
+    arg >>= 2;
+  }
+  if (arg > 0x00000001) {
+    res |= 1;
+  }
+  return res;
+}
+
+int64_t imodulo(int64_t v1, int64_t v2) {
+  return (v1 >= 0) ? ((v1 < v2) ? v1 : (v1 % v2)) : ((v1 % v2) + v2);
+}
 
 
+hpx_info hpx_info_from_order(int order, enum Scheme scheme) {
+    hpx_info hpx;
 
-int64_t ang2pix(int64_t nside_, int is_nest, double theta, double phi) {
-    if ((theta < 0.01) || (theta > 3.14159-0.01)) {
-        return loc2pix(nside_, is_nest, cos(theta), phi, 0.0, false);
+    hpx.order = order;
+    hpx.nside = (int64_t)(1) << order;
+    hpx.npface = hpx.nside << order;
+    hpx.ncap = (hpx.npface - hpx.nside)<<1;
+    hpx.npix = 12*hpx.npface;
+    hpx.fact2 = 4./hpx.npix;
+    hpx.fact1 = (hpx.nside<<1)*hpx.fact2;
+    hpx.scheme = scheme;
+
+    return hpx;
+}
+
+
+hpx_info hpx_info_from_nside(int64_t nside, enum Scheme scheme) {
+    int order;
+
+    if ((nside <= 0) || ((nside)&(nside-1))) {
+        // illegal value for nside
+        // what to do?  External check_nside probably...
+        return hpx_info_from_order(-1, scheme);
     } else {
-        return loc2pix(nside_, is_nest, cos(theta), phi, sin(theta), true);
+        order = ilog2(nside);
+        return hpx_info_from_order(order, scheme);
+    }
+}
+
+
+int64_t ang2pix(hpx_info hpx, double theta, double phi) {
+    if ((theta < 0.01) || (theta > 3.14159-0.01)) {
+        return loc2pix(hpx, cos(theta), phi, 0.0, false);
+    } else {
+        return loc2pix(hpx, cos(theta), phi, sin(theta), true);
     }
 }
 
@@ -101,40 +160,40 @@ void pix2vec(int64_t nside_, int is_nest, int64_t pix, double &x, double &y, dou
     }
 }
 */
-/*
-int64_t loc2pix(int64_t nside_, int is_nest, double z, double phi, double sth, bool have_sth) {
+
+int64_t loc2pix(hpx_info hpx, double z, double phi, double sth, bool have_sth) {
     double za = fabs(z);
     double tt = fmod(phi*M_2_PI,4.0); // in [0,4)
 
-    if (!is_nest)
+    if (hpx.scheme == RING)
         {
             if (za<=M_TWOTHIRD) // Equatorial region
                 {
-                    int64_t nl4 = 4*nside_;
-                    double temp1 = nside_*(0.5+tt);
-                    double temp2 = nside_*z*0.75;
+                    int64_t nl4 = 4*hpx.nside;
+                    double temp1 = hpx.nside*(0.5+tt);
+                    double temp2 = hpx.nside*z*0.75;
                     int64_t jp = (int64_t)(temp1-temp2); // index of  ascending edge line
                     int64_t jm = (int64_t)(temp1+temp2); // index of descending edge line
 
                     // ring number counted from z=2/3
-                    int64_t ir = nside_ + 1 + jp - jm; // in {1,2n+1}
+                    int64_t ir = hpx.nside + 1 + jp - jm; // in {1,2n+1}
                     int64_t kshift = 1-(ir&1); // kshift=1 if ir even, 0 otherwise
 
                     // could do bit operations if we have order_
                     //int64_t t1 = jp+jm-nside_+kshift+1+nl4+nl4;
                     //int64_t ip = (order_>0) ?
                     //    (t1>>1)&(nl4-1) : ((t1>>1)%nl4); // in {0,4n-1}
-                    int64_t ip = (int64_t)((jp+jm - nside_+kshift+1)/2); // in {0, 4n-1}
+                    int64_t ip = (int64_t)((jp+jm - hpx.nside+kshift+1)/2); // in {0, 4n-1}
 
-                    //return ncap_ + (ir-1)*nl4 + ip;
-                    return 2*nside_*(nside_-1) + nl4*(ir-1) + ip;
+                    return hpx.ncap + (ir-1)*nl4 + ip;
+                    //return 2*nside_*(nside_-1) + nl4*(ir-1) + ip;
                 }
             else  // North & South polar caps
                 {
                     double tp = tt-(int64_t)(tt);
                     double tmp = ((za<0.99)||(!have_sth)) ?
-                        nside_*sqrt(3*(1-za)) :
-                        nside_*sth/sqrt((1.+za)/3.);
+                        hpx.nside*sqrt(3*(1-za)) :
+                        hpx.nside*sth/sqrt((1.+za)/3.);
 
                     int64_t jp = (int64_t)(tp*tmp); // increasing edge line index
                     int64_t jm = (int64_t)((1.0-tp)*tmp); // decreasing edge line index
@@ -145,7 +204,8 @@ int64_t loc2pix(int64_t nside_, int is_nest, double z, double phi, double sth, b
                     if (z>0.) {
                         return 2*ir*(ir-1) + ip;
                     }else{
-                        return 12*nside_*nside_ - 2*ir*(ir+1) + ip;
+                        // FIX THIS
+                        return 12*hpx.nside*hpx.nside - 2*ir*(ir+1) + ip;
                     }
                 }
         }
@@ -153,18 +213,18 @@ int64_t loc2pix(int64_t nside_, int is_nest, double z, double phi, double sth, b
         {
             if (za<=M_TWOTHIRD) // Equatorial region
                 {
-                    double temp1 = nside_*(0.5+tt);
-                    double temp2 = nside_*(z*0.75);
+                    double temp1 = hpx.nside*(0.5+tt);
+                    double temp2 = hpx.nside*(z*0.75);
                     int64_t jp = (int64_t)(temp1-temp2); // index of  ascending edge line
                     int64_t jm = (int64_t)(temp1+temp2); // index of descending edge line
                     //if we know the order we can do bit operations here, if useful
-                    int64_t ifp = jp/nside_;  // in {0,4}
-                    int64_t ifm = jm/nside_;
+                    int64_t ifp = jp/hpx.nside;  // in {0,4}
+                    int64_t ifm = jm/hpx.nside;
                     int face_num = (ifp==ifm) ? (ifp|4) : ((ifp<ifm) ? ifp : (ifm+8));
 
-                    int ix = jm & (nside_-1),
-                        iy = nside_ - (jp & (nside_-1)) - 1;
-                    return xyf2nest(nside_,ix,iy,face_num);
+                    int ix = jm & (hpx.nside-1),
+                        iy = hpx.nside - (jp & (hpx.nside-1)) - 1;
+                    return xyf2nest(hpx,ix,iy,face_num);
                 }
             else // polar region, za > 2/3
                 {
@@ -172,19 +232,19 @@ int64_t loc2pix(int64_t nside_, int is_nest, double z, double phi, double sth, b
                     if (ntt >= 4) ntt = 3;
                     double tp = tt-ntt;
                     double tmp = ((za<0.99)||(!have_sth)) ?
-                        nside_*sqrt(3*(1-za)) :
-                        nside_*sth/sqrt((1.+za)/3.);
+                        hpx.nside*sqrt(3*(1-za)) :
+                        hpx.nside*sth/sqrt((1.+za)/3.);
 
                     int64_t jp = (int64_t)(tp*tmp); // increasing edge line index
                     int64_t jm = (int64_t)((1.0-tp)*tmp); // decreasing edge line index
-                    if (jp >= nside_) jp = nside_ - 1; // for points too close to the boundary
-                    if (jm >= nside_) jm = nside_ - 1;
+                    if (jp >= hpx.nside) jp = hpx.nside - 1; // for points too close to the boundary
+                    if (jm >= hpx.nside) jm = hpx.nside - 1;
                     return (z>=0) ?
-                        xyf2nest(nside_, nside_-jm -1,nside_-jp-1,ntt) : xyf2nest(nside_,jp,jm,ntt+8);
+                        xyf2nest(hpx, hpx.nside-jm -1,hpx.nside-jp-1,ntt) : xyf2nest(hpx,jp,jm,ntt+8);
                 }
         }
 }
-*/
+
 /*
 void pix2loc(int64_t nside_, int is_nest, int64_t pix, double &z, double &phi, double &sth, bool &have_sth) {
     *have_sth=false;
@@ -265,8 +325,8 @@ void pix2loc(int64_t nside_, int is_nest, int64_t pix, double &z, double &phi, d
 */
 
 
-int64_t xyf2nest(int64_t nside, int ix, int iy, int face_num) {
-    return (face_num*nside*nside) + spread_bits64(ix) + (spread_bits64(iy)<<1);
+int64_t xyf2nest(hpx_info hpx, int ix, int iy, int face_num) {
+    return (face_num*hpx.nside*hpx.nside) + spread_bits64(ix) + (spread_bits64(iy)<<1);
 }
 /*
 

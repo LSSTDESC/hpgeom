@@ -30,13 +30,40 @@
 #define R2D             57.295779513082323
 
 
-//typedef struct
+enum Scheme {
+    RING,
+    NEST
+};
 
+typedef struct hpx_info {
+    int order;
+    int64_t nside;
+    int64_t npface;
+    int64_t ncap;
+    int64_t npix;
+    double fact2;
+    double fact1;
+    enum Scheme scheme;
+} hpx_info;
 
+/*
 int64_t ang2pix(int64_t nside_, int is_nest, double theta, double phi);
 int64_t loc2pix(int64_t nside_, int is_nest, double z, double phi, double sth, bool hav_sth);
 int64_t xyf2nest(int64_t nside, int ix, int iy, int face_num);
+*/
+int64_t isqrt(int64_t i);
+int ilog2(int64_t arg);
+int64_t imodulo(int64_t v1, int64_t v2);
+
+hpx_info hpx_info_from_order(int order, enum Scheme scheme);
+hpx_info hpx_info_from_nside(int64_t nside, enum Scheme scheme);
+
+int64_t ang2pix(hpx_info hpx, double theta, double phi);
+int64_t loc2pix(hpx_info hpx, double z, double phi, double sth, bool hav_sth);
+int64_t xyf2nest(hpx_info hpx, int ix, int iy, int face_num);
+
 int64_t spread_bits64(int v);
+
 int hpix_lonlat_degrees_to_thetaphi_radians(double lon, double lat, double* theta, double* phi);
 
 #endif
