@@ -13,7 +13,7 @@ import hpgeom
 # FIX PROBLEMS WHEN NON POWER OF TWO FOR RING...
 
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
-@pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
+@pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29, 2**10 - 100])
 def test_angle_to_pixel_ring(nside):
     """Test angle_to_pixel for ring scheme."""
     np.random.seed(12345)

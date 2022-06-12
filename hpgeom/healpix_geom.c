@@ -100,17 +100,22 @@ healpix_info healpix_info_from_order(int order, enum Scheme scheme) {
 
 
 healpix_info healpix_info_from_nside(int64_t nside, enum Scheme scheme) {
-    int order;
+    healpix_info hpx;
 
-    if ((nside <= 0) || ((nside)&(nside-1))) {
-        // illegal value for nside
-        // what to do?  External check_nside probably...
-        // ah non-even order (-1) is okay for ring...
-        return healpix_info_from_order(-1, scheme);
+    if ((nside)&(nside-1)) {
+        hpx.order = -1;
     } else {
-        order = ilog2(nside);
-        return healpix_info_from_order(order, scheme);
+        hpx.order = ilog2(nside);
     }
+    hpx.nside = nside;
+    hpx.npface = nside*nside;
+    hpx.ncap = (hpx.npface-nside)<<1;
+    hpx.npix = 12*hpx.npface;
+    hpx.fact2 = 4./hpx.npix;
+    hpx.fact1 = (nside<<1)*hpx.fact2;
+    hpx.scheme = scheme;
+
+    return hpx;
 }
 
 // add check_nside code
