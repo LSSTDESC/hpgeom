@@ -59,6 +59,11 @@ int64_t ang2pix(healpix_info hpx, double theta, double phi);
 int64_t loc2pix(healpix_info hpx, double z, double phi, double sth, bool hav_sth);
 int64_t xyf2nest(healpix_info hpx, int ix, int iy, int face_num);
 
+void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi);
+void pix2loc(healpix_info hpx, int64_t pix, double *z, double *phi, double *sth, bool *have_sth);
+void nest2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
+
 int64_t spread_bits64(int v);
+int compress_bits64(int64_t v);
 
 #endif

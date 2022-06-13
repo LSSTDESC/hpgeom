@@ -35,21 +35,29 @@
 #include "healpix_geom.h"
 
 
-/* some things to know:
- *  nside = (int64_t) 1 << order
- *  npface = nside << order;
- *  ncap = (npface - nside) << 1
- *  npix = 12*npface
- *  fact2 = 4/npix
- *  fact1 = (nside<<1)*fact2
- *
- *  or ...
- *  order = nside2order(nside) (!)
- *  npface = nside*nside
- *  ncap = (npface - nside) << 1
- *  npix = 12*npface
- *  etc.
- */
+static const uint16_t utab[]={
+#define Z(a) 0x##a##0, 0x##a##1, 0x##a##4, 0x##a##5
+#define Y(a) Z(a##0), Z(a##1), Z(a##4), Z(a##5)
+#define X(a) Y(a##0), Y(a##1), Y(a##4), Y(a##5)
+X(0),X(1),X(4),X(5)
+#undef X
+#undef Y
+#undef Z
+};
+
+static const uint16_t ctab[]= {
+#define Z(a) a,a+1,a+256,a+257
+#define Y(a) Z(a),Z(a+2),Z(a+512),Z(a+514)
+#define X(a) Y(a),Y(a+4),Y(a+1024),Y(a+1028)
+X(0),X(8),X(2048),X(2056)
+#undef X
+#undef Y
+#undef Z
+};
+
+static const int jrll[] = { 2,2,2,2,3,3,3,3,4,4,4,4 };
+static const int jpll[] = { 1,3,5,7,0,2,4,6,1,3,5,7 };
+
 
 int64_t isqrt(int64_t i) { return sqrt(((double)(i)) + 0.5); }
 
@@ -140,18 +148,18 @@ int64_t vec2pix(int64_t nside_, int is_nest, double x, double y, double z) {
     }
 }
 */
-/*
-void pix2ang(int64_t nside_, int is_nest, int64_t pix, double &theta, double &phi) {
+
+void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi) {
     double z, sth;
     bool have_sth;
-    pix2loc(nside_, is_nest, pix, &z, phi, &sth, &have_sth);
+    pix2loc(hpx, pix, &z, phi, &sth, &have_sth);
     if (have_sth) {
         *theta = atan2(sth, z);
     } else {
         *theta = acos(z);
     }
 }
-*/
+
 /*
 void pix2vec(int64_t nside_, int is_nest, int64_t pix, double &x, double &y, double &z) {
     double phi, sth;
@@ -189,10 +197,8 @@ int64_t loc2pix(healpix_info hpx, double z, double phi, double sth, bool have_st
                     int64_t t1 = jp+jm-hpx.nside+kshift+1+nl4+nl4;
                     int64_t ip = (hpx.order>0) ?
                         (t1>>1)&(nl4-1) : ((t1>>1)%nl4); // in {0,4n-1}
-                    //int64_t ip = (int64_t)((jp+jm - hpx.nside+kshift+1)/2); // in {0, 4n-1}
 
                     return hpx.ncap + (ir-1)*nl4 + ip;
-                    //return 2*nside_*(nside_-1) + nl4*(ir-1) + ip;
                 }
             else  // North & South polar caps
                 {
@@ -210,7 +216,6 @@ int64_t loc2pix(healpix_info hpx, double z, double phi, double sth, bool have_st
                     if (z>0.) {
                         return 2*ir*(ir-1) + ip;
                     }else{
-                        //return 12*hpx.nside*hpx.nside - 2*ir*(ir+1) + ip;
                         return hpx.npix - 2*ir*(ir+1) + ip;
                     }
                 }
@@ -223,9 +228,6 @@ int64_t loc2pix(healpix_info hpx, double z, double phi, double sth, bool have_st
                     double temp2 = hpx.nside*(z*0.75);
                     int64_t jp = (int64_t)(temp1-temp2); // index of  ascending edge line
                     int64_t jm = (int64_t)(temp1+temp2); // index of descending edge line
-                    //if we know the order we can do bit operations here, if useful
-                    //int64_t ifp = jp/hpx.nside;  // in {0,4}
-                    //int64_t ifm = jm/hpx.nside;
                     int64_t ifp = jp >> hpx.order;  // in {0,4}
                     int64_t ifm = jm >> hpx.order;
 
@@ -254,119 +256,95 @@ int64_t loc2pix(healpix_info hpx, double z, double phi, double sth, bool have_st
         }
 }
 
-/*
-void pix2loc(int64_t nside_, int is_nest, int64_t pix, double &z, double &phi, double &sth, bool &have_sth) {
+
+void pix2loc(healpix_info hpx, int64_t pix, double *z, double *phi, double *sth, bool *have_sth) {
     *have_sth=false;
-    int64_t npface_ = nside_*nside_;
-    int64_t ncap_ = (npface_-nside_)<<1;
-    int64_t npix_ = 12*npface_;
     // need isqrt
-    if (!is_nest) {
-        if (pix<ncap_) // North Polar cap
+    if (hpx.scheme == RING) {
+        if (pix<hpx.ncap) // North Polar cap
             {
                 int64_t iring = (1+(int64_t)(isqrt(1+2*pix)))>>1; // counted from North pole
                 int64_t iphi  = (pix+1) - 2*iring*(iring-1);
 
-                double tmp=(iring*iring)*fact2_;
-                z = 1.0 - tmp;
-                if (z>0.99) { sth=sqrt(tmp*(2.-tmp)); have_sth=true; }
-                phi = (iphi-0.5) * M_PI_2/iring;
+                double tmp=(iring*iring)*hpx.fact2;
+                *z = 1.0 - tmp;
+                if (*z>0.99) { *sth=sqrt(tmp*(2.-tmp)); *have_sth=true; }
+                *phi = (iphi-0.5) * M_PI_2/iring;
             }
-        else if (pix<(npix_-ncap_)) // Equatorial region
+        else if (pix<(hpx.npix-hpx.ncap)) // Equatorial region
             {
-                int64_t nl4 = 4*nside_;
-                int64_t ip  = pix - ncap_;
-                int64_t tmp = (order_>=0) ? ip>>(order_+2) : ip/nl4;
-                int64_t iring = tmp + nside_,
+                int64_t nl4 = 4*hpx.nside;
+                int64_t ip  = pix - hpx.ncap;
+                int64_t tmp = (hpx.order>=0) ? ip>>(hpx.order+2) : ip/nl4;
+                int64_t iring = tmp + hpx.nside,
                     iphi = ip-nl4*tmp+1;
                 // 1 if iring+nside is odd, 1/2 otherwise
-                double fodd = ((iring+nside_)&1) ? 1 : 0.5;
+                double fodd = ((iring+hpx.nside)&1) ? 1 : 0.5;
 
-                *z = (2*nside_-iring)*fact1_;
-                *phi = (iphi-fodd) * pi*0.75*fact1_;
+                *z = (2*hpx.nside-iring)*hpx.fact1;
+                *phi = (iphi-fodd) * M_PI*0.75*hpx.fact1;
             }
         else // South Polar cap
             {
-                int64_t ip = npix_ - pix;
+                int64_t ip = hpx.npix - pix;
                 int64_t iring = (1+(int64_t)(isqrt(2*ip-1)))>>1; // counted from South pole
                 int64_t iphi  = 4*iring + 1 - (ip - 2*iring*(iring-1));
 
-                double tmp=(iring*iring)*fact2_;
+                double tmp=(iring*iring)*hpx.fact2;
                 *z = tmp - 1.0;
-                if (*z<-0.99) { sth=sqrt(tmp*(2.-tmp)); *have_sth=true; }
+                if (*z<-0.99) { *sth=sqrt(tmp*(2.-tmp)); *have_sth=true; }
                 *phi = (iphi-0.5) * M_PI_2/iring;
             }
     }
     else
         {
             int face_num, ix, iy;
-            nest2xyf(nside,pix,ix,iy,face_num);
+            nest2xyf(hpx,pix,&ix,&iy,&face_num);
 
-            int64_t jr = ((int64_t)(jrll[face_num])<<order_) - ix - iy - 1;
+            // what is jrll?
+            int64_t jr = ((int64_t)(jrll[face_num])<<hpx.order) - ix - iy - 1;
 
             int64_t nr;
-            if (jr<nside_)
+            if (jr<hpx.nside)
                 {
                     nr = jr;
-                    double tmp=(nr*nr)*fact2_;
+                    double tmp=(nr*nr)*hpx.fact2;
                     *z = 1 - tmp;
-                    if (z>0.99) { sth=sqrt(tmp*(2.-tmp)); *have_sth=true; }
+                    if (*z>0.99) { *sth=sqrt(tmp*(2.-tmp)); *have_sth=true; }
                 }
-            else if (jr > 3*nside_)
+            else if (jr > 3*hpx.nside)
                 {
-                    nr = nside_*4-jr;
-                    double tmp=(nr*nr)*fact2_;
+                    nr = hpx.nside*4-jr;
+                    double tmp=(nr*nr)*hpx.fact2;
                     *z = tmp - 1;
                     if (*z<-0.99) { *sth=sqrt(tmp*(2.-tmp)); *have_sth=true; }
                 }
             else
                 {
-                    nr = nside_;
-                    *z = (2*nside_-jr)*fact1_;
+                    nr = hpx.nside;
+                    *z = (2*hpx.nside-jr)*hpx.fact1;
                 }
 
             int64_t tmp=(int64_t)(jpll[face_num])*nr+ix-iy;
             if (tmp<0) tmp+=8*nr;
-            *phi = (nr==nside_) ? 0.75*M_PI_2*tmp*fact1_ :
+            *phi = (nr==hpx.nside) ? 0.75*M_PI_2*tmp*hpx.fact1 :
                 (0.5*M_PI_2*tmp)/nr;
         }
 }
-*/
+
 
 
 int64_t xyf2nest(healpix_info hpx, int ix, int iy, int face_num) {
-    //return (face_num*hpx.nside*hpx.nside) + spread_bits64(ix) + (spread_bits64(iy)<<1);
     return ((int64_t)face_num<<(2*hpx.order)) + spread_bits64(ix) + (spread_bits64(iy)<<1);
 }
-/*
 
-void nest2xyf(int64_t nside, int64_t pix, int &ix, int &iy, int &face_num) {
-    // need order ...
-    face_num = pix>>(2*order_);
-    pix &= (npface_-1);
+
+void nest2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num) {
+    *face_num = pix>>(2*hpx.order);
+    pix &= (hpx.npface-1);
     *ix = compress_bits64(pix);
     *iy = compress_bits64(pix>>1);
 }
-*/
-static const uint16_t utab[]={
-#define Z(a) 0x##a##0, 0x##a##1, 0x##a##4, 0x##a##5
-#define Y(a) Z(a##0), Z(a##1), Z(a##4), Z(a##5)
-#define X(a) Y(a##0), Y(a##1), Y(a##4), Y(a##5)
-X(0),X(1),X(4),X(5)
-#undef X
-#undef Y
-#undef Z
-};
-
-static const uint16_t ctab[]= {
-#define Z(a) a,a+1,a+256,a+257
-#define Y(a) Z(a),Z(a+2),Z(a+512),Z(a+514)
-#define X(a) Y(a),Y(a+4),Y(a+1024),Y(a+1028)
-X(0),X(8),X(2048),X(2056)
-#undef X
-#undef Y
-#undef Z
-};
 
 
 int64_t spread_bits64(int v) {
@@ -382,38 +360,3 @@ int compress_bits64(int64_t v) {
     return ctab[ raw     &0xff]      | (ctab[(raw>> 8)&0xff]<< 4)
         | (ctab[(raw>>32)&0xff]<<16) | (ctab[(raw>>40)&0xff]<<20);
 }
-
-
-/* need to figure out ...
-   ... spread_bits  (check)
-   ... order_
-*/
-// This should definitely be renamed and go elsewhere
-/*
-int hpix_lonlat_degrees_to_thetaphi_radians(double lon, double lat, double* theta, double* phi) {
-
-    int status=0;
-
-    if (lon < 0.0 || lon > 360.) {
-        char err[128];
-        sprintf(err, "lon = %g out of range [0, 360]", lon);
-        //PyErr_SetString(PyExc_ValueError, err);
-        goto _hpix_conv_bail;
-    }
-    if (lat < -90. || lat > 90.) {
-        char err[128];
-        sprintf(err, "lat = %g out of range [-90, 90]", lat);
-        //PyErr_SetString(PyExc_ValueError, err);
-        goto _hpix_conv_bail;
-    }
-
-    *phi = lon*D2R;
-    *theta = -lat*D2R + M_PI_2;
-
-    status=1;
-
-_hpix_conv_bail:
-
-    return status;
-}
-*/

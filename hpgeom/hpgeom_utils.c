@@ -36,10 +36,17 @@ int check_theta_phi(double theta, double phi, char *err) {
     return 1;
 }
 
+int check_pixel(healpix_info hpx, int64_t pix, char *err) {
+    err[0] = '\0';
+
+    if (pix < 0 || pix >= hpx.npix) {
+        snprintf(err, ERR_SIZE, "Pixel value %lld out of range for nside %lld", pix, hpx.nside);
+        return 0;
+    }
+    return 1;
+}
 
 int lonlat_to_thetaphi(double lon, double lat, double *theta, double *phi, bool degrees, char *err) {
-    int status = 0;
-
     err[0] = '\0';
 
     if (degrees) {
@@ -52,14 +59,25 @@ int lonlat_to_thetaphi(double lon, double lat, double *theta, double *phi, bool 
     if (lat < -M_PI || lat > M_PI) {
         /* maybe improve this message depending on degrees...*/
         snprintf(err, ERR_SIZE, "lat = %g out of range [-90, 90]", lat);
-        status = 0;
-        return status;
+        return 0;
     }
 
     *phi = lon;
     *theta = -lat + M_PI_2;
 
-    status = 1;
+    return 1;
+}
 
-    return status;
+int thetaphi_to_lonlat(double theta, double phi, double *lon, double *lat, bool degrees, char *err) {
+    err[0] = '\0';
+
+    *lon = phi;
+    *lat = -(theta - M_PI_2);
+
+    if (degrees) {
+        *lon *= R2D;
+        *lat *= R2D;
+    }
+
+    return 1;
 }
