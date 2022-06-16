@@ -91,16 +91,16 @@ int64_t imodulo(int64_t v1, int64_t v2) {
 }
 
 static inline int64_t i64max(int64_t v1, int64_t v2) {
-    return v1 > v2 ? v1 : v2;
+  return v1 > v2 ? v1 : v2;
 }
 static inline int64_t i64min(int64_t v1, int64_t v2) {
-    return v1 < v2 ? v1 : v2;
+  return v1 < v2 ? v1 : v2;
 }
 
 static inline int64_t special_div(int64_t a, int64_t b) {
-    int64_t t = (a>=(b<<1));
-    a-=t*(b<<1);
-    return (t<<1)+(a>=b);
+  int64_t t = (a >= (b << 1));
+  a -= t * (b << 1);
+  return (t << 1) + (a >= b);
 }
 
 healpix_info healpix_info_from_order(int order, enum Scheme scheme) {
@@ -170,19 +170,19 @@ void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi) {
 }
 
 void pix2zphi(healpix_info hpx, int64_t pix, double *z, double *phi) {
-    bool dum_b;
-    double dum_d;
-    pix2loc(hpx, pix, z, phi, &dum_d, &dum_b);
+  bool dum_b;
+  double dum_d;
+  pix2loc(hpx, pix, z, phi, &dum_d, &dum_b);
 }
 
 void pix2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num) {
-    (hpx.scheme==RING) ?
-        ring2xyf(hpx, pix, ix, iy, face_num) : nest2xyf(hpx, pix, ix, iy, face_num);
+  (hpx.scheme == RING) ? ring2xyf(hpx, pix, ix, iy, face_num)
+                       : nest2xyf(hpx, pix, ix, iy, face_num);
 }
 
 int64_t xyf2pix(healpix_info hpx, int ix, int iy, int face_num) {
-    return (hpx.scheme == RING) ?
-        xyf2ring(hpx, ix, iy, face_num) : xyf2nest(hpx, ix, iy, face_num);
+  return (hpx.scheme == RING) ? xyf2ring(hpx, ix, iy, face_num)
+                              : xyf2nest(hpx, ix, iy, face_num);
 }
 
 /*
@@ -367,75 +367,79 @@ void nest2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num) {
 }
 
 int64_t xyf2ring(healpix_info hpx, int ix, int iy, int face_num) {
-    int64_t nl4 = 4*hpx.nside;
-    int64_t jr = (jrll[face_num]*hpx.nside) - ix - iy - 1;
+  int64_t nl4 = 4 * hpx.nside;
+  int64_t jr = (jrll[face_num] * hpx.nside) - ix - iy - 1;
 
-    int64_t nr, kshift, n_before;
+  int64_t nr, kshift, n_before;
 
-    bool shifted;
-    get_ring_info_small(hpx, jr, &n_before, &nr, &shifted);
-    nr >>= 2;
-    kshift = 1 - shifted;
-    int64_t jp = (jpll[face_num]*nr + ix - iy + 1 + kshift) / 2;
-    if (jp < 1) jp+=nl4;
+  bool shifted;
+  get_ring_info_small(hpx, jr, &n_before, &nr, &shifted);
+  nr >>= 2;
+  kshift = 1 - shifted;
+  int64_t jp = (jpll[face_num] * nr + ix - iy + 1 + kshift) / 2;
+  if (jp < 1)
+    jp += nl4;
 
-    return n_before + jp - 1;
+  return n_before + jp - 1;
 }
 
 void ring2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num) {
-    int64_t iring, iphi, kshift, nr;
-    int64_t nl2 = 2*hpx.nside;
+  int64_t iring, iphi, kshift, nr;
+  int64_t nl2 = 2 * hpx.nside;
 
-    if (pix < hpx.ncap) { // North Polar cap
-        iring = (1 + isqrt(1+2*pix))>>1; // counted from North pole
-        iphi = (pix+1) - 2*iring*(iring-1);
-        kshift=0;
-        nr = iring;
-        *face_num=special_div(iphi-1,nr);
-    } else if (pix<(hpx.npix-hpx.ncap)) { // Equatorial region
-        int64_t ip = pix - hpx.ncap;
-        int64_t tmp = (hpx.order>=0) ? ip>>(hpx.order+2) : ip/(4*hpx.nside);
-        iring = tmp+hpx.nside;
-        iphi = ip-tmp*4*hpx.nside + 1;
-        kshift = (iring+hpx.nside)&1;
-        nr = hpx.nside;
-        int64_t ire = tmp+1, irm = nl2+1-tmp;
-        int64_t ifm = iphi - (ire>>1) + hpx.nside - 1, ifp = iphi - (irm>>1) + hpx.nside -1;
-        if (hpx.order >= 0) {
-            ifm >>= hpx.order;
-            ifp >>= hpx.order;
-        } else {
-            ifm /= hpx.nside;
-            ifp /= hpx.nside;
-        }
-        *face_num = (ifp==ifm) ? (ifp|4) : ((ifp<ifm) ? ifp : (ifm + 8));
-    } else { // South Polar cap
-        int64_t ip = hpx.npix - pix;
-        iring = (1+isqrt(2*ip-1))>>1; // counted from South pole
-        iphi = 4*iring + 1 - (ip - 2*iring*(iring-1));
-        kshift = 0;
-        nr = iring;
-        iring = 2*nl2-iring;
-        *face_num = special_div(iphi-1, nr) + 8;
+  if (pix < hpx.ncap) {                    // North Polar cap
+    iring = (1 + isqrt(1 + 2 * pix)) >> 1; // counted from North pole
+    iphi = (pix + 1) - 2 * iring * (iring - 1);
+    kshift = 0;
+    nr = iring;
+    *face_num = special_div(iphi - 1, nr);
+  } else if (pix < (hpx.npix - hpx.ncap)) { // Equatorial region
+    int64_t ip = pix - hpx.ncap;
+    int64_t tmp =
+        (hpx.order >= 0) ? ip >> (hpx.order + 2) : ip / (4 * hpx.nside);
+    iring = tmp + hpx.nside;
+    iphi = ip - tmp * 4 * hpx.nside + 1;
+    kshift = (iring + hpx.nside) & 1;
+    nr = hpx.nside;
+    int64_t ire = tmp + 1, irm = nl2 + 1 - tmp;
+    int64_t ifm = iphi - (ire >> 1) + hpx.nside - 1,
+            ifp = iphi - (irm >> 1) + hpx.nside - 1;
+    if (hpx.order >= 0) {
+      ifm >>= hpx.order;
+      ifp >>= hpx.order;
+    } else {
+      ifm /= hpx.nside;
+      ifp /= hpx.nside;
     }
+    *face_num = (ifp == ifm) ? (ifp | 4) : ((ifp < ifm) ? ifp : (ifm + 8));
+  } else { // South Polar cap
+    int64_t ip = hpx.npix - pix;
+    iring = (1 + isqrt(2 * ip - 1)) >> 1; // counted from South pole
+    iphi = 4 * iring + 1 - (ip - 2 * iring * (iring - 1));
+    kshift = 0;
+    nr = iring;
+    iring = 2 * nl2 - iring;
+    *face_num = special_div(iphi - 1, nr) + 8;
+  }
 
-    int64_t irt = iring - ((2+(*face_num>>2))*hpx.nside) + 1;
-    int64_t ipt = 2*iphi - jpll[*face_num]*nr - kshift - 1;
-    if (ipt >= nl2) ipt -= 8*hpx.nside;
+  int64_t irt = iring - ((2 + (*face_num >> 2)) * hpx.nside) + 1;
+  int64_t ipt = 2 * iphi - jpll[*face_num] * nr - kshift - 1;
+  if (ipt >= nl2)
+    ipt -= 8 * hpx.nside;
 
-    *ix = (ipt-irt)>>1;
-    *iy = (-ipt-irt) >> 1;
+  *ix = (ipt - irt) >> 1;
+  *iy = (-ipt - irt) >> 1;
 }
 
 double ring2z(healpix_info hpx, int64_t ring) {
-    if (ring < hpx.nside) {
-        return 1 - ring*ring*hpx.fact2;
-    }
-    if (ring <=3*hpx.nside) {
-        return (2*hpx.nside-ring)*hpx.fact1;
-    }
-    ring = 4*hpx.nside - ring;
-    return ring*ring*hpx.fact2 - 1;
+  if (ring < hpx.nside) {
+    return 1 - ring * ring * hpx.fact2;
+  }
+  if (ring <= 3 * hpx.nside) {
+    return (2 * hpx.nside - ring) * hpx.fact1;
+  }
+  ring = 4 * hpx.nside - ring;
+  return ring * ring * hpx.fact2 - 1;
 }
 
 int64_t spread_bits64(int v) {
@@ -452,52 +456,55 @@ int compress_bits64(int64_t v) {
 }
 
 double max_pixrad(healpix_info hpx) {
-    double z_a = 2./3.;
-    double phi_a = M_PI/(4.*hpx.nside);
-    double sintheta = sqrt((1-z_a)*(1+z_a));
-    double x_a = sintheta*cos(phi_a);
-    double y_a = sintheta*sin(phi_a);
+  double z_a = 2. / 3.;
+  double phi_a = M_PI / (4. * hpx.nside);
+  double sintheta = sqrt((1 - z_a) * (1 + z_a));
+  double x_a = sintheta * cos(phi_a);
+  double y_a = sintheta * sin(phi_a);
 
-    double t1 = 1. - 1./hpx.nside;
-    t1 *= t1;
+  double t1 = 1. - 1. / hpx.nside;
+  t1 *= t1;
 
-    double z_b = 1.-t1/3.;
-    double phi_b = 0.0;
-    sintheta = sqrt((1-z_b)*(1+z_b));
-    double x_b = sintheta*cos(phi_b);
-    double y_b = sintheta*sin(phi_b);
+  double z_b = 1. - t1 / 3.;
+  double phi_b = 0.0;
+  sintheta = sqrt((1 - z_b) * (1 + z_b));
+  double x_b = sintheta * cos(phi_b);
+  double y_b = sintheta * sin(phi_b);
 
-    double angle = acos((x_a*x_b + y_a*y_b + z_a*z_b)/(sqrt(x_a*x_a + y_a*y_a + z_a*z_a)*sqrt(x_b*x_b + y_b*y_b + z_b*z_b)));
-    return angle;
+  double angle = acos((x_a * x_b + y_a * y_b + z_a * z_b) /
+                      (sqrt(x_a * x_a + y_a * y_a + z_a * z_a) *
+                       sqrt(x_b * x_b + y_b * y_b + z_b * z_b)));
+  return angle;
 }
 
 int64_t ring_above(healpix_info hpx, double z) {
-    double az=fabs(z);
-    if (az <= M_TWOTHIRD) // equatorial region
-        return (int64_t)(hpx.nside*(2-1.5*z));
-    int64_t iring = (int64_t)(hpx.nside*sqrt(3*(1-az)));
-    return (z>0) ? iring : 4*hpx.nside-iring-1;
+  double az = fabs(z);
+  if (az <= M_TWOTHIRD) // equatorial region
+    return (int64_t)(hpx.nside * (2 - 1.5 * z));
+  int64_t iring = (int64_t)(hpx.nside * sqrt(3 * (1 - az)));
+  return (z > 0) ? iring : 4 * hpx.nside - iring - 1;
 }
 
-void get_ring_info_small(healpix_info hpx, int64_t ring, int64_t *startpix, int64_t *ringpix, bool *shifted) {
-    if (ring < hpx.nside) {
-        *shifted = true;
-        *ringpix = 4*ring;
-        *startpix = 2*ring*(ring-1);
-    } else if (ring < 3*hpx.nside) {
-        *shifted = ((ring-hpx.nside) & 1) == 0;
-        *ringpix = 4*hpx.nside;
-        *startpix = hpx.ncap + (ring - hpx.nside)*(*ringpix);
-    } else {
-        *shifted = true;
-        int64_t nr = 4*hpx.nside-ring;
-        *ringpix = 4*nr;
-        *startpix = hpx.npix-2*nr*(nr+1);
-    }
+void get_ring_info_small(healpix_info hpx, int64_t ring, int64_t *startpix,
+                         int64_t *ringpix, bool *shifted) {
+  if (ring < hpx.nside) {
+    *shifted = true;
+    *ringpix = 4 * ring;
+    *startpix = 2 * ring * (ring - 1);
+  } else if (ring < 3 * hpx.nside) {
+    *shifted = ((ring - hpx.nside) & 1) == 0;
+    *ringpix = 4 * hpx.nside;
+    *startpix = hpx.ncap + (ring - hpx.nside) * (*ringpix);
+  } else {
+    *shifted = true;
+    int64_t nr = 4 * hpx.nside - ring;
+    *ringpix = 4 * nr;
+    *startpix = hpx.npix - 2 * nr * (nr + 1);
+  }
 }
 
 inline double cosdist_zphi(double z1, double phi1, double z2, double phi2) {
-    return z1*z2 + cos(phi1-phi2)*sqrt((1.-z1*z1)*(1.-z2*z2));
+  return z1 * z2 + cos(phi1 - phi2) * sqrt((1. - z1 * z1) * (1. - z2 * z2));
 }
 
 /* Short note on the "zone":
@@ -506,253 +513,302 @@ inline double cosdist_zphi(double z1, double phi1, double z2, double phi2) {
           2: pixel center is inside the shape, but maybe not the complete pixel
           3: pixel lies completely inside the shape */
 
-void check_pixel_nest(int o, int order_, int omax, int zone, struct i64rangeset *pixset, int64_t pix, struct i64stack *stk, bool inclusive, int *stacktop, int *status, char *err) {
-    *status = 1;
-    if (zone == 0) return;
+void check_pixel_nest(int o, int order_, int omax, int zone,
+                      struct i64rangeset *pixset, int64_t pix,
+                      struct i64stack *stk, bool inclusive, int *stacktop,
+                      int *status, char *err) {
+  *status = 1;
+  if (zone == 0)
+    return;
 
-    if (o<order_) {
-        if (zone >= 3) {
-            int sdist=2*(order_-o); // the "bit-shift distance" between map orders
-            i64rangeset_append(pixset, pix<<sdist, (pix+1)<<sdist, status, err); // output all subpixels
-            if (!status) return;
-        } else { // (1<=zone<=2)
-            for (int i=0; i<4; i++) {
-                // output all subpixels, a pair of pixel and order
-                i64stack_push(stk, 4*pix+3-i, status, err);
-                if (!status) return;
-                i64stack_push(stk, o+1, status, err);
-                if (!status) return;
-            }
-        }
-    } else if (o>order_) { // this implies that inclusive=true
-        if (zone>=2) { // pixel center in shape
-            i64rangeset_append_single(pixset, pix>>(2*(o-order_)), status, err); // output the parent pixel at order_
-            if (!status) return;
-            i64stack_resize(stk, *stacktop, status, err); // unwind the stack
-            if (!status) return;
-        } else { // (zone==1): pixel center in safety range
-            if (o<omax) { // check sublevels
-                for (int i=0; i<4; i++) { // add children in reverse order
-                    i64stack_push(stk, 4*pix+3-i, status, err);
-                    if (!status) return;
-                    i64stack_push(stk, o+1, status, err);
-                    if (!status) return;
-                }
-            } else { // at resolution limit
-                i64rangeset_append_single(pixset, pix>>(2*(o-order_)), status, err); // output the parent pixel at order_
-                if (!status) return;
-                i64stack_resize(stk, *stacktop, status, err); // unwind the stack
-                if (!status) return;
-            }
-        }
-    } else { // o==order_
-        if (zone >= 2) {
-            i64rangeset_append_single(pixset, pix, status, err);
-            if (!status) return;
-        } else if (inclusive) { // and (zone>=1)
-            if (order_<omax) { // check sublevels
-                *stacktop=stk->size; // remember current stack position
-                for (int i=0; i<4; i++) { // add children in reverse order
-                    i64stack_push(stk, 4*pix+3-i, status, err);
-                    if (!status) return;
-                    i64stack_push(stk, o+1, status, err);
-                    if (!status) return;
-                }
-            } else {// at resolution limit
-                i64rangeset_append_single(pixset, pix, status, err); // output the pixel
-                if (!status) return;
-            }
-        }
+  if (o < order_) {
+    if (zone >= 3) {
+      int sdist =
+          2 * (order_ - o); // the "bit-shift distance" between map orders
+      i64rangeset_append(pixset, pix << sdist, (pix + 1) << sdist, status,
+                         err); // output all subpixels
+      if (!status)
+        return;
+    } else { // (1<=zone<=2)
+      for (int i = 0; i < 4; i++) {
+        // output all subpixels, a pair of pixel and order
+        i64stack_push(stk, 4 * pix + 3 - i, status, err);
+        if (!status)
+          return;
+        i64stack_push(stk, o + 1, status, err);
+        if (!status)
+          return;
+      }
     }
+  } else if (o > order_) { // this implies that inclusive=true
+    if (zone >= 2) {       // pixel center in shape
+      i64rangeset_append_single(pixset, pix >> (2 * (o - order_)), status,
+                                err); // output the parent pixel at order_
+      if (!status)
+        return;
+      i64stack_resize(stk, *stacktop, status, err); // unwind the stack
+      if (!status)
+        return;
+    } else {                          // (zone==1): pixel center in safety range
+      if (o < omax) {                 // check sublevels
+        for (int i = 0; i < 4; i++) { // add children in reverse order
+          i64stack_push(stk, 4 * pix + 3 - i, status, err);
+          if (!status)
+            return;
+          i64stack_push(stk, o + 1, status, err);
+          if (!status)
+            return;
+        }
+      } else { // at resolution limit
+        i64rangeset_append_single(pixset, pix >> (2 * (o - order_)), status,
+                                  err); // output the parent pixel at order_
+        if (!status)
+          return;
+        i64stack_resize(stk, *stacktop, status, err); // unwind the stack
+        if (!status)
+          return;
+      }
+    }
+  } else { // o==order_
+    if (zone >= 2) {
+      i64rangeset_append_single(pixset, pix, status, err);
+      if (!status)
+        return;
+    } else if (inclusive) {           // and (zone>=1)
+      if (order_ < omax) {            // check sublevels
+        *stacktop = stk->size;        // remember current stack position
+        for (int i = 0; i < 4; i++) { // add children in reverse order
+          i64stack_push(stk, 4 * pix + 3 - i, status, err);
+          if (!status)
+            return;
+          i64stack_push(stk, o + 1, status, err);
+          if (!status)
+            return;
+        }
+      } else { // at resolution limit
+        i64rangeset_append_single(pixset, pix, status, err); // output the pixel
+        if (!status)
+          return;
+      }
+    }
+  }
 }
 
-bool check_pixel_ring(healpix_info hpx1, healpix_info hpx2, int64_t pix, int64_t nr, int64_t ipix1, int fct, double cz, double cphi, double cosrp2, int64_t cpix) {
-    if (pix >= nr) pix -= nr;
-    if (pix < 0) pix += nr;
-    pix += ipix1;
-    if (pix == cpix) return false; // disk center in pixel => overlap
-    int px, py, pf;
-    pix2xyf(hpx1, pix, &px, &py, &pf);
-    for (int i=0; i<fct-1; i++) { // go along the 4 edges
-        int64_t ox=fct*px, oy=fct*py;
-        double pz, pphi;
-        pix2zphi(hpx2, xyf2pix(hpx2, ox+i, oy, pf), &pz, &pphi);
-        if (cosdist_zphi(pz, pphi, cz, cphi) > cosrp2) // overlap
-            return false;
-        pix2zphi(hpx2, xyf2pix(hpx2, ox+fct-1,oy+i, pf), &pz, &pphi);
-        if (cosdist_zphi(pz, pphi, cz, cphi) > cosrp2) // overlap
-            return false;
-        pix2zphi(hpx2, xyf2pix(hpx2, ox+fct-1-i,oy+fct-1, pf), &pz, &pphi);
-        if (cosdist_zphi(pz, pphi, cz, cphi) > cosrp2) // overlap
-            return false;
-        pix2zphi(hpx2, xyf2pix(hpx2, ox, oy+fct-1-i,pf), &pz, &pphi);
-        if (cosdist_zphi(pz, pphi, cz, cphi) > cosrp2) // overlap
-            return false;
-    }
-    return true;
+bool check_pixel_ring(healpix_info hpx1, healpix_info hpx2, int64_t pix,
+                      int64_t nr, int64_t ipix1, int fct, double cz,
+                      double cphi, double cosrp2, int64_t cpix) {
+  if (pix >= nr)
+    pix -= nr;
+  if (pix < 0)
+    pix += nr;
+  pix += ipix1;
+  if (pix == cpix)
+    return false; // disk center in pixel => overlap
+  int px, py, pf;
+  pix2xyf(hpx1, pix, &px, &py, &pf);
+  for (int i = 0; i < fct - 1; i++) { // go along the 4 edges
+    int64_t ox = fct * px, oy = fct * py;
+    double pz, pphi;
+    pix2zphi(hpx2, xyf2pix(hpx2, ox + i, oy, pf), &pz, &pphi);
+    if (cosdist_zphi(pz, pphi, cz, cphi) > cosrp2) // overlap
+      return false;
+    pix2zphi(hpx2, xyf2pix(hpx2, ox + fct - 1, oy + i, pf), &pz, &pphi);
+    if (cosdist_zphi(pz, pphi, cz, cphi) > cosrp2) // overlap
+      return false;
+    pix2zphi(hpx2, xyf2pix(hpx2, ox + fct - 1 - i, oy + fct - 1, pf), &pz,
+             &pphi);
+    if (cosdist_zphi(pz, pphi, cz, cphi) > cosrp2) // overlap
+      return false;
+    pix2zphi(hpx2, xyf2pix(hpx2, ox, oy + fct - 1 - i, pf), &pz, &pphi);
+    if (cosdist_zphi(pz, pphi, cz, cphi) > cosrp2) // overlap
+      return false;
+  }
+  return true;
 }
 
-void query_disc(healpix_info hpx, double ptg_theta, double ptg_phi, double radius, int fact, struct i64rangeset *pixset, int *status, char *err) {
-    bool inclusive = (fact!=0);
-    // this does not alter the storage
-    pixset->stack->size = 0;
+void query_disc(healpix_info hpx, double ptg_theta, double ptg_phi,
+                double radius, int fact, struct i64rangeset *pixset,
+                int *status, char *err) {
+  bool inclusive = (fact != 0);
+  // this does not alter the storage
+  pixset->stack->size = 0;
 
-    if (hpx.scheme == RING) {
-        int64_t fct = 1;
-        if (inclusive) {
-            fct = fact;
-        }
-        healpix_info hpx2;
-        double rsmall, rbig;
+  if (hpx.scheme == RING) {
+    int64_t fct = 1;
+    if (inclusive) {
+      fct = fact;
+    }
+    healpix_info hpx2;
+    double rsmall, rbig;
+    if (fct > 1) {
+      hpx2 = healpix_info_from_nside(fct * hpx.nside, RING);
+      rsmall = radius + max_pixrad(hpx2);
+      rbig = radius + max_pixrad(hpx);
+    } else {
+      rsmall = rbig = inclusive ? radius + max_pixrad(hpx) : radius;
+    }
+
+    if (rsmall >= M_PI) {
+      i64rangeset_append(pixset, 0, hpx.npix, status, err);
+      return;
+    }
+
+    if (rbig > M_PI) {
+      rbig = M_PI;
+    }
+
+    double cosrsmall = cos(rsmall);
+    double cosrbig = cos(rbig);
+
+    double z0 = cos(ptg_theta);
+    double xa = 1. / sqrt((1 - z0) * (1 + z0));
+
+    int64_t cpix = loc2pix(hpx, z0, ptg_phi, 0., false);
+
+    double rlat1 = ptg_theta - rsmall;
+    double zmax = cos(rlat1);
+    int64_t irmin = ring_above(hpx, zmax) + 1;
+
+    if ((rlat1 <= 0) && (irmin > 1)) { // north pole in the disk
+      int64_t sp, rp;
+      bool dummy;
+      get_ring_info_small(hpx, irmin - 1, &sp, &rp, &dummy);
+      i64rangeset_append(pixset, 0, sp + rp, status, err);
+      if (!status)
+        return;
+    }
+    if ((fct > 1) && (rlat1 > 0))
+      irmin = i64max((int64_t)1, irmin - 1);
+
+    double rlat2 = ptg_theta + rsmall;
+    double zmin = cos(rlat2);
+    int64_t irmax = ring_above(hpx, zmin);
+
+    if ((fct > 1) && (rlat2 < M_PI))
+      irmax = i64min(4 * hpx.nside - 1, irmax + 1);
+
+    for (int64_t iz = irmin; iz <= irmax; ++iz) {
+      double z = ring2z(hpx, iz);
+      double x = (cosrbig - z * z0) * xa;
+      double ysq = 1 - z * z - x * x;
+      double dphi = -1;
+      if (ysq <= 0) { // no intersection, ring completely inside or outside
+        dphi = (fct == 1) ? 0 : M_PI - 1e-15;
+      } else {
+        dphi = atan2(sqrt(ysq), x);
+      }
+      if (dphi > 0) {
+        int64_t nr, ipix1;
+        bool shifted;
+        get_ring_info_small(hpx, iz, &ipix1, &nr, &shifted);
+        double shift = shifted ? 0.5 : 0.;
+
+        int64_t ipix2 = ipix1 + nr - 1; // highest pixel number in the ring
+
+        int64_t ip_lo =
+            (int64_t)floor((nr / M_TWO_PI) * (ptg_phi - dphi) - shift) + 1;
+        int64_t ip_hi =
+            (int64_t)floor((nr / M_TWO_PI) * (ptg_phi + dphi) - shift);
+
         if (fct > 1) {
-            hpx2 = healpix_info_from_nside(fct*hpx.nside, RING);
-            rsmall = radius + max_pixrad(hpx2);
-            rbig = radius + max_pixrad(hpx);
-        } else {
-            rsmall = rbig = inclusive ? radius + max_pixrad(hpx) : radius;
+          while ((ip_lo <= ip_hi) &&
+                 check_pixel_ring(hpx, hpx2, ip_lo, nr, ipix1, fct, z0, ptg_phi,
+                                  cosrsmall, cpix))
+            ++ip_lo;
+          while ((ip_hi > ip_lo) &&
+                 check_pixel_ring(hpx, hpx2, ip_hi, nr, ipix1, fct, z0, ptg_phi,
+                                  cosrsmall, cpix))
+            --ip_hi;
         }
 
-        if (rsmall >= M_PI) {
-            i64rangeset_append(pixset, 0, hpx.npix, status, err);
-            return;
+        if (ip_lo <= ip_hi) {
+          if (ip_hi >= nr) {
+            ip_lo -= nr;
+            ip_hi -= nr;
+          }
+          if (ip_lo < 0) {
+            i64rangeset_append(pixset, ipix1, ipix1 + ip_hi + 1, status, err);
+            if (!status)
+              return;
+            i64rangeset_append(pixset, ipix1 + ip_lo + nr, ipix2 + 1, status,
+                               err);
+            if (!status)
+              return;
+          } else {
+            i64rangeset_append(pixset, ipix1 + ip_lo, ipix1 + ip_hi + 1, status,
+                               err);
+            if (!status)
+              return;
+          }
         }
-
-        if (rbig > M_PI) {
-            rbig = M_PI;
-        }
-
-        double cosrsmall = cos(rsmall);
-        double cosrbig = cos(rbig);
-
-        double z0 = cos(ptg_theta);
-        double xa = 1./sqrt((1-z0)*(1+z0));
-
-        int64_t cpix = loc2pix(hpx, z0, ptg_phi, 0., false);
-
-        double rlat1 = ptg_theta - rsmall;
-        double zmax = cos(rlat1);
-        int64_t irmin = ring_above(hpx, zmax) + 1;
-
-        if ((rlat1<=0) && (irmin>1)) { // north pole in the disk
-            int64_t sp, rp;
-            bool dummy;
-            get_ring_info_small(hpx, irmin-1, &sp, &rp, &dummy);
-            i64rangeset_append(pixset, 0, sp+rp, status, err);
-            if (!status) return;
-        }
-        if ((fct>1) && (rlat1>0)) irmin = i64max((int64_t)1, irmin-1);
-
-        double rlat2 = ptg_theta + rsmall;
-        double zmin = cos(rlat2);
-        int64_t irmax = ring_above(hpx, zmin);
-
-        if ((fct>1) && (rlat2<M_PI)) irmax=i64min(4*hpx.nside-1,irmax+1);
-
-        for (int64_t iz=irmin; iz<=irmax; ++iz) {
-            double z = ring2z(hpx, iz);
-            double x = (cosrbig - z*z0)*xa;
-            double ysq = 1-z*z-x*x;
-            double dphi=-1;
-            if (ysq<=0) { // no intersection, ring completely inside or outside
-                dphi = (fct==1) ? 0: M_PI-1e-15;
-            } else {
-                dphi = atan2(sqrt(ysq), x);
-            }
-            if (dphi>0) {
-                int64_t nr, ipix1;
-                bool shifted;
-                get_ring_info_small(hpx, iz, &ipix1, &nr, &shifted);
-                double shift = shifted ? 0.5 : 0.;
-
-                int64_t ipix2 = ipix1 + nr - 1; // highest pixel number in the ring
-
-                int64_t ip_lo = (int64_t) floor((nr/M_TWO_PI)*(ptg_phi-dphi) - shift) + 1;
-                int64_t ip_hi = (int64_t) floor((nr/M_TWO_PI)*(ptg_phi+dphi) - shift);
-
-                if (fct > 1) {
-                    while ((ip_lo<=ip_hi) &&
-                           check_pixel_ring(hpx, hpx2, ip_lo, nr, ipix1, fct, z0, ptg_phi, cosrsmall, cpix))
-                        ++ip_lo;
-                    while ((ip_hi>ip_lo) &&
-                           check_pixel_ring(hpx, hpx2, ip_hi, nr, ipix1, fct, z0, ptg_phi, cosrsmall, cpix))
-                        --ip_hi;
-                }
-
-                if (ip_lo<=ip_hi) {
-                    if (ip_hi>=nr) {
-                        ip_lo-=nr;
-                        ip_hi-=nr;
-                    }
-                    if (ip_lo<0) {
-                        i64rangeset_append(pixset, ipix1, ipix1+ip_hi+1, status, err);
-                        if (!status) return;
-                        i64rangeset_append(pixset, ipix1+ip_lo+nr, ipix2+1, status, err);
-                        if (!status) return;
-                    } else {
-                        i64rangeset_append(pixset, ipix1+ip_lo, ipix1+ip_hi+1, status, err);
-                        if (!status) return;
-                    }
-                }
-            }
-        }
-        if ((rlat2>=M_PI) && (irmax+1<4*hpx.nside)) { // south pole in the disk
-            int64_t sp, rp;
-            bool dummy;
-            get_ring_info_small(hpx, irmax+1, &sp, &rp, &dummy);
-            i64rangeset_append(pixset, sp, hpx.npix, status, err);
-            if (!status) return;
-        }
-    } else { // schema == NEST
-        if (radius >= M_PI) { // disk covers the whole sphere
-            i64rangeset_append(pixset, 0, hpx.npix, status, err);
-            return;
-        }
-
-        int oplus = 0;
-        if (inclusive) {
-            oplus=ilog2(fact);
-        }
-        int omax = hpx.order+oplus; // the order up to which we test
-
-        // Statically define the array of bases because it's not large.
-        double ptg_z = cos(ptg_theta);
-        struct healpix_info base[MAX_ORDER + 1];
-        double crpdr[MAX_ORDER + 1], crmdr[MAX_ORDER + 1];
-        double cosrad = cos(radius);
-        for (int o=0; o<=omax; o++) {
-            base[o] = healpix_info_from_order(o, NEST);
-            double dr = max_pixrad(base[o]); // safety distance
-            crpdr[o] = ((radius+dr)>M_PI) ? -1. : cos(radius+dr);
-            crmdr[o] = ((radius-dr)<0.) ? 1. : cos(radius-dr);
-        }
-
-        struct i64stack *stk = i64stack_new(2*(12+3*omax), status, err);
-        if (!status) return;
-        for (int i=0; i<12; i++) {
-            i64stack_push(stk, (int64_t)(11 - i), status, err);
-            if (!status) return;
-            i64stack_push(stk, 0, status, err);
-            if (!status) return;
-        }
-
-        int stacktop = 0; // a place to save a stack position
-        while (stk->size > 0) {
-            // pop current pixel number and order from the stack
-            int64_t pix = stk->data[stk->size - 2];
-            int o = (int) stk->data[stk->size - 1];
-            i64stack_resize(stk, stk->size - 2, status, err);
-            if (!status) return;
-
-            double pix_z, pix_phi;
-            pix2zphi(base[o], pix, &pix_z, &pix_phi);
-            // cosine of angular distance between pixel center and disk center
-            double cangdist = cosdist_zphi(ptg_z, ptg_phi, pix_z, pix_phi);
-
-            if (cangdist > crpdr[o]) {
-                int zone = (cangdist<cosrad) ? 1 : ((cangdist<=crmdr[o]) ? 2 : 3);
-                check_pixel_nest(o, hpx.order, omax, zone, pixset, pix, stk, inclusive, &stacktop, status, err);
-                if (!status) return;
-            }
-        }
+      }
     }
+    if ((rlat2 >= M_PI) &&
+        (irmax + 1 < 4 * hpx.nside)) { // south pole in the disk
+      int64_t sp, rp;
+      bool dummy;
+      get_ring_info_small(hpx, irmax + 1, &sp, &rp, &dummy);
+      i64rangeset_append(pixset, sp, hpx.npix, status, err);
+      if (!status)
+        return;
+    }
+  } else {                // schema == NEST
+    if (radius >= M_PI) { // disk covers the whole sphere
+      i64rangeset_append(pixset, 0, hpx.npix, status, err);
+      return;
+    }
+
+    int oplus = 0;
+    if (inclusive) {
+      oplus = ilog2(fact);
+    }
+    int omax = hpx.order + oplus; // the order up to which we test
+
+    // Statically define the array of bases because it's not large.
+    double ptg_z = cos(ptg_theta);
+    struct healpix_info base[MAX_ORDER + 1];
+    double crpdr[MAX_ORDER + 1], crmdr[MAX_ORDER + 1];
+    double cosrad = cos(radius);
+    for (int o = 0; o <= omax; o++) {
+      base[o] = healpix_info_from_order(o, NEST);
+      double dr = max_pixrad(base[o]); // safety distance
+      crpdr[o] = ((radius + dr) > M_PI) ? -1. : cos(radius + dr);
+      crmdr[o] = ((radius - dr) < 0.) ? 1. : cos(radius - dr);
+    }
+
+    struct i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+    if (!status)
+      return;
+    for (int i = 0; i < 12; i++) {
+      i64stack_push(stk, (int64_t)(11 - i), status, err);
+      if (!status)
+        return;
+      i64stack_push(stk, 0, status, err);
+      if (!status)
+        return;
+    }
+
+    int stacktop = 0; // a place to save a stack position
+    while (stk->size > 0) {
+      // pop current pixel number and order from the stack
+      int64_t pix = stk->data[stk->size - 2];
+      int o = (int)stk->data[stk->size - 1];
+      i64stack_resize(stk, stk->size - 2, status, err);
+      if (!status)
+        return;
+
+      double pix_z, pix_phi;
+      pix2zphi(base[o], pix, &pix_z, &pix_phi);
+      // cosine of angular distance between pixel center and disk center
+      double cangdist = cosdist_zphi(ptg_z, ptg_phi, pix_z, pix_phi);
+
+      if (cangdist > crpdr[o]) {
+        int zone = (cangdist < cosrad) ? 1 : ((cangdist <= crmdr[o]) ? 2 : 3);
+        check_pixel_nest(o, hpx.order, omax, zone, pixset, pix, stk, inclusive,
+                         &stacktop, status, err);
+        if (!status)
+          return;
+      }
+    }
+  }
 }

@@ -1,10 +1,10 @@
 #ifndef _HEALPIX_GEOM_H
 #define _HEALPIX_GEOM_H
 
+#include "hpgeom_stack.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "hpgeom_stack.h"
 
 #ifndef M_PI
 #define M_E 2.7182818284590452354         /* e */
@@ -76,12 +76,19 @@ int64_t spread_bits64(int v);
 int compress_bits64(int64_t v);
 
 int64_t ring_above(healpix_info hpx, double z);
-void get_ring_info_small(healpix_info hpx, int64_t ring, int64_t *startpix, int64_t *ringpix, bool *shifted);
+void get_ring_info_small(healpix_info hpx, int64_t ring, int64_t *startpix,
+                         int64_t *ringpix, bool *shifted);
 
 double max_pixrad(healpix_info hpx);
-bool check_pixel_ring(healpix_info hpx1, healpix_info hpx2, int64_t pix, int64_t nr, int64_t ipix1, int fct, double cz, double cphi, double cosrp2, int64_t cpix);
-void check_pixel_nest(int o, int order_, int omax, int zone, struct i64rangeset *pixset, int64_t pix, struct i64stack *stk, bool inclusive, int *stacktop, int *status, char *err);
+bool check_pixel_ring(healpix_info hpx1, healpix_info hpx2, int64_t pix,
+                      int64_t nr, int64_t ipix1, int fct, double cz,
+                      double cphi, double cosrp2, int64_t cpix);
+void check_pixel_nest(int o, int order_, int omax, int zone,
+                      struct i64rangeset *pixset, int64_t pix,
+                      struct i64stack *stk, bool inclusive, int *stacktop,
+                      int *status, char *err);
 
-void query_disc(healpix_info hpx, double theta, double phi, double radius, int fact, struct i64rangeset *pixset, int *status, char *err);
+void query_disc(healpix_info hpx, double theta, double phi, double radius,
+                int fact, struct i64rangeset *pixset, int *status, char *err);
 
 #endif

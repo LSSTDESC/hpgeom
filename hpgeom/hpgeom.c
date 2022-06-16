@@ -6,8 +6,8 @@
 #include <stdio.h>
 
 #include "healpix_geom.h"
-#include "hpgeom_utils.h"
 #include "hpgeom_stack.h"
+#include "hpgeom_utils.h"
 
 static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
                                 PyObject *kwargs) {
@@ -82,8 +82,8 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
 
   for (i = 0; i < a_size; i++) {
     if (lonlat) {
-      if (!hpgeom_lonlat_to_thetaphi(a_data[i], b_data[i], &theta, &phi, (bool)degrees,
-                              err)) {
+      if (!hpgeom_lonlat_to_thetaphi(a_data[i], b_data[i], &theta, &phi,
+                                     (bool)degrees, err)) {
         PyErr_SetString(PyExc_ValueError, err);
         goto fail;
       }
@@ -188,7 +188,8 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
     }
     pix2ang(hpx, pix_data[i], &theta, &phi);
     if (lonlat) {
-      if (!hpgeom_thetaphi_to_lonlat(theta, phi, &as[i], &bs[i], (bool)degrees, err)) {
+      if (!hpgeom_thetaphi_to_lonlat(theta, phi, &as[i], &bs[i], (bool)degrees,
+                                     err)) {
         PyErr_SetString(PyExc_ValueError, err);
         goto fail;
       }
@@ -230,98 +231,99 @@ fail:
 
 static PyObject *query_circle(PyObject *dummy, PyObject *args,
                               PyObject *kwargs) {
-    int64_t nside;
-    double a, b, radius;
-    int inclusive = 0;
-    long fact = 4;
-    int nest = 1;
-    int lonlat = 1;
-    int degrees = 1;
-    static char *kwlist[] = {"nside", "a", "b", "radius", "inclusive", "fact", "nest", "lonlat", "degrees", NULL};
+  int64_t nside;
+  double a, b, radius;
+  int inclusive = 0;
+  long fact = 4;
+  int nest = 1;
+  int lonlat = 1;
+  int degrees = 1;
+  static char *kwlist[] = {"nside", "a",    "b",      "radius",  "inclusive",
+                           "fact",  "nest", "lonlat", "degrees", NULL};
 
-    char err[ERR_SIZE];
-    int status=1;
-    struct i64rangeset *pixset = NULL;
+  char err[ERR_SIZE];
+  int status = 1;
+  struct i64rangeset *pixset = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plppp", kwlist, &nside,
-                                     &a, &b, &radius, &inclusive, &fact,
-                                     &nest, &lonlat, &degrees))
-        return NULL;
-
-    double theta, phi;
-    if (lonlat) {
-        if (!hpgeom_lonlat_to_thetaphi(a, b, &theta, &phi, (bool)degrees, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        if (degrees) {
-            radius *= D2R;
-        }
-    } else {
-        if (!hpgeom_check_theta_phi(a, b, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        theta = a;
-        phi = b;
-    }
-
-    if (!hpgeom_check_radius(radius, err)) {
-        PyErr_SetString(PyExc_ValueError, err);
-        goto fail;
-    }
-
-    enum Scheme scheme;
-    if (nest) {
-        scheme = NEST;
-    } else {
-        scheme = RING;
-    }
-    if (!hpgeom_check_nside(nside, scheme, err)) {
-        PyErr_SetString(PyExc_ValueError, err);
-        goto fail;
-    }
-    healpix_info hpx = healpix_info_from_nside(nside, scheme);
-
-    pixset = i64rangeset_new(&status, err);
-    if (!status) {
-        PyErr_SetString(PyExc_RuntimeError, err);
-        goto fail;
-    }
-
-    if (!inclusive) {
-        fact = 0;
-    } else {
-        if (!hpgeom_check_fact(hpx, fact, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-    }
-    query_disc(hpx, theta, phi, radius, fact, pixset, &status, err);
-
-    if (!status) {
-        PyErr_SetString(PyExc_RuntimeError, err);
-        goto fail;
-    }
-
-    size_t npix = i64rangeset_npix(pixset);
-    npy_intp dims[1];
-    dims[0] = (npy_intp) npix;
-
-    PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
-
-    i64rangeset_fill_buffer(pixset, npix, pix_data);
-
-    i64rangeset_delete(pixset);
-
-    return pix_arr;
-
- fail:
-    if (pixset != NULL) {
-        pixset = i64rangeset_delete(pixset);
-    }
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plppp", kwlist, &nside,
+                                   &a, &b, &radius, &inclusive, &fact, &nest,
+                                   &lonlat, &degrees))
     return NULL;
+
+  double theta, phi;
+  if (lonlat) {
+    if (!hpgeom_lonlat_to_thetaphi(a, b, &theta, &phi, (bool)degrees, err)) {
+      PyErr_SetString(PyExc_ValueError, err);
+      goto fail;
+    }
+    if (degrees) {
+      radius *= D2R;
+    }
+  } else {
+    if (!hpgeom_check_theta_phi(a, b, err)) {
+      PyErr_SetString(PyExc_ValueError, err);
+      goto fail;
+    }
+    theta = a;
+    phi = b;
+  }
+
+  if (!hpgeom_check_radius(radius, err)) {
+    PyErr_SetString(PyExc_ValueError, err);
+    goto fail;
+  }
+
+  enum Scheme scheme;
+  if (nest) {
+    scheme = NEST;
+  } else {
+    scheme = RING;
+  }
+  if (!hpgeom_check_nside(nside, scheme, err)) {
+    PyErr_SetString(PyExc_ValueError, err);
+    goto fail;
+  }
+  healpix_info hpx = healpix_info_from_nside(nside, scheme);
+
+  pixset = i64rangeset_new(&status, err);
+  if (!status) {
+    PyErr_SetString(PyExc_RuntimeError, err);
+    goto fail;
+  }
+
+  if (!inclusive) {
+    fact = 0;
+  } else {
+    if (!hpgeom_check_fact(hpx, fact, err)) {
+      PyErr_SetString(PyExc_ValueError, err);
+      goto fail;
+    }
+  }
+  query_disc(hpx, theta, phi, radius, fact, pixset, &status, err);
+
+  if (!status) {
+    PyErr_SetString(PyExc_RuntimeError, err);
+    goto fail;
+  }
+
+  size_t npix = i64rangeset_npix(pixset);
+  npy_intp dims[1];
+  dims[0] = (npy_intp)npix;
+
+  PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+  int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+
+  i64rangeset_fill_buffer(pixset, npix, pix_data);
+
+  i64rangeset_delete(pixset);
+
+  return pix_arr;
+
+fail:
+  if (pixset != NULL) {
+    pixset = i64rangeset_delete(pixset);
+  }
+  return NULL;
 }
 
 PyDoc_STRVAR(
@@ -383,44 +385,45 @@ PyDoc_STRVAR(
     "    Latitude or phi\n");
 
 PyDoc_STRVAR(
-             query_circle_doc,
-             "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, lonlat=True, degrees=True)\n"
-             "--\n\n"
-             "Returns pixels whose centers lie within the circle defined by a, b\n"
-             "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
-             "degrees if lonlat=True and degrees=True, otherwise radians) if\n"
-             "inclusive is False, or which overlap with this circle (if inclusive\n"
-             "is True)."
-             "\n"
-             "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside. Must be power of 2 for nest ordering.\n"
-             "a : `float`\n"
-             "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "b : `float`\n"
-             "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "radius : `float`\n"
-             "    The radius (in radians) of the circle.\n"
-             "inclusive : `bool`, optional\n"
-             "    If False, return the exact set of pixels whose pixel centers lie\n"
-             "    within the circle. If True, return all pixels that overlap with\n"
-             "    the circle. This is an approximation and may return a few extra\n"
-             "    pixels.\n"
-             "fact : `int`, optional\n"
-             "    Only used when inclusive=True. The overlap test is performed at\n"
-             "    a resolution fact*nside. For nest ordering, fact must be a power\n"
-             "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n"
-             "    fact may be any positive integer.\n"
-             "nest : `bool`, optional\n"
-             "    If True, use nest ordering.\n"
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "pixels : `np.ndarray` (N,)\n"
-             "    Array of pixels (`np.int64`) which cover the circle.\n");
+    query_circle_doc,
+    "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
+    "lonlat=True, degrees=True)\n"
+    "--\n\n"
+    "Returns pixels whose centers lie within the circle defined by a, b\n"
+    "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
+    "degrees if lonlat=True and degrees=True, otherwise radians) if\n"
+    "inclusive is False, or which overlap with this circle (if inclusive\n"
+    "is True)."
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "nside : `int`\n"
+    "    HEALPix nside. Must be power of 2 for nest ordering.\n"
+    "a : `float`\n"
+    "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
+    "and degrees=True)\n"
+    "b : `float`\n"
+    "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
+    "and degrees=True)\n"
+    "radius : `float`\n"
+    "    The radius (in radians) of the circle.\n"
+    "inclusive : `bool`, optional\n"
+    "    If False, return the exact set of pixels whose pixel centers lie\n"
+    "    within the circle. If True, return all pixels that overlap with\n"
+    "    the circle. This is an approximation and may return a few extra\n"
+    "    pixels.\n"
+    "fact : `int`, optional\n"
+    "    Only used when inclusive=True. The overlap test is performed at\n"
+    "    a resolution fact*nside. For nest ordering, fact must be a power\n"
+    "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n"
+    "    fact may be any positive integer.\n"
+    "nest : `bool`, optional\n"
+    "    If True, use nest ordering.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "pixels : `np.ndarray` (N,)\n"
+    "    Array of pixels (`np.int64`) which cover the circle.\n");
 
 static PyMethodDef hpgeom_methods[] = {
     {"angle_to_pixel", (PyCFunction)(void (*)(void))angle_to_pixel,

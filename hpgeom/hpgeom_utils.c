@@ -1,7 +1,7 @@
 #include <stdio.h>
 
-#include "hpgeom_utils.h"
 #include "healpix_geom.h"
+#include "hpgeom_utils.h"
 
 int hpgeom_check_nside(int64_t nside, Scheme scheme, char *err) {
   if (nside <= 0) {
@@ -27,7 +27,8 @@ int hpgeom_check_theta_phi(double theta, double phi, char *err) {
   err[0] = '\0';
 
   if (theta < 0.0 || theta > M_PI) {
-    snprintf(err, ERR_SIZE, "colatitude (theta) = %g out of range [0, pi]", theta);
+    snprintf(err, ERR_SIZE, "colatitude (theta) = %g out of range [0, pi]",
+             theta);
     return 0;
   }
   if (phi < 0 || phi > M_TWO_PI) {
@@ -49,34 +50,36 @@ int hpgeom_check_pixel(healpix_info hpx, int64_t pix, char *err) {
 }
 
 int hpgeom_check_fact(healpix_info hpx, long fact, char *err) {
-    err[0] = '\0';
+  err[0] = '\0';
 
-    if (fact <= 0) {
-        snprintf(err, ERR_SIZE, "Inclusive factor %ld must be >= 0.", fact);
-        return 0;
-    } else if (fact*hpx.nside > MAX_NSIDE) {
-        snprintf(err, ERR_SIZE, "Inclusive factor * nside must be <= %lld", MAX_NSIDE);
-        return 0;
-    } else if ((hpx.scheme == NEST) & ((fact & (fact - 1)) > 0)) {
-        snprintf(err, ERR_SIZE, "Inclusive factor %ld must be power of 2 for nest.", fact);
-        return 0;
-    }
-    return 1;
+  if (fact <= 0) {
+    snprintf(err, ERR_SIZE, "Inclusive factor %ld must be >= 0.", fact);
+    return 0;
+  } else if (fact * hpx.nside > MAX_NSIDE) {
+    snprintf(err, ERR_SIZE, "Inclusive factor * nside must be <= %lld",
+             MAX_NSIDE);
+    return 0;
+  } else if ((hpx.scheme == NEST) & ((fact & (fact - 1)) > 0)) {
+    snprintf(err, ERR_SIZE, "Inclusive factor %ld must be power of 2 for nest.",
+             fact);
+    return 0;
+  }
+  return 1;
 }
 
 int hpgeom_check_radius(double radius, char *err) {
-    err[0] = '\0';
+  err[0] = '\0';
 
-    if (radius <= 0) {
-        snprintf(err, ERR_SIZE, "Radius must be positive.");
-        return 0;
-    }
+  if (radius <= 0) {
+    snprintf(err, ERR_SIZE, "Radius must be positive.");
+    return 0;
+  }
 
-    return 1;
+  return 1;
 }
 
-int hpgeom_lonlat_to_thetaphi(double lon, double lat, double *theta, double *phi,
-                              bool degrees, char *err) {
+int hpgeom_lonlat_to_thetaphi(double lon, double lat, double *theta,
+                              double *phi, bool degrees, char *err) {
   err[0] = '\0';
 
   if (degrees) {
@@ -98,8 +101,8 @@ int hpgeom_lonlat_to_thetaphi(double lon, double lat, double *theta, double *phi
   return 1;
 }
 
-int hpgeom_thetaphi_to_lonlat(double theta, double phi, double *lon, double *lat,
-                              bool degrees, char *err) {
+int hpgeom_thetaphi_to_lonlat(double theta, double phi, double *lon,
+                              double *lat, bool degrees, char *err) {
   err[0] = '\0';
 
   *lon = phi;
