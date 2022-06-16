@@ -69,8 +69,7 @@ def test_angle_to_pixel_nest(nside):
 
     np.testing.assert_array_equal(pix_hpgeom, pix_healpy)
 
-    phi = np.deg2rad(lon)
-    theta = -np.deg2rad(lat) + np.pi/2.
+    theta, phi = hpgeom.lonlat_to_thetaphi(lon, lat)
 
     pix_hpgeom = hpgeom.angle_to_pixel(nside, theta, phi, nest=True, lonlat=False)
     pix_healpy = hp.ang2pix(nside, theta, phi, nest=True, lonlat=False)
@@ -148,3 +147,30 @@ def test_angle_to_pixel_bad_nside():
 
     with pytest.raises(ValueError):
         hpgeom.angle_to_pixel(2**30, lon, lat, nest=True)
+
+
+def test_angle_to_pixel_bad_coords():
+    """Test angle_to_pixel errors when given bad coords."""
+    with pytest.raises(ValueError):
+        # Dec out of range
+        hpgeom.angle_to_pixel(2048, 0.0, 100.0)
+
+    with pytest.raises(ValueError):
+        # Dec out of range
+        hpgeom.angle_to_pixel(2048, 0.0, -100.0)
+
+    with pytest.raises(ValueError):
+        # theta out of range
+        hpgeom.angle_to_pixel(2048, -0.1, 0.0, lonlat=False)
+
+    with pytest.raises(ValueError):
+        # theta out of range
+        hpgeom.angle_to_pixel(2048, np.pi + 0.1, 0.0, lonlat=False)
+
+    with pytest.raises(ValueError):
+        # phi out of range
+        hpgeom.angle_to_pixel(2048, 0.0, -0.1, lonlat=False)
+
+    with pytest.raises(ValueError):
+        # phi out of range
+        hpgeom.angle_to_pixel(2048, 0.0, 2*np.pi + 0.1, lonlat=False)

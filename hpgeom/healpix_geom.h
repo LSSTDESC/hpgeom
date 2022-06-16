@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include "hpgeom_stack.h"
 
 #ifndef M_PI
 #define M_E 2.7182818284590452354         /* e */
@@ -50,18 +51,37 @@ healpix_info healpix_info_from_nside(int64_t nside, enum Scheme scheme);
 int64_t isqrt(int64_t i);
 int ilog2(int64_t arg);
 int64_t imodulo(int64_t v1, int64_t v2);
+static inline int64_t i64max(int64_t v1, int64_t v2);
+static inline int64_t i64min(int64_t v1, int64_t v2);
+static inline int64_t special_div(int64_t a, int64_t b);
 
 int64_t ang2pix(healpix_info hpx, double theta, double phi);
 int64_t loc2pix(healpix_info hpx, double z, double phi, double sth,
                 bool hav_sth);
 int64_t xyf2nest(healpix_info hpx, int ix, int iy, int face_num);
+int64_t xyf2ring(healpix_info hpx, int ix, int iy, int face_num);
+
+double ring2z(healpix_info hpx, int64_t ring);
+void pix2zphi(healpix_info hpx, int64_t pix, double *z, double *phi);
+void pix2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
+int64_t xyf2pix(healpix_info hpx, int ix, int iy, int face_num);
 
 void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi);
 void pix2loc(healpix_info hpx, int64_t pix, double *z, double *phi, double *sth,
              bool *have_sth);
 void nest2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
+void ring2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
 
 int64_t spread_bits64(int v);
 int compress_bits64(int64_t v);
+
+int64_t ring_above(healpix_info hpx, double z);
+void get_ring_info_small(healpix_info hpx, int64_t ring, int64_t *startpix, int64_t *ringpix, bool *shifted);
+
+double max_pixrad(healpix_info hpx);
+bool check_pixel_ring(healpix_info hpx1, healpix_info hpx2, int64_t pix, int64_t nr, int64_t ipix1, int fct, double cz, double cphi, double cosrp2, int64_t cpix);
+void check_pixel_nest(int o, int order_, int omax, int zone, struct i64rangeset *pixset, int64_t pix, struct i64stack *stk, bool inclusive, int *stacktop, int *status, char *err);
+
+void query_disc(healpix_info hpx, double theta, double phi, double radius, int fact, struct i64rangeset *pixset, int *status, char *err);
 
 #endif

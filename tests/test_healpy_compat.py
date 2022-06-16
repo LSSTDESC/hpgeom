@@ -1,9 +1,17 @@
 import numpy as np
+import pytest
+
+try:
+    import healpy as hp
+    has_healpy = True
+except ImportError:
+    has_healpy = False
 
 import hpgeom
 import hpgeom.healpy_compat as hpc
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_ang2pix():
     """Test hpgeom.healpy_compat.ang2pix."""
     np.random.seed(12345)
@@ -12,21 +20,19 @@ def test_ang2pix():
 
     lon = np.random.uniform(low=0.0, high=360.0, size=1_000_000)
     lat = np.random.uniform(low=-90.0, high=90.0, size=1_000_000)
+    theta, phi = hpgeom.lonlat_to_thetaphi(lon, lat)
 
-    phi = np.deg2rad(lon)
-    theta = -np.deg2rad(lat) + np.pi/2.
-
-    pix_hpgeom = hpgeom.angle_to_pixel(nside, theta, phi, nest=False, lonlat=False)
     pix_hpcompat = hpc.ang2pix(nside, theta, phi)
-    np.testing.assert_array_equal(pix_hpcompat, pix_hpgeom)
+    pix_healpy = hp.ang2pix(nside, theta, phi)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
-    pix_hpgeom = hpgeom.angle_to_pixel(nside, theta, phi, nest=True, lonlat=False)
     pix_hpcompat = hpc.ang2pix(nside, theta, phi, nest=True)
-    np.testing.assert_array_equal(pix_hpcompat, pix_hpgeom)
+    pix_healpy = hp.ang2pix(nside, theta, phi, nest=True)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
-    pix_hpgeom = hpgeom.angle_to_pixel(nside, lon, lat, nest=False, lonlat=True)
     pix_hpcompat = hpc.ang2pix(nside, lon, lat, lonlat=True)
-    np.testing.assert_array_equal(pix_hpcompat, pix_hpgeom)
+    pix_healpy = hpc.ang2pix(nside, lon, lat, lonlat=True)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
 
 def test_pix2ang():
@@ -37,17 +43,39 @@ def test_pix2ang():
 
     pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000)
 
-    theta_hpgeom, phi_hpgeom = hpgeom.pixel_to_angle(nside, pix, nest=False, lonlat=False)
     theta_hpcompat, phi_hpcompat = hpc.pix2ang(nside, pix)
-    np.testing.assert_array_almost_equal(theta_hpcompat, theta_hpgeom)
-    np.testing.assert_array_almost_equal(phi_hpcompat, phi_hpgeom)
+    theta_healpy, phi_healpy = hp.pix2ang(nside, pix)
+    np.testing.assert_array_almost_equal(theta_hpcompat, theta_healpy)
+    np.testing.assert_array_almost_equal(phi_hpcompat, phi_healpy)
 
-    theta_hpgeom, phi_hpgeom = hpgeom.pixel_to_angle(nside, pix, nest=True, lonlat=False)
     theta_hpcompat, phi_hpcompat = hpc.pix2ang(nside, pix, nest=True)
-    np.testing.assert_array_almost_equal(theta_hpcompat, theta_hpgeom)
-    np.testing.assert_array_almost_equal(phi_hpcompat, phi_hpgeom)
+    theta_healpy, phi_healpy = hp.pix2ang(nside, pix, nest=True)
+    np.testing.assert_array_almost_equal(theta_hpcompat, theta_healpy)
+    np.testing.assert_array_almost_equal(phi_hpcompat, phi_healpy)
 
-    lon_hpgeom, lat_hpgeom = hpgeom.pixel_to_angle(nside, pix, nest=False, lonlat=True)
     lon_hpcompat, lat_hpcompat = hpc.pix2ang(nside, pix, lonlat=True)
-    np.testing.assert_array_almost_equal(lon_hpcompat, lon_hpgeom)
-    np.testing.assert_array_almost_equal(lat_hpcompat, lat_hpgeom)
+    lon_healpy, lat_healpy = hp.pix2ang(nside, pix, lonlat=True)
+    np.testing.assert_array_almost_equal(lon_hpcompat, lon_healpy)
+    np.testing.assert_array_almost_equal(lat_hpcompat, lat_healpy)
+
+
+def test_query_disc():
+    """Test hpgeom.healpy_compat.query_disc."""
+    np.random.seed(12345)
+
+    nside = 2048
+    lon = 10.0
+    lat = 20.0
+    radius = 0.5
+
+    theta, phi = hpgeom.lonlat_to_thetaphi(lon, lat)
+    sintheta = np.sin(theta)
+    vec = [sintheta*np.cos(phi), sintheta*np.sin(phi), np.cos(theta)]
+
+    pix_hpcompat = hpc.query_disc(nside, vec, radius)
+    pix_healpy = hp.query_disc(nside, vec, radius)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
+
+    pix_hpcompat = hpc.query_disc(nside, vec, radius, nest=False)
+    pix_healpy = hp.query_disc(nside, vec, radius, nest=False)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)

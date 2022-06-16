@@ -1,6 +1,9 @@
-from ._hpgeom import angle_to_pixel, pixel_to_angle
+import warnings
 
-__all__ = ['ang2pix', 'pix2ang']
+from ._hpgeom import angle_to_pixel, pixel_to_angle
+from .hpgeom import query_circle_vec
+
+__all__ = ['ang2pix', 'pix2ang', 'query_disc']
 
 
 def ang2pix(nside, theta, phi, nest=False, lonlat=False):
@@ -49,3 +52,45 @@ def pix2ang(nside, pix, nest=False, lonlat=False):
         Angular coordinate phi (radians) or latitude (degrees).
     """
     return pixel_to_angle(nside, pix, nest=nest, lonlat=lonlat)
+
+
+def query_disc(nside, vec, radius, inclusive=False, fact=4, nest=False, buff=None):
+    """Returns pixels whose centers lie within the disk defined by
+    *vec* and *radius* (in radians) (if *inclusive* is False), or which
+    overlap with this disk (if *inclusive* is True).
+
+    Parameters
+    ----------
+    nside : `int`
+        The HEALPix nside parameter.
+    vec : float, sequence of 3 elements
+        The coordinates of unit vector defining the disk center.
+    radius : `float`
+        The radius (in radians) of the disk
+    inclusive : `bool`, optional
+        If False, return the exact set of pixels whose pixel centers lie
+        within the disk; if True, return all pixels that overlap with the disk,
+        and maybe a few more. Default: False
+    fact : `int`, optional
+        Only used when inclusive=True. The overlapping test will be done at
+        the resolution fact*nside. For NESTED ordering, fact must be a power of 2, less than 2**30,
+        else it can be any positive integer.
+    nest: `bool`, optional
+        If True, assume NESTED pixel ordering, otherwise, RING pixel ordering
+    buff: `int` array, optional
+        If provided, this numpy array is used to contain the return values and must be
+        at least long enough to do so.  Note that this is provided for compatibility
+        only and is not optimized.
+
+    Returns
+    -------
+    pixels : `np.ndarray` (N,)
+        Array of pixels (`np.int64`) which cover the disk.
+    """
+    pixels = query_circle_vec(nside, vec, radius, inclusive=inclusive, fact=fact, nest=nest)
+
+    if buff is not None:
+        warnings.warn("In hpgeom, setting buff is less performant than simply returning the pixels.")
+        buff[0: len(pixels)] = pixels
+
+    return pixels
