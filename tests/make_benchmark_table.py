@@ -33,12 +33,12 @@ with open('benchmark_table.md', 'w') as bt:
                 start_time = time.time()
                 for i in range(ntrial):
                     _ = hpgeom.angle_to_pixel(nside, lon, lat, nest=nest, lonlat=True)
-                time_hpgeom = time.time() - start_time
+                time_hpgeom = (time.time() - start_time)/ntrial
 
                 start_time = time.time()
                 for i in range(ntrial):
                     _ = hp.ang2pix(nside, lon, lat, nest=nest, lonlat=True)
-                time_healpy = time.time() - start_time
+                time_healpy = (time.time() - start_time)/ntrial
 
                 time_ratio = time_hpgeom/time_healpy
 
@@ -59,12 +59,54 @@ with open('benchmark_table.md', 'w') as bt:
                 start_time = time.time()
                 for i in range(ntrial):
                     _ = hpgeom.pixel_to_angle(nside, pix, nest=nest, lonlat=True)
-                time_hpgeom = time.time() - start_time
+                time_hpgeom = (time.time() - start_time)/ntrial
 
                 start_time = time.time()
                 for i in range(ntrial):
                     _ = hp.pix2ang(nside, pix, nest=nest, lonlat=True)
-                time_healpy = time.time() - start_time
+                time_healpy = (time.time() - start_time)/ntrial
+
+                time_ratio = time_hpgeom/time_healpy
+
+                bt.write(f'|{function}|{scheme}|{nside}|{size}|{time_healpy}|{time_hpgeom}|{time_ratio}|\n')
+
+    function = 'nest_to_ring'
+
+    for scheme in ['nest']:
+        for size in [10, 10_000, 1_000_000]:
+            for nside in [128, 4096, 2**17]:
+                pix = np.random.randint(low=0, high=12*nside*nside-1, size=size)
+
+                start_time = time.time()
+                for i in range(ntrial):
+                    _ = hpgeom.nest_to_ring(nside, pix)
+                time_hpgeom = (time.time() - start_time)/ntrial
+
+                start_time = time.time()
+                for i in range(ntrial):
+                    _ = hp.nest2ring(nside, pix)
+                time_healpy = (time.time() - start_time)/ntrial
+
+                time_ratio = time_hpgeom/time_healpy
+
+                bt.write(f'|{function}|{scheme}|{nside}|{size}|{time_healpy}|{time_hpgeom}|{time_ratio}|\n')
+
+    function = 'ring_to_nest'
+
+    for scheme in ['ring']:
+        for size in [10, 10_000, 1_000_000]:
+            for nside in [128, 4096, 2**17]:
+                pix = np.random.randint(low=0, high=12*nside*nside-1, size=size)
+
+                start_time = time.time()
+                for i in range(ntrial):
+                    _ = hpgeom.ring_to_nest(nside, pix)
+                time_hpgeom = (time.time() - start_time)/ntrial
+
+                start_time = time.time()
+                for i in range(ntrial):
+                    _ = hp.ring2nest(nside, pix)
+                time_healpy = (time.time() - start_time)/ntrial
 
                 time_ratio = time_hpgeom/time_healpy
 
@@ -88,13 +130,13 @@ with open('benchmark_table.md', 'w') as bt:
                 start_time = time.time()
                 for i in range(ntrial):
                     _ = hpgeom.query_circle(nside, 0.0, 0.0, radius, nest=nest, lonlat=True, degrees=False)
-                time_hpgeom = time.time() - start_time
+                time_hpgeom = (time.time() - start_time)/ntrial
 
                 vec = hp.ang2vec(0.0, 0.0, lonlat=True)
                 start_time = time.time()
                 for i in range(ntrial):
                     _ = hp.query_disc(nside, vec, radius, nest=nest)
-                time_healpy = time.time() - start_time
+                time_healpy = (time.time() - start_time)/ntrial
 
                 time_ratio = time_hpgeom/time_healpy
 
