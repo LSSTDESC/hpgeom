@@ -1,9 +1,17 @@
 import warnings
 
-from ._hpgeom import angle_to_pixel, pixel_to_angle
-from .hpgeom import query_circle_vec
+from ._hpgeom import angle_to_pixel, pixel_to_angle, nest_to_ring, ring_to_nest
+from .hpgeom import query_circle_vec, nside_to_npixel, npixel_to_nside
 
-__all__ = ['ang2pix', 'pix2ang', 'query_disc']
+__all__ = [
+    'ang2pix',
+    'pix2ang',
+    'query_disc',
+    'ring2nest',
+    'nest2ring',
+    'nside2npix',
+    'npix2nside',
+]
 
 
 def ang2pix(nside, theta, phi, nest=False, lonlat=False):
@@ -94,3 +102,71 @@ def query_disc(nside, vec, radius, inclusive=False, fact=4, nest=False, buff=Non
         buff[0: len(pixels)] = pixels
 
     return pixels
+
+
+def nest2ring(nside, pix):
+    """Convert pixel number from nest to ring ordering.
+
+    Parameters
+    ----------
+    nside : `int`, scalar
+        The healpix nside parameter.  Must be power of 2.
+    pix : `int` or `np.ndarray` (N,)
+        The pixel numbers in nest scheme.
+
+    Returns
+    -------
+    pix : `int` or `np.ndarray` (N,)
+        The pixel numbers in ring scheme.
+    """
+    return nest_to_ring(nside, pix)
+
+
+def ring2nest(nside, pix):
+    """Convert pixel number from ring to nest ordering.
+
+    Parameters
+    ----------
+    nside : `int`, scalar
+        The healpix nside parameter.  Must be power of 2.
+    pix : `int` or `np.ndarray` (N,)
+        The pixel numbers in ring scheme.
+
+    Returns
+    -------
+    pix : `int` or `np.ndarray` (N,)
+        The pixel numbers in nest scheme.
+    """
+    return ring_to_nest(nside, pix)
+
+
+def nside2npix(nside):
+    """Return the number of pixels given an nside.
+
+    Parameters
+    ----------
+    nside : `int` or `np.ndarray` (N,)
+        HEALPix nside
+
+    Returns
+    -------
+    npixel : `int` or `np.ndarray` (N,)
+        Number of pixels associated with that nside.
+    """
+    return nside_to_npixel(nside)
+
+
+def npix2nside(nside):
+    """Return the nside given a number of pixels.
+
+    Parameters
+    ----------
+    npixel : `int` or `np.ndarray` (N,)
+        Number of pixels.
+
+    Returns
+    -------
+    nside : `int` or `np.ndarray` (N,)
+        HEALPix nside associated with that number of pixels.
+    """
+    return npixel_to_nside(nside)

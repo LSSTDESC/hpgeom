@@ -79,3 +79,51 @@ def test_query_disc():
     pix_hpcompat = hpc.query_disc(nside, vec, radius, nest=False)
     pix_healpy = hp.query_disc(nside, vec, radius, nest=False)
     np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
+
+
+def test_ring2nest():
+    """Test hpgeom.healpy_compat.ring2nest."""
+    pix_hpcompat = hpc.ring2nest(2048, 1000)
+    pix_healpy = hp.ring2nest(2048, 1000)
+
+    assert(pix_hpcompat == pix_healpy)
+
+    pix_hpcompat = hpc.ring2nest(2048, np.arange(100))
+    pix_healpy = hp.ring2nest(2048, np.arange(100))
+
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
+
+
+def test_nest2ring():
+    """Test hpgeom.healpy_compat.nest2ring."""
+    pix_hpcompat = hpc.nest2ring(2048, 1000)
+    pix_healpy = hp.nest2ring(2048, 1000)
+
+    assert(pix_hpcompat == pix_healpy)
+
+    pix_hpcompat = hpc.nest2ring(2048, np.arange(100))
+    pix_healpy = hp.nest2ring(2048, np.arange(100))
+
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
+
+
+def test_nside2npix():
+    """Test hpgeom.healpy_compat.nside2npix."""
+    npix_hpcompat = hpc.nside2npix(2048)
+    npix_healpy = hp.nside2npix(2048)
+
+    assert(npix_hpcompat == npix_healpy)
+
+
+def test_npix2nside():
+    """Test hpgeom.healpy_compat.npix2nside."""
+    nside_hpcompat = hpc.nside2npix(12*2048*2048)
+    nside_healpy = hp.nside2npix(12*2048*2048)
+
+    assert(nside_hpcompat == nside_healpy)
+
+    with pytest.raises(ValueError):
+        hpc.npix2nside(100)
+
+    with pytest.raises(ValueError):
+        hpc.npix2nside(100)

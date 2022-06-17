@@ -16,21 +16,23 @@ __all__ = [
     'lonlat_to_thetaphi',
     'nest_to_ring',
     'ring_to_nest',
+    'nside_to_npixel',
+    'npixel_to_nside',
     'UNSEEN',
 ]
 
 # To add:
-#  nside_to_npixel
-#  npixel_to_nside
 #  query_polygon (with lonlat option)
 #  nside_to_pixarea
 #  nside_to_order
+#  order_to_nside
 #  nside_to_resolution
 #  vector_to_pixel
 #  vector_to_angle
 #  angle_to_pixel
 #  angle_to_vector
 #  boundaries (with lonlat option)
+#  add array nside ability for c funtions.
 
 UNSEEN = -1.6375e+30
 
@@ -110,3 +112,42 @@ def query_circle_vec(nside, vec, radius, inclusive=False, fact=4, nest=True):
     phi %= (2*np.pi)
 
     return query_circle(nside, theta, phi, radius, inclusive=inclusive, fact=fact, nest=nest, lonlat=False)
+
+
+def nside_to_npixel(nside):
+    """Return the number of pixels given an nside.
+
+    Parameters
+    ----------
+    nside : `int` or `np.ndarray` (N,)
+        HEALPix nside
+
+    Returns
+    -------
+    npixel : `int` or `np.ndarray` (N,)
+        Number of pixels associated with that nside.
+    """
+    return 12*nside*nside
+
+
+def npixel_to_nside(npixel):
+    """Return the nside given a number of pixels.
+
+    Parameters
+    ----------
+    npixel : `int` or `np.ndarray` (N,)
+        Number of pixels.
+
+    Returns
+    -------
+    nside : `int` or `np.ndarray` (N,)
+        HEALPix nside associated with that number of pixels.
+    """
+    nside = np.sqrt(np.atleast_1d(npixel)/12.0)
+    if np.any(nside != np.floor(nside)):
+        raise ValueError("Illegal npixel (it must be 12*nside*nside)")
+
+    if len(nside) == 1:
+        return int(nside)
+    else:
+        return nside.astype(np.int64)
