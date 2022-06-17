@@ -111,10 +111,10 @@ def test_angle_to_pixel_mismatched_dims():
     lat = np.random.uniform(low=-90.0, high=90.0, size=100)
 
     with pytest.raises(ValueError):
-        hpgeom.angle_to_pixel(2048, lon[0], lat)
+        hpgeom.angle_to_pixel([2048, 4096], lon[0], lat)
 
     with pytest.raises(ValueError):
-        hpgeom.angle_to_pixel(2048, lon, lat[0])
+        hpgeom.angle_to_pixel([2048, 4096], lon, lat[0])
 
     with pytest.raises(ValueError):
         hpgeom.angle_to_pixel(2048, lon[0: 5], lat)

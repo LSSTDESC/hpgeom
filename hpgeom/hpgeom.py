@@ -6,6 +6,7 @@ from ._hpgeom import (
     query_circle,
     nest_to_ring,
     ring_to_nest,
+    test_multiiter,
 )
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     'ring_to_nest',
     'nside_to_npixel',
     'npixel_to_nside',
+    'test_multiiter',
     'UNSEEN',
 ]
 

@@ -11,9 +11,8 @@
 
 static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
                                 PyObject *kwargs) {
-  int64_t nside;
-  PyObject *a_obj = NULL, *b_obj = NULL;
-  PyObject *a_arr = NULL, *b_arr = NULL;
+  PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
+  PyObject *nside_arr = NULL, *a_arr = NULL, *b_arr = NULL;
   PyObject *pix_obj = NULL;
   int lonlat = 1;
   int nest = 1;
@@ -22,51 +21,40 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
                            "nest",  "degrees", NULL};
 
   int64_t *pixels = NULL;
-  int i;
-  double *a_data, *b_data;
   double theta, phi;
   healpix_info hpx;
   char err[ERR_SIZE];
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LOO|ppp", kwlist, &nside,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|ppp", kwlist, &nside_obj,
                                    &a_obj, &b_obj, &lonlat, &nest, &degrees))
     return NULL;
 
+  nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (nside_arr == NULL)
+    return NULL;
   a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE,
                            NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
   if (a_arr == NULL)
-    return NULL;
+    goto fail;
   b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE,
                            NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
   if (b_arr == NULL)
     goto fail;
 
-  int ndim_a = PyArray_NDIM((PyArrayObject *)a_arr);
-  int ndim_b = PyArray_NDIM((PyArrayObject *)b_arr);
-
-  if (ndim_a != ndim_b) {
+  PyArrayMultiIterObject *itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(
+      3, nside_arr, a_arr, b_arr);
+  if (itr == NULL) {
     PyErr_SetString(PyExc_ValueError,
-                    "a and b arrays have mismatched dimensions.");
-    goto fail;
-  }
-  bool is_scalar = (ndim_a == 0);
-
-  npy_intp a_size = PyArray_SIZE((PyArrayObject *)a_arr);
-  npy_intp b_size = PyArray_SIZE((PyArrayObject *)b_arr);
-
-  if (a_size != b_size) {
-    PyErr_SetString(PyExc_ValueError, "a and b arrays have mismatched sizes.");
+                    "nside, a, b arrays could not be broadcast together.");
     goto fail;
   }
 
-  if ((pixels = (int64_t *)calloc(a_size, sizeof(int64_t))) == NULL) {
+  if ((pixels = (int64_t *)calloc(itr->size, sizeof(int64_t))) == NULL) {
     PyErr_SetString(PyExc_RuntimeError,
                     "Could not allocate memory for pixels.");
     goto fail;
   }
-
-  a_data = (double *)PyArray_DATA((PyArrayObject *)a_arr);
-  b_data = (double *)PyArray_DATA((PyArrayObject *)b_arr);
 
   enum Scheme scheme;
   if (nest) {
@@ -74,39 +62,48 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
   } else {
     scheme = RING;
   }
-  if (!hpgeom_check_nside(nside, scheme, err)) {
-    PyErr_SetString(PyExc_ValueError, err);
-    goto fail;
-  }
-  hpx = healpix_info_from_nside(nside, scheme);
 
-  for (i = 0; i < a_size; i++) {
+  int64_t *nside;
+  double *a, *b;
+  int64_t last_nside = -1;
+  bool started = false;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    a = (double *)PyArray_MultiIter_DATA(itr, 1);
+    b = (double *)PyArray_MultiIter_DATA(itr, 2);
+
+    if ((!started) || (*nside != last_nside)) {
+      if (!hpgeom_check_nside(*nside, scheme, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+      }
+      hpx = healpix_info_from_nside(*nside, scheme);
+      started = true;
+    }
     if (lonlat) {
-      if (!hpgeom_lonlat_to_thetaphi(a_data[i], b_data[i], &theta, &phi,
-                                     (bool)degrees, err)) {
+      if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees,
+                                     err)) {
         PyErr_SetString(PyExc_ValueError, err);
         goto fail;
       }
     } else {
-      if (!hpgeom_check_theta_phi(a_data[i], b_data[i], err)) {
+      if (!hpgeom_check_theta_phi(*a, *b, err)) {
         PyErr_SetString(PyExc_ValueError, err);
         goto fail;
       }
-      theta = a_data[i];
-      phi = b_data[i];
+      theta = *a;
+      phi = *b;
     }
-    pixels[i] = ang2pix(hpx, theta, phi);
+    pixels[itr->index] = ang2pix(hpx, theta, phi);
+    PyArray_MultiIter_NEXT(itr);
   }
 
-  if (is_scalar) {
-    pix_obj = PyLong_FromLongLong(pixels[0]);
-  } else {
-    npy_intp *dims = PyArray_DIMS((PyArrayObject *)a_arr);
-    pix_obj = PyArray_SimpleNewFromData(1, dims, NPY_INT64, pixels);
-  }
+  pix_obj =
+      PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_INT64, pixels);
 
   /* do I free the memory from pixels? */
 
+  Py_DECREF(nside_arr);
   Py_DECREF(a_arr);
   Py_DECREF(b_arr);
 
@@ -117,6 +114,7 @@ fail:
   if (pixels != NULL) {
     free(pixels);
   }
+  Py_XDECREF(nside_arr);
   Py_XDECREF(a_arr);
   Py_XDECREF(b_arr);
 
@@ -125,49 +123,50 @@ fail:
 
 static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
                                 PyObject *kwargs) {
-  int64_t nside;
-  PyObject *pix_obj = NULL;
-  PyObject *pix_arr = NULL;
+  PyObject *nside_obj = NULL, *pix_obj = NULL;
+  PyObject *nside_arr = NULL, *pix_arr = NULL;
   PyObject *a_obj = NULL, *b_obj = NULL;
   int lonlat = 1;
   int nest = 1;
   int degrees = 1;
   static char *kwlist[] = {"nside", "pix", "lonlat", "nest", "degrees", NULL};
 
-  int64_t *pix_data;
-  int i;
   double *as = NULL, *bs = NULL;
   double theta, phi;
   healpix_info hpx;
   char err[ERR_SIZE];
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LO|ppp", kwlist, &nside,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|ppp", kwlist, &nside_obj,
                                    &pix_obj, &lonlat, &nest, &degrees))
     return NULL;
 
+  nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (nside_arr == NULL)
+    return NULL;
   pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64,
                              NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
   if (pix_arr == NULL)
-    return NULL;
+    goto fail;
 
-  int ndim_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
+  PyArrayMultiIterObject *itr =
+      (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+  if (itr == NULL) {
+    PyErr_SetString(PyExc_ValueError,
+                    "nside, pix arrays could not be broadcast together.");
+    goto fail;
+  }
 
-  bool is_scalar = (ndim_pix == 0);
-
-  npy_intp pix_size = PyArray_SIZE((PyArrayObject *)pix_arr);
-
-  if ((as = (double *)calloc(pix_size, sizeof(double))) == NULL) {
+  if ((as = (double *)calloc(itr->size, sizeof(double))) == NULL) {
     PyErr_SetString(PyExc_RuntimeError,
                     "Could not allocate memory for a array.");
     goto fail;
   }
-  if ((bs = (double *)calloc(pix_size, sizeof(double))) == NULL) {
+  if ((bs = (double *)calloc(itr->size, sizeof(double))) == NULL) {
     PyErr_SetString(PyExc_RuntimeError,
                     "Could not allocate memory for b array.");
     goto fail;
   }
-
-  pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
 
   enum Scheme scheme;
   if (nest) {
@@ -175,40 +174,46 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
   } else {
     scheme = RING;
   }
-  if (!hpgeom_check_nside(nside, scheme, err)) {
-    PyErr_SetString(PyExc_ValueError, err);
-    goto fail;
-  }
-  hpx = healpix_info_from_nside(nside, scheme);
 
-  for (i = 0; i < pix_size; i++) {
-    if (!hpgeom_check_pixel(hpx, pix_data[i], err)) {
+  int64_t *nside;
+  int64_t *pix;
+  int64_t last_nside = -1;
+  bool started = false;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+
+    if ((!started) || (*nside != last_nside)) {
+      if (!hpgeom_check_nside(*nside, scheme, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+      }
+      hpx = healpix_info_from_nside(*nside, scheme);
+      started = true;
+    }
+    if (!hpgeom_check_pixel(hpx, *pix, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
-    pix2ang(hpx, pix_data[i], &theta, &phi);
+    pix2ang(hpx, *pix, &theta, &phi);
     if (lonlat) {
-      if (!hpgeom_thetaphi_to_lonlat(theta, phi, &as[i], &bs[i], (bool)degrees,
-                                     err)) {
+      if (!hpgeom_thetaphi_to_lonlat(theta, phi, &as[itr->index],
+                                     &bs[itr->index], (bool)degrees, err)) {
         PyErr_SetString(PyExc_ValueError, err);
         goto fail;
       }
     } else {
-      as[i] = theta;
-      bs[i] = phi;
+      as[itr->index] = theta;
+      bs[itr->index] = phi;
     }
+    PyArray_MultiIter_NEXT(itr);
   }
 
-  if (is_scalar) {
-    a_obj = PyFloat_FromDouble(as[0]);
-    b_obj = PyFloat_FromDouble(bs[0]);
-  } else {
-    npy_intp *dims = PyArray_DIMS((PyArrayObject *)pix_arr);
-    a_obj = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, as);
-    b_obj = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, bs);
-  }
+  a_obj = PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_FLOAT64, as);
+  b_obj = PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_FLOAT64, bs);
 
   /* do I free the memory from as, bs? Or is that grabbed by the object?*/
+  Py_DECREF(nside_arr);
   Py_DECREF(pix_arr);
 
   PyObject *retval = PyTuple_New(2);
@@ -224,6 +229,7 @@ fail:
   if (bs != NULL) {
     free(bs);
   }
+  Py_XDECREF(nside_arr);
   Py_XDECREF(pix_arr);
 
   return NULL;
@@ -328,60 +334,70 @@ fail:
 
 static PyObject *nest_to_ring(PyObject *dummy, PyObject *args,
                               PyObject *kwargs) {
-  int64_t nside;
-  PyObject *nest_pix_obj;
-  PyObject *nest_pix_arr;
+  PyObject *nside_obj = NULL, *nest_pix_obj = NULL;
+  PyObject *nside_arr = NULL, *nest_pix_arr = NULL;
+  PyObject *ring_pix_obj = NULL;
   static char *kwlist[] = {"nside", "pix", NULL};
 
-  int64_t *nest_pix_data = NULL, *ring_pix_data = NULL;
+  int64_t *ring_pix_data = NULL;
   healpix_info hpx;
   char err[ERR_SIZE];
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LO", kwlist, &nside,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &nside_obj,
                                    &nest_pix_obj))
     return NULL;
 
+  nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (nside_arr == NULL)
+    return NULL;
   nest_pix_arr = PyArray_FROM_OTF(nest_pix_obj, NPY_INT64,
                                   NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
   if (nest_pix_arr == NULL)
-    return NULL;
+    goto fail;
 
-  int ndim_pix = PyArray_NDIM((PyArrayObject *)nest_pix_arr);
+  PyArrayMultiIterObject *itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(
+      2, nside_arr, nest_pix_arr);
+  if (itr == NULL) {
+    PyErr_SetString(PyExc_ValueError,
+                    "nside, pix arrays could not be broadcast together.");
+    goto fail;
+  }
 
-  bool is_scalar = (ndim_pix == 0);
-
-  npy_intp pix_size = PyArray_SIZE((PyArrayObject *)nest_pix_arr);
-
-  if ((ring_pix_data = (int64_t *)calloc(pix_size, sizeof(int64_t))) == NULL) {
+  if ((ring_pix_data = (int64_t *)calloc(itr->size, sizeof(int64_t))) == NULL) {
     PyErr_SetString(PyExc_RuntimeError,
                     "Could not allocate memory for a array.");
     goto fail;
   }
 
-  nest_pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)nest_pix_arr);
+  int64_t *nside;
+  int64_t *nest_pix;
+  int64_t last_nside = -1;
+  bool started = false;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    nest_pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
 
-  if (!hpgeom_check_nside(nside, NEST, err)) {
-    PyErr_SetString(PyExc_ValueError, err);
-    goto fail;
-  }
-  hpx = healpix_info_from_nside(nside, NEST);
-
-  for (npy_intp i = 0; i < pix_size; i++) {
-    if (!hpgeom_check_pixel(hpx, nest_pix_data[i], err)) {
+    if ((!started) || (*nside != last_nside)) {
+      if (!hpgeom_check_nside(*nside, NEST, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+      }
+      hpx = healpix_info_from_nside(*nside, NEST);
+      started = true;
+    }
+    if (!hpgeom_check_pixel(hpx, *nest_pix, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
-    ring_pix_data[i] = nest2ring(hpx, nest_pix_data[i]);
+    ring_pix_data[itr->index] = nest2ring(hpx, *nest_pix);
+    PyArray_MultiIter_NEXT(itr);
   }
 
-  PyObject *ring_pix_obj;
-  if (is_scalar) {
-    ring_pix_obj = PyLong_FromLongLong(ring_pix_data[0]);
-  } else {
-    npy_intp *dims = PyArray_DIMS((PyArrayObject *)nest_pix_arr);
-    ring_pix_obj = PyArray_SimpleNewFromData(1, dims, NPY_INT64, ring_pix_data);
-  }
+  ring_pix_obj = PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_INT64,
+                                           ring_pix_data);
 
+  Py_DECREF(nside_arr);
   Py_DECREF(nest_pix_arr);
 
   return ring_pix_obj;
@@ -390,6 +406,7 @@ fail:
   if (ring_pix_data != NULL) {
     free(ring_pix_data);
   }
+  Py_XDECREF(nside_arr);
   Py_XDECREF(nest_pix_arr);
 
   return NULL;
@@ -397,60 +414,70 @@ fail:
 
 static PyObject *ring_to_nest(PyObject *dummy, PyObject *args,
                               PyObject *kwargs) {
-  int64_t nside;
-  PyObject *ring_pix_obj;
-  PyObject *ring_pix_arr;
+  PyObject *nside_obj = NULL, *ring_pix_obj = NULL;
+  PyObject *nside_arr = NULL, *ring_pix_arr = NULL;
+  PyObject *nest_pix_obj = NULL;
   static char *kwlist[] = {"nside", "pix", NULL};
 
-  int64_t *ring_pix_data = NULL, *nest_pix_data = NULL;
+  int64_t *nest_pix_data = NULL;
   healpix_info hpx;
   char err[ERR_SIZE];
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LO", kwlist, &nside,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &nside_obj,
                                    &ring_pix_obj))
     return NULL;
 
+  nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (nside_arr == NULL)
+    return NULL;
   ring_pix_arr = PyArray_FROM_OTF(ring_pix_obj, NPY_INT64,
                                   NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
   if (ring_pix_arr == NULL)
-    return NULL;
+    goto fail;
 
-  int ndim_pix = PyArray_NDIM((PyArrayObject *)ring_pix_arr);
+  PyArrayMultiIterObject *itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(
+      2, nside_arr, ring_pix_arr);
+  if (itr == NULL) {
+    PyErr_SetString(PyExc_ValueError,
+                    "nside, pix arrays could not be broadcast together.");
+    goto fail;
+  }
 
-  bool is_scalar = (ndim_pix == 0);
-
-  npy_intp pix_size = PyArray_SIZE((PyArrayObject *)ring_pix_arr);
-
-  if ((nest_pix_data = (int64_t *)calloc(pix_size, sizeof(int64_t))) == NULL) {
+  if ((nest_pix_data = (int64_t *)calloc(itr->size, sizeof(int64_t))) == NULL) {
     PyErr_SetString(PyExc_RuntimeError,
                     "Could not allocate memory for a array.");
     goto fail;
   }
 
-  ring_pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)ring_pix_arr);
+  int64_t *nside;
+  int64_t *ring_pix;
+  int64_t last_nside = -1;
+  bool started = false;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    ring_pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
 
-  if (!hpgeom_check_nside(nside, NEST, err)) {
-    PyErr_SetString(PyExc_ValueError, err);
-    goto fail;
-  }
-  hpx = healpix_info_from_nside(nside, NEST);
-
-  for (npy_intp i = 0; i < pix_size; i++) {
-    if (!hpgeom_check_pixel(hpx, ring_pix_data[i], err)) {
+    if ((!started) || (*nside != last_nside)) {
+      if (!hpgeom_check_nside(*nside, NEST, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+      }
+      hpx = healpix_info_from_nside(*nside, NEST);
+      started = true;
+    }
+    if (!hpgeom_check_pixel(hpx, *ring_pix, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
-    nest_pix_data[i] = ring2nest(hpx, ring_pix_data[i]);
+    nest_pix_data[itr->index] = ring2nest(hpx, *ring_pix);
+    PyArray_MultiIter_NEXT(itr);
   }
 
-  PyObject *nest_pix_obj;
-  if (is_scalar) {
-    nest_pix_obj = PyLong_FromLongLong(nest_pix_data[0]);
-  } else {
-    npy_intp *dims = PyArray_DIMS((PyArrayObject *)ring_pix_arr);
-    nest_pix_obj = PyArray_SimpleNewFromData(1, dims, NPY_INT64, nest_pix_data);
-  }
+  nest_pix_obj = PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_INT64,
+                                           nest_pix_data);
 
+  Py_DECREF(nside_arr);
   Py_DECREF(ring_pix_arr);
 
   return nest_pix_obj;
@@ -459,7 +486,66 @@ fail:
   if (nest_pix_data != NULL) {
     free(nest_pix_data);
   }
+  Py_XDECREF(nside_arr);
   Py_XDECREF(ring_pix_arr);
+
+  return NULL;
+}
+
+static PyObject *test_multiiter(PyObject *dummy, PyObject *args,
+                                PyObject *kwargs) {
+  PyObject *a_obj = NULL, *b_obj = NULL;
+  PyObject *a_arr = NULL, *b_arr = NULL;
+  // PyObject *out_obj = NULL;
+
+  static char *kwlist[] = {"a", "b", NULL};
+
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &a_obj, &b_obj))
+    return NULL;
+
+  a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE,
+                           NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (a_arr == NULL)
+    return NULL;
+  b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE,
+                           NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (b_arr == NULL)
+    goto fail;
+
+  PyArrayMultiIterObject *itr =
+      (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, a_arr, b_arr);
+  if (itr == NULL) {
+    PyErr_SetString(PyExc_ValueError,
+                    "Arrays could not be broadcast together.");
+    goto fail;
+  }
+  npy_intp size = itr->size;
+  fprintf(stdout, "size = %d\n", (int)size);
+  /*
+  fprintf(stdout, "hello?\n");
+  int test = PyArray_Broadcast((PyArrayMultiIterObject *) itr);
+  fprintf(stdout, "test = %d\n", test);
+  if (test < 0) {
+      PyErr_SetString(PyExc_ValueError, "Could not broadcast.");
+      goto fail;
+      }*/
+  double *a, *b;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    a = (double *)PyArray_MultiIter_DATA(itr, 0);
+    b = (double *)PyArray_MultiIter_DATA(itr, 1);
+
+    fprintf(stdout, "a = %.10lf, b = %.10lf\n", *a, *b);
+    PyArray_MultiIter_NEXT(itr);
+  }
+
+  Py_DECREF(a_arr);
+  Py_DECREF(b_arr);
+
+  return Py_None;
+
+fail:
+  Py_XDECREF(a_arr);
+  Py_XDECREF(b_arr);
 
   return NULL;
 }
@@ -608,6 +694,8 @@ static PyMethodDef hpgeom_methods[] = {
      METH_VARARGS | METH_KEYWORDS, nest_to_ring_doc},
     {"ring_to_nest", (PyCFunction)(void (*)(void))ring_to_nest,
      METH_VARARGS | METH_KEYWORDS, ring_to_nest_doc},
+    {"test_multiiter", (PyCFunction)(void (*)(void))test_multiiter,
+     METH_VARARGS, "test_multiiter(a, b)"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef hpgeom_module = {PyModuleDef_HEAD_INIT, "_hpgeom",
