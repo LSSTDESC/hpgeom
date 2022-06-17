@@ -4,6 +4,8 @@ from ._hpgeom import (
     angle_to_pixel,
     pixel_to_angle,
     query_circle,
+    nest_to_ring,
+    ring_to_nest,
 )
 
 __all__ = [
@@ -12,12 +14,12 @@ __all__ = [
     'query_circle',
     'query_circle_vec',
     'lonlat_to_thetaphi',
+    'nest_to_ring',
+    'ring_to_nest',
     'UNSEEN',
 ]
 
 # To add:
-#  nest_to_ring
-#  ring_to_nest
 #  nside_to_npixel
 #  npixel_to_nside
 #  query_polygon (with lonlat option)
