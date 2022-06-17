@@ -186,15 +186,15 @@ int64_t xyf2pix(healpix_info hpx, int ix, int iy, int face_num) {
 }
 
 int64_t nest2ring(healpix_info hpx, int64_t pix) {
-    int ix, iy, face_num;
-    nest2xyf(hpx, pix, &ix, &iy, &face_num);
-    return xyf2ring(hpx, ix, iy, face_num);
+  int ix, iy, face_num;
+  nest2xyf(hpx, pix, &ix, &iy, &face_num);
+  return xyf2ring(hpx, ix, iy, face_num);
 }
 
 int64_t ring2nest(healpix_info hpx, int64_t pix) {
-    int ix, iy, face_num;
-    ring2xyf(hpx, pix, &ix, &iy, &face_num);
-    return xyf2nest(hpx, ix, iy, face_num);
+  int ix, iy, face_num;
+  ring2xyf(hpx, pix, &ix, &iy, &face_num);
+  return xyf2nest(hpx, ix, iy, face_num);
 }
 
 /*
