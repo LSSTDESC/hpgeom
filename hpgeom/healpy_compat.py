@@ -245,7 +245,7 @@ def nside2order(nside):
     return nside_to_order(nside)
 
 
-def order_to_nside(order):
+def order2nside(order):
     """Return the nside for a given order.
 
     Parameters

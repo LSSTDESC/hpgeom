@@ -35,6 +35,7 @@ def test_ang2pix():
     np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_pix2ang():
     """Test hpgeom.healpy_compat.pix2ang."""
     np.random.seed(12345)
@@ -59,6 +60,7 @@ def test_pix2ang():
     np.testing.assert_array_almost_equal(lat_hpcompat, lat_healpy)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_query_disc():
     """Test hpgeom.healpy_compat.query_disc."""
     np.random.seed(12345)
@@ -81,6 +83,7 @@ def test_query_disc():
     np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_ring2nest():
     """Test hpgeom.healpy_compat.ring2nest."""
     pix_hpcompat = hpc.ring2nest(2048, 1000)
@@ -94,6 +97,7 @@ def test_ring2nest():
     np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_nest2ring():
     """Test hpgeom.healpy_compat.nest2ring."""
     pix_hpcompat = hpc.nest2ring(2048, 1000)
@@ -107,6 +111,7 @@ def test_nest2ring():
     np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_nside2npix():
     """Test hpgeom.healpy_compat.nside2npix."""
     npix_hpcompat = hpc.nside2npix(2048)
@@ -115,6 +120,7 @@ def test_nside2npix():
     assert(npix_hpcompat == npix_healpy)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_npix2nside():
     """Test hpgeom.healpy_compat.npix2nside."""
     nside_hpcompat = hpc.nside2npix(12*2048*2048)
@@ -127,3 +133,49 @@ def test_npix2nside():
 
     with pytest.raises(ValueError):
         hpc.npix2nside(100)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_nside2pixarea():
+    """Test hpgeom.healpy_compat.nside2pixarea."""
+    pixarea_hpcompat = hpc.nside2pixarea(1024)
+    pixarea_healpy = hp.nside2pixarea(1024)
+
+    assert (pixarea_hpcompat == pixarea_healpy)
+
+    pixarea_hpcompat = hpc.nside2pixarea(1024, degrees=True)
+    pixarea_healpy = hp.nside2pixarea(1024, degrees=True)
+
+    assert (pixarea_hpcompat == pixarea_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_nside2resol():
+    """Test hpgeom.healpy_compat.nside2resol."""
+    resol_hpcompat = hpc.nside2resol(1024)
+    resol_healpy = hp.nside2resol(1024)
+
+    assert (resol_hpcompat == resol_healpy)
+
+    resol_hpcompat = hpc.nside2resol(1024, arcmin=True)
+    resol_healpy = hp.nside2resol(1024, arcmin=True)
+
+    assert (resol_hpcompat == resol_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_nside2order():
+    """Test hpgeom.healpy_compat.nside2order."""
+    order_hpcompat = hpc.nside2order(1024)
+    order_healpy = hp.nside2order(1024)
+
+    assert (order_hpcompat == order_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_order2nside():
+    """Test hpgeom.healpy_compat.order2nside."""
+    nside_hpcompat = hpc.order2nside(10)
+    nside_healpy = hp.order2nside(10)
+
+    assert (nside_hpcompat == nside_healpy)
