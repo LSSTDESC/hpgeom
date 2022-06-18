@@ -6,7 +6,6 @@ from ._hpgeom import (
     query_circle,
     nest_to_ring,
     ring_to_nest,
-    test_multiiter,
 )
 
 __all__ = [
@@ -19,7 +18,10 @@ __all__ = [
     'ring_to_nest',
     'nside_to_npixel',
     'npixel_to_nside',
-    'test_multiiter',
+    'nside_to_pixel_area',
+    'nside_to_resolution',
+    'nside_to_order',
+    'order_to_nside',
     'UNSEEN',
 ]
 
@@ -37,6 +39,7 @@ __all__ = [
 #  add array nside ability for c funtions.
 
 UNSEEN = -1.6375e+30
+max_nside = 1 << 29
 
 
 def lonlat_to_thetaphi(lon, lat, degrees=True):
@@ -129,6 +132,9 @@ def nside_to_npixel(nside):
     npixel : `int` or `np.ndarray` (N,)
         Number of pixels associated with that nside.
     """
+    _nside = np.atleast_1d(nside)
+    if np.any((_nside < 0) | (_nside > max_nside)):
+        raise ValueError("Illegal nside value (must be 0 <= nside <= 2**29)")
     return 12*nside*nside
 
 
@@ -153,3 +159,107 @@ def npixel_to_nside(npixel):
         return int(nside)
     else:
         return nside.astype(np.int64)
+
+
+def nside_to_pixel_area(nside, degrees=True):
+    """Return the pixel area given an nside in square degrees or square radians.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside parameter.
+    degrees : `bool`, optional
+        Return area in square degrees?
+
+    Returns
+    -------
+    pixel_area : `float`
+        Pixel area in square degrees or square radians.
+    """
+    pixel_area = 4*np.pi/nside_to_npixel(nside)
+
+    if degrees:
+        value = np.rad2deg(np.rad2deg(pixel_area))
+    else:
+        value = pixel_area
+
+    return value
+
+
+def nside_to_resolution(nside, units='degrees'):
+    """Return the approximate resolution (pixel size in radians, arcseconds, arcminutes,
+    or degrees) given an nside.
+
+    Resolution is just the square root of the pixel area, which is an approximation
+    given the varying pixel shapes.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside parameter.
+    units : `str`, optional
+        Units to return.  Valid options are ``radians``, ``degrees``, ``arcminutes``,
+        ``arcseconds``.
+
+    Returns
+    -------
+    resolution : `float`
+        Approximate pixel size in specified units.
+    """
+    resolution = np.sqrt(nside_to_pixel_area(nside, degrees=False))
+
+    if units == 'radians':
+        value = resolution
+    elif units == 'degrees':
+        value = np.rad2deg(resolution)
+    elif units == 'arcminutes':
+        value = np.rad2deg(resolution)*60.
+    elif units == 'arcseconds':
+        value = np.rad2deg(resolution)*60.*60.
+    else:
+        raise ValueError("Invalid units.  Must be radians, degrees, arcminutes, or arcseconds.")
+
+    return value
+
+def nside_to_order(nside):
+    """Return the resolution order for a given nside.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside parameter.  Will raise ValueError if nside is not valid
+        (must be a power of 2 and less than 2**30).
+
+    Returns
+    -------
+    order : `int`
+        Order corresponding to given nside, such that nside = 2**order.
+    """
+    _nside = np.atleast_1d(nside)
+    if np.any((_nside <= 0) | (_nside > max_nside) | ((_nside & (_nside - 1)) != 0)):
+        raise ValueError("nside must be postive power of 2, and less than 2**30")
+
+    if (hasattr(nside, '__len__')):
+        return np.round(np.log2(nside)).astype(np.int64)
+    else:
+        return int(np.round(np.log2(nside)))
+
+
+def order_to_nside(order):
+    """Return the nside for a given order.
+
+    Parameters
+    ----------
+    order : `int` or `np.ndarray`
+        Resolution order.  Will raise ValueError if order is not valid
+        (must be 0 to 29 inclusive).
+
+    Returns
+    -------
+    nside : `int`
+        HEALPix nside corresponding to given order, such that nside = 2**order.
+    """
+    if np.any((order != np.int64(order)) | (order < 0) | (order > 29)):
+        raise ValueError("Order must be integer, 0<=order<=29.")
+
+    return 2**order

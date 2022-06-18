@@ -118,7 +118,7 @@ with open('benchmark_table.md', 'w') as bt:
 
     function = 'query_circle'
 
-    for scheme in ['nest', 'ring']:
+    for scheme in ['nest', 'ring', 'ring2nest']:
         if scheme == 'nest':
             nest = True
         else:
@@ -129,13 +129,25 @@ with open('benchmark_table.md', 'w') as bt:
             for nside in [128, 1024, 4096]:
                 start_time = time.time()
                 for i in range(ntrial):
-                    _ = hpgeom.query_circle(nside, 0.0, 0.0, radius, nest=nest, lonlat=True, degrees=False)
+                    pixels = hpgeom.query_circle(
+                        nside,
+                        0.0,
+                        0.0,
+                        radius,
+                        nest=nest,
+                        lonlat=True,
+                        degrees=False
+                    )
+                    if scheme == 'ring2nest':
+                        _ = hpgeom.ring_to_nest(nside, pixels)
                 time_hpgeom = (time.time() - start_time)/ntrial
 
                 vec = hp.ang2vec(0.0, 0.0, lonlat=True)
                 start_time = time.time()
                 for i in range(ntrial):
-                    _ = hp.query_disc(nside, vec, radius, nest=nest)
+                    pixels = hp.query_disc(nside, vec, radius, nest=nest)
+                    if scheme == 'ring2nest':
+                        _ = hp.ring2nest(nside, pixels)
                 time_healpy = (time.time() - start_time)/ntrial
 
                 time_ratio = time_hpgeom/time_healpy

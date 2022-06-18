@@ -1,7 +1,15 @@
 import warnings
 
 from ._hpgeom import angle_to_pixel, pixel_to_angle, nest_to_ring, ring_to_nest
-from .hpgeom import query_circle_vec, nside_to_npixel, npixel_to_nside
+from .hpgeom import (
+    query_circle_vec,
+    nside_to_npixel,
+    npixel_to_nside,
+    nside_to_pixel_area,
+    nside_to_resolution,
+    nside_to_order,
+    order_to_nside,
+)
 
 __all__ = [
     'ang2pix',
@@ -11,6 +19,10 @@ __all__ = [
     'nest2ring',
     'nside2npix',
     'npix2nside',
+    'nside2pixarea',
+    'nside2resol',
+    'nside2order',
+    'order2nside',
 ]
 
 
@@ -170,3 +182,81 @@ def npix2nside(nside):
         HEALPix nside associated with that number of pixels.
     """
     return npixel_to_nside(nside)
+
+
+def nside2pixarea(nside, degrees=False):
+    """Return the pixel area given an nside in square degrees or square radians.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside parameter.
+    degrees : `bool`, optional
+        Return area in square degrees?
+
+    Returns
+    -------
+    pixel_area : `float`
+        Pixel area in square degrees or square radians.
+    """
+    return nside_to_pixel_area(nside, degrees=degrees)
+
+
+def nside2resol(nside, arcmin=False):
+    """Return the approximate resolution (pixel size in radians or arcminutes),
+    given an nside.
+
+    Resolution is just the square root of the pixel area, which is an approximation
+    given the varying pixel shapes.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside parameter.
+    arcmin : `bool`, optional
+       If True, return resolution in arcminutes, otherwise radians.
+
+    Returns
+    -------
+    resolution : `float`
+        Approximate pixel size in specified units.
+    """
+    if arcmin:
+        units = 'arcminutes'
+    else:
+        units = 'radians'
+    return nside_to_resolution(nside, units=units)
+
+
+def nside2order(nside):
+    """Return the resolution order for a given nside.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside parameter.  Will raise ValueError if nside is not valid
+        (must be a power of 2 and less than 2**30).
+
+    Returns
+    -------
+    order : `int`
+        Order corresponding to given nside, such that nside = 2**order.
+    """
+    return nside_to_order(nside)
+
+
+def order_to_nside(order):
+    """Return the nside for a given order.
+
+    Parameters
+    ----------
+    order : `int`
+        Resolution order.  Will raise ValueError if order is not valid
+        (must be 0 to 29 inclusive).
+
+    Returns
+    -------
+    nside : `int`
+        HEALPix nside corresponding to given order, such that nside = 2**order.
+    """
+    return order_to_nside(order)

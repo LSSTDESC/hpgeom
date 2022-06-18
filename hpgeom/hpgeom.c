@@ -492,64 +492,6 @@ fail:
   return NULL;
 }
 
-static PyObject *test_multiiter(PyObject *dummy, PyObject *args,
-                                PyObject *kwargs) {
-  PyObject *a_obj = NULL, *b_obj = NULL;
-  PyObject *a_arr = NULL, *b_arr = NULL;
-  // PyObject *out_obj = NULL;
-
-  static char *kwlist[] = {"a", "b", NULL};
-
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &a_obj, &b_obj))
-    return NULL;
-
-  a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE,
-                           NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-  if (a_arr == NULL)
-    return NULL;
-  b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE,
-                           NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-  if (b_arr == NULL)
-    goto fail;
-
-  PyArrayMultiIterObject *itr =
-      (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, a_arr, b_arr);
-  if (itr == NULL) {
-    PyErr_SetString(PyExc_ValueError,
-                    "Arrays could not be broadcast together.");
-    goto fail;
-  }
-  npy_intp size = itr->size;
-  fprintf(stdout, "size = %d\n", (int)size);
-  /*
-  fprintf(stdout, "hello?\n");
-  int test = PyArray_Broadcast((PyArrayMultiIterObject *) itr);
-  fprintf(stdout, "test = %d\n", test);
-  if (test < 0) {
-      PyErr_SetString(PyExc_ValueError, "Could not broadcast.");
-      goto fail;
-      }*/
-  double *a, *b;
-  while (PyArray_MultiIter_NOTDONE(itr)) {
-    a = (double *)PyArray_MultiIter_DATA(itr, 0);
-    b = (double *)PyArray_MultiIter_DATA(itr, 1);
-
-    fprintf(stdout, "a = %.10lf, b = %.10lf\n", *a, *b);
-    PyArray_MultiIter_NEXT(itr);
-  }
-
-  Py_DECREF(a_arr);
-  Py_DECREF(b_arr);
-
-  return Py_None;
-
-fail:
-  Py_XDECREF(a_arr);
-  Py_XDECREF(b_arr);
-
-  return NULL;
-}
-
 PyDoc_STRVAR(
     angle_to_pixel_doc,
     "angle_to_pixel(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
@@ -694,8 +636,6 @@ static PyMethodDef hpgeom_methods[] = {
      METH_VARARGS | METH_KEYWORDS, nest_to_ring_doc},
     {"ring_to_nest", (PyCFunction)(void (*)(void))ring_to_nest,
      METH_VARARGS | METH_KEYWORDS, ring_to_nest_doc},
-    {"test_multiiter", (PyCFunction)(void (*)(void))test_multiiter,
-     METH_VARARGS, "test_multiiter(a, b)"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef hpgeom_module = {PyModuleDef_HEAD_INIT, "_hpgeom",
