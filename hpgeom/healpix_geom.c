@@ -526,8 +526,8 @@ inline double cosdist_zphi(double z1, double phi1, double z2, double phi2) {
           3: pixel lies completely inside the shape */
 
 void check_pixel_nest(int o, int order_, int omax, int zone,
-                      struct i64rangeset *pixset, int64_t pix,
-                      struct i64stack *stk, bool inclusive, int *stacktop,
+                      i64rangeset *pixset, int64_t pix,
+                      i64stack *stk, bool inclusive, int *stacktop,
                       int *status, char *err) {
   *status = 1;
   if (zone == 0)
@@ -639,7 +639,7 @@ bool check_pixel_ring(healpix_info hpx1, healpix_info hpx2, int64_t pix,
 }
 
 void query_disc(healpix_info hpx, double ptg_theta, double ptg_phi,
-                double radius, int fact, struct i64rangeset *pixset,
+                double radius, int fact, i64rangeset *pixset,
                 int *status, char *err) {
   bool inclusive = (fact != 0);
   // this does not alter the storage
@@ -788,7 +788,7 @@ void query_disc(healpix_info hpx, double ptg_theta, double ptg_phi,
       crmdr[o] = ((radius - dr) < 0.) ? 1. : cos(radius - dr);
     }
 
-    struct i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+    i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
     if (!status)
       return;
     for (int i = 0; i < 12; i++) {

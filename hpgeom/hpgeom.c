@@ -249,7 +249,7 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args,
 
   char err[ERR_SIZE];
   int status = 1;
-  struct i64rangeset *pixset = NULL;
+  i64rangeset *pixset = NULL;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plppp", kwlist, &nside,
                                    &a, &b, &radius, &inclusive, &fact, &nest,

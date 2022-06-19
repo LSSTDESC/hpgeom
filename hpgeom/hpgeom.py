@@ -27,16 +27,11 @@ __all__ = [
 
 # To add:
 #  query_polygon (with lonlat option)
-#  nside_to_pixarea
-#  nside_to_order
-#  order_to_nside
-#  nside_to_resolution
 #  vector_to_pixel
 #  vector_to_angle
 #  angle_to_pixel
 #  angle_to_vector
 #  boundaries (with lonlat option)
-#  add array nside ability for c funtions.
 
 UNSEEN = -1.6375e+30
 max_nside = 1 << 29

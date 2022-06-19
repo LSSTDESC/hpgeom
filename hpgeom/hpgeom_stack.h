@@ -25,7 +25,7 @@
 #define STACK_PUSH_REALLOC_MULTVAL 2
 #define STACK_PUSH_INITSIZE 50
 
-struct i64stack {
+typedef struct i64stack {
   size_t size;               // number of elements that are visible to the user
   size_t allocated_size;     // number of allocated elements in data vector
   size_t push_realloc_style; // Currently always STACK_PUSH_REALLOC_MULT,
@@ -40,33 +40,33 @@ struct i64stack {
                        // if allocated_size was zero, we allocate to
                        // push_initsize
   int64_t *data;
-};
+} i64stack;
 
-struct i64rangeset {
+typedef struct i64rangeset {
   struct i64stack *stack;
-};
+} i64rangeset;
 
-struct i64stack *i64stack_new(size_t num, int *status, char *err);
-void i64stack_realloc(struct i64stack *stack, size_t newsize, int *status,
+i64stack *i64stack_new(size_t num, int *status, char *err);
+void i64stack_realloc(i64stack *stack, size_t newsize, int *status,
                       char *err);
-void i64stack_resize(struct i64stack *stack, size_t newsize, int *status,
+void i64stack_resize(i64stack *stack, size_t newsize, int *status,
                      char *err);
-void i64stack_clear(struct i64stack *stack);
-struct i64stack *i64stack_delete(struct i64stack *stack);
-void i64stack_push(struct i64stack *stack, int64_t val, int *status, char *err);
+void i64stack_clear(i64stack *stack);
+i64stack *i64stack_delete(i64stack *stack);
+void i64stack_push(i64stack *stack, int64_t val, int *status, char *err);
 
-struct i64rangeset *i64rangeset_new(int *status, char *err);
-void i64rangeset_append(struct i64rangeset *rangeset, int64_t v1, int64_t v2,
+i64rangeset *i64rangeset_new(int *status, char *err);
+void i64rangeset_append(i64rangeset *rangeset, int64_t v1, int64_t v2,
                         int *status, char *err);
-void i64rangeset_append_single(struct i64rangeset *rangeset, int64_t v1,
+void i64rangeset_append_single(i64rangeset *rangeset, int64_t v1,
                                int *status, char *err);
-void i64rangeset_clear(struct i64rangeset *rangeset, int *status, char *err);
-void i64rangeset_append_i64rangeset(struct i64rangeset *rangeset,
-                                    struct i64rangeset *other, int *status,
+void i64rangeset_clear(i64rangeset *rangeset, int *status, char *err);
+void i64rangeset_append_i64rangeset(i64rangeset *rangeset,
+                                    i64rangeset *other, int *status,
                                     char *err);
-struct i64rangeset *i64rangeset_delete(struct i64rangeset *rangeset);
-size_t i64rangeset_npix(struct i64rangeset *rangeset);
-void i64rangeset_fill_buffer(struct i64rangeset *rangeset, size_t npix,
+i64rangeset *i64rangeset_delete(i64rangeset *rangeset);
+size_t i64rangeset_npix(i64rangeset *rangeset);
+void i64rangeset_fill_buffer(i64rangeset *rangeset, size_t npix,
                              int64_t *buf);
 
 #endif
