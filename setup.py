@@ -5,10 +5,10 @@ import numpy
 ext = Extension(
     "hpgeom._hpgeom",
     [
-        "hpgeom/healpix_geom.c",
-        "hpgeom/hpgeom_utils.c",
-        "hpgeom/hpgeom.c",
         "hpgeom/hpgeom_stack.c",
+        "hpgeom/hpgeom_utils.c",
+        "hpgeom/healpix_geom.c",
+        "hpgeom/hpgeom.c",
     ],
 )
 

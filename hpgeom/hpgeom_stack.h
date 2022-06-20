@@ -43,8 +43,26 @@ typedef struct i64stack {
 } i64stack;
 
 typedef struct i64rangeset {
-  struct i64stack *stack;
+  i64stack *stack;
 } i64rangeset;
+
+typedef struct ptg {
+    double theta, phi;
+} ptg;
+
+typedef struct ptgarr {
+    size_t size;
+    ptg *data;
+} ptgarr;
+
+typedef struct vec3 {
+    double x, y, z;
+} vec3;
+
+typedef struct vec3arr {
+    size_t size;
+    vec3 *data;
+} vec3arr;
 
 i64stack *i64stack_new(size_t num, int *status, char *err);
 void i64stack_realloc(i64stack *stack, size_t newsize, int *status,
@@ -68,5 +86,21 @@ i64rangeset *i64rangeset_delete(i64rangeset *rangeset);
 size_t i64rangeset_npix(i64rangeset *rangeset);
 void i64rangeset_fill_buffer(i64rangeset *rangeset, size_t npix,
                              int64_t *buf);
+
+void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod);
+double vec3_dotprod(vec3 *v1, vec3 *v2);
+double vec3_length(vec3 *v);
+void vec3_add(vec3 *v1, vec3 *v2, vec3 *sum);
+void vec3_normalize(vec3 *v);
+void vec3_flip(vec3 *v);
+// void vec3_from_ptg(ptg *p);
+
+vec3arr *vec3arr_new(size_t num, int *status, char *err);
+vec3arr *vec3arr_delete(vec3arr *arr);
+
+// void ptg_from_vec3(vec3 *v, ptg *p);
+
+ptgarr *ptgarr_new(size_t num, int *status, char *err);
+ptgarr *ptgarr_delete(ptgarr *arr);
 
 #endif

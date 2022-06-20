@@ -6,6 +6,7 @@ from ._hpgeom import (
     query_circle,
     nest_to_ring,
     ring_to_nest,
+    boundaries,
 )
 
 __all__ = [
@@ -22,16 +23,18 @@ __all__ = [
     'nside_to_resolution',
     'nside_to_order',
     'order_to_nside',
+    'boundaries',
     'UNSEEN',
 ]
 
 # To add:
-#  query_polygon (with lonlat option)
+#  query_polygon (with lonlat option as default!)
 #  vector_to_pixel
-#  vector_to_angle
-#  angle_to_pixel
-#  angle_to_vector
-#  boundaries (with lonlat option)
+#  pixel_to_vector
+#  vector_to_angle (python or c?)
+#  angle_to_vector (python or c?)
+#  boundaries (with lonlat option as default!)
+#  neighbors (with an o)
 
 UNSEEN = -1.6375e+30
 max_nside = 1 << 29

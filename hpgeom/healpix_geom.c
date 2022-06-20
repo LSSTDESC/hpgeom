@@ -824,3 +824,115 @@ void query_disc(healpix_info hpx, double ptg_theta, double ptg_phi,
     }
   }
 }
+
+void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth, bool *have_sth) {
+    *have_sth = false;
+    double jr = jrll[face] - x - y;
+    double nr;
+    if (jr<1) {
+        nr = jr;
+        double tmp = nr*nr/3.;
+        *z = 1 - tmp;
+        if (*z > 0.99) {
+            *sth = sqrt(tmp*(2.0-tmp));
+            *have_sth = true;
+        }
+    } else if (jr>3) {
+        nr = 4-jr;
+        double tmp = nr*nr/3.;
+        *z = tmp - 1;
+        if (*z<-0.99) {
+            *sth = sqrt(tmp*(2.-tmp));
+            *have_sth = true;
+        }
+    } else {
+        nr = 1;
+        *z = (2-jr)*2./3.;
+    }
+
+    double tmp=jpll[face]*nr+x-y;
+    if (tmp<0) tmp+=8;
+    if (tmp>=8) tmp-=8;
+    *phi = (nr<1e-15) ? 0 : (0.5*M_PI_2*tmp)/nr;
+}
+
+void locToVec3(double z, double phi, double sth, bool have_sth, vec3 *vec) {
+    if (have_sth) {
+        vec->x = sth*cos(phi);
+        vec->y = sth*sin(phi);
+        vec->z = z;
+    } else {
+        double sintheta = sqrt((1.0 - z)*(1.0 + z));
+        vec->x = sintheta*cos(phi);
+        vec->y = sintheta*sin(phi);
+        vec->z = z;
+    }
+}
+
+void locToPtg(double z, double phi, double sth, bool have_sth, ptg *p) {
+    p->phi = phi;
+
+    if (have_sth) {
+        p->theta = atan2(sth, z);
+    } else {
+        p->theta = acos(z);
+    }
+}
+
+/*
+void boundaries(healpix_info hpx, int64_t pix, size_t step, vec3arr *out, int *status, char *err) {
+    *status = 1;
+
+    if (out->size < 4*step) {
+        *status = 0;
+        snprintf(err, ERR_SIZE, "Output vector of insufficient size.");
+    }
+
+    int ix, iy, face;
+    pix2xyf(hpx, pix, &ix, &iy, &face);
+    double dc = 0.5/hpx.nside;
+    double xc = (ix + 0.5)/hpx.nside;
+    double yc = (iy + 0.5)/hpx.nside;
+    double d = 1.0/(step*hpx.nside);
+    for (size_t i=0; i<step; i++) {
+        double z, phi, sth;
+        bool have_sth;
+        xyf2loc(xc+dc-i*d, yc+dc, face, &z, &phi, &sth, &have_sth);
+        locToVec3(z, phi, sth, have_sth, &out[i]);
+        xyf2loc(xc-dc, yc+dc-i*d, face, &z, &phi, &sth, &have_sth);
+        locToVec3(z, phi, sth, have_sth, &out[i+step]);
+        xyf2loc(xc-dc+i*d, yc-dc, face, &z, &phi, &sth, &have_sth);
+        locToVec3(z, phi, sth, have_sth, &out[i+2*step]);
+        xyf2loc(xc+dc, yc-dc+i*d, face, &z, &phi, &sth, &have_sth);
+        locToVec3(z, phi, sth, have_sth, &out[i+3*step]);
+    }
+}
+*/
+
+void boundaries(healpix_info hpx, int64_t pix, size_t step, ptgarr *out, int *status) {
+    *status = 1;
+
+    if (out->size < 4*step) {
+        *status = 0;
+        return;
+    }
+
+    int ix, iy, face;
+    pix2xyf(hpx, pix, &ix, &iy, &face);
+    double dc = 0.5/hpx.nside;
+    double xc = (ix + 0.5)/hpx.nside;
+    double yc = (iy + 0.5)/hpx.nside;
+    double d = 1.0/(step*hpx.nside);
+    for (size_t i=0; i<step; i++) {
+        double z, phi, sth;
+        bool have_sth;
+        xyf2loc(xc+dc-i*d, yc+dc, face, &z, &phi, &sth, &have_sth);
+        locToPtg(z, phi, sth, have_sth, &out->data[i]);
+        xyf2loc(xc-dc, yc+dc-i*d, face, &z, &phi, &sth, &have_sth);
+        locToPtg(z, phi, sth, have_sth, &out->data[i+step]);
+        xyf2loc(xc-dc+i*d, yc-dc, face, &z, &phi, &sth, &have_sth);
+        locToPtg(z, phi, sth, have_sth, &out->data[i+2*step]);
+        xyf2loc(xc+dc, yc-dc+i*d, face, &z, &phi, &sth, &have_sth);
+        locToPtg(z, phi, sth, have_sth, &out->data[i+3*step]);
+    }
+}
