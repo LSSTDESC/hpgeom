@@ -73,6 +73,8 @@ void nest2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
 void ring2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
 int64_t nest2ring(healpix_info hpx, int64_t pix);
 int64_t ring2nest(healpix_info hpx, int64_t pix);
+vec3 pix2vec(healpix_info hpx, int64_t pix);
+int64_t vec2pix(healpix_info hpx, vec3 *vec);
 
 int64_t spread_bits64(int v);
 int compress_bits64(int64_t v);

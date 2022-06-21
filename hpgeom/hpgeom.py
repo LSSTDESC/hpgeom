@@ -6,6 +6,8 @@ from ._hpgeom import (
     query_circle,
     nest_to_ring,
     ring_to_nest,
+    vector_to_pixel,
+    pixel_to_vector,
     boundaries,
 )
 
@@ -27,6 +29,8 @@ __all__ = [
     'order_to_nside',
     'angle_to_vector',
     'vector_to_angle',
+    'vector_to_pixel',
+    'pixel_to_vector',
     'boundaries',
     'UNSEEN',
 ]

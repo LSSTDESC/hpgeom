@@ -132,7 +132,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
   Py_DECREF(a_arr);
   Py_DECREF(b_arr);
 
-  return pix_arr;
+  return PyArray_Return((PyArrayObject *)pix_arr);
 
 fail:
   Py_XDECREF(nside_arr);
@@ -266,8 +266,8 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
   Py_DECREF(pix_arr);
 
   PyObject *retval = PyTuple_New(2);
-  PyTuple_SET_ITEM(retval, 0, a_arr);
-  PyTuple_SET_ITEM(retval, 1, b_arr);
+  PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)a_arr));
+  PyTuple_SET_ITEM(retval, 1, PyArray_Return((PyArrayObject *)b_arr));
 
   return retval;
 
@@ -409,7 +409,7 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args,
 
   i64rangeset_delete(pixset);
 
-  return pix_arr;
+  return PyArray_Return((PyArrayObject *)pix_arr);
 
 fail:
   if (pixset != NULL) {
@@ -501,7 +501,7 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args,
   Py_DECREF(nside_arr);
   Py_DECREF(nest_pix_arr);
 
-  return ring_pix_arr;
+  return PyArray_Return((PyArrayObject *)ring_pix_arr);
 
 fail:
   Py_XDECREF(nside_arr);
@@ -594,7 +594,7 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args,
   Py_DECREF(nside_arr);
   Py_DECREF(ring_pix_arr);
 
-  return nest_pix_arr;
+  return PyArray_Return((PyArrayObject *)nest_pix_arr);
 
 fail:
   Py_XDECREF(nside_arr);
@@ -771,8 +771,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
   Py_DECREF(pix_arr);
 
   PyObject *retval = PyTuple_New(2);
-  PyTuple_SET_ITEM(retval, 0, a_arr);
-  PyTuple_SET_ITEM(retval, 1, b_arr);
+  PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)a_arr));
+  PyTuple_SET_ITEM(retval, 1, PyArray_Return((PyArrayObject *)b_arr));
 
   return retval;
 
@@ -783,6 +783,257 @@ fail:
   Py_XDECREF(b_arr);
 
   return NULL;
+}
+
+PyDoc_STRVAR(
+             vector_to_pixel_doc,
+             "vector_to_pixel(nside, x, y, z, nest=True)\n"
+             "--\n\n"
+             "Convert vectors to pixels.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "nside : `int`\n"
+             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
+             "x : `np.ndarray` or `float`\n"
+             "    x coordinates for vectors.\n"
+             "y : `np.ndarray` or `float`\n"
+             "    y coordinates for vectors.\n"
+             "z : `np.ndarray` or `float`\n"
+             "    z coordinates for vectors.\n"
+             "nest : `bool`, optional\n"
+             "    Use nest ordering scheme?\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "pix : `np.ndarray` (N,)\n"
+             "    HEALPix pixel numbers.\n");
+
+static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args,
+                                 PyObject *kwargs) {
+    PyObject *nside_obj = NULL, *x_obj = NULL, *y_obj = NULL, *z_obj = NULL;
+    PyObject *nside_arr = NULL, *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
+    PyObject *pix_arr = NULL;
+    int nest = 1;
+    static char *kwlist[] = {"nside", "x", "y", "z", "nest", NULL};
+
+    int64_t *pixels = NULL;
+    healpix_info hpx;
+    char err[ERR_SIZE];
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO|p", kwlist, &nside_obj,
+                                     &x_obj, &y_obj, &z_obj, &nest))
+        return NULL;
+
+    nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (nside_arr == NULL)
+        return NULL;
+    x_arr = PyArray_FROM_OTF(x_obj, NPY_DOUBLE,
+                           NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (x_arr == NULL)
+        goto fail;
+    y_arr = PyArray_FROM_OTF(y_obj, NPY_DOUBLE,
+                           NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (y_arr == NULL)
+        goto fail;
+    z_arr = PyArray_FROM_OTF(z_obj, NPY_DOUBLE,
+                           NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (z_arr == NULL)
+        goto fail;
+
+    PyArrayMultiIterObject *itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(4, nside_arr, x_arr, y_arr, z_arr);
+  if (itr == NULL) {
+    PyErr_SetString(PyExc_ValueError,
+                    "nside, x, y, z arrays could not be broadcast together.");
+    goto fail;
+  }
+
+  pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
+  if (pix_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output pix array.");
+    goto fail;
+  }
+  pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+
+  enum Scheme scheme;
+  if (nest) {
+    scheme = NEST;
+  } else {
+    scheme = RING;
+  }
+
+  int64_t *nside;
+  double *x, *y, *z;
+  int64_t last_nside = -1;
+  bool started = false;
+  vec3 vec;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    x = (double *)PyArray_MultiIter_DATA(itr, 1);
+    y = (double *)PyArray_MultiIter_DATA(itr, 2);
+    z = (double *)PyArray_MultiIter_DATA(itr, 3);
+
+    if ((!started) || (*nside != last_nside)) {
+      if (!hpgeom_check_nside(*nside, scheme, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+      }
+      hpx = healpix_info_from_nside(*nside, scheme);
+      started = true;
+    }
+    vec.x = *x;
+    vec.y = *y;
+    vec.z = *z;
+    pixels[itr->index] = vec2pix(hpx, &vec);
+    PyArray_MultiIter_NEXT(itr);
+  }
+
+  Py_DECREF(nside_arr);
+  Py_DECREF(x_arr);
+  Py_DECREF(y_arr);
+  Py_DECREF(z_arr);
+
+  return PyArray_Return((PyArrayObject *)pix_arr);
+
+fail:
+  Py_XDECREF(nside_arr);
+  Py_XDECREF(x_arr);
+  Py_XDECREF(y_arr);
+  Py_XDECREF(z_arr);
+  Py_XDECREF(pix_arr);
+
+  return NULL;
+}
+
+PyDoc_STRVAR(
+             pixel_to_vector_doc,
+             "pixel_to_vector(nside, pix, nest=True)\n"
+             "--\n\n"
+             "Convert pixels to vectors.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "nside : `int`\n"
+             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
+             "pix : `np.ndarray` (N,) or `int`\n"
+             "    Pixel numbers to convert.\n"
+             "nest : `bool`, optional\n"
+             "    Use nest ordering scheme?\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "x : `np.ndarray` or `float`\n"
+             "    x coordinates for vectors.\n"
+             "y : `np.ndarray` or `float`\n"
+             "    y coordinates for vectors.\n"
+             "z : `np.ndarray` or `float`\n"
+             "    z coordinates for vectors.\n");
+
+static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args,
+                                 PyObject *kwargs) {
+    PyObject *nside_obj = NULL, *pix_obj = NULL;
+    PyObject *nside_arr = NULL, *pix_arr = NULL;
+    PyObject *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
+    int nest = 1;
+    static char *kwlist[] = {"nside", "pix", "nest", NULL};
+
+    double *xs = NULL, *ys = NULL, *zs = NULL;
+    healpix_info hpx;
+    char err[ERR_SIZE];
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj,
+                                     &pix_obj, &nest))
+        return NULL;
+
+    nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (nside_arr == NULL)
+        return NULL;
+    pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (pix_arr == NULL)
+        goto fail;
+
+    PyArrayMultiIterObject *itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+    if (itr == NULL) {
+        PyErr_SetString(PyExc_ValueError,
+                        "nside, pix arrays could not be broadcast together.");
+        goto fail;
+    }
+
+    x_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+    if (x_arr == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Could not create output x array.");
+        goto fail;
+    }
+    xs = (double *)PyArray_DATA((PyArrayObject *)x_arr);
+    y_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+    if (y_arr == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Could not create output y array.");
+        goto fail;
+    }
+    ys = (double *)PyArray_DATA((PyArrayObject *)y_arr);
+    z_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+    if (z_arr == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Could not create output z array.");
+        goto fail;
+    }
+    zs = (double *)PyArray_DATA((PyArrayObject *)z_arr);
+
+    enum Scheme scheme;
+    if (nest) {
+        scheme = NEST;
+    } else {
+        scheme = RING;
+    }
+
+    int64_t *nside;
+    int64_t *pix;
+    int64_t last_nside = -1;
+    bool started = false;
+    vec3 vec;
+    while (PyArray_MultiIter_NOTDONE(itr)) {
+        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+        pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+
+        if ((!started) || (*nside != last_nside)) {
+            if (!hpgeom_check_nside(*nside, scheme, err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+            hpx = healpix_info_from_nside(*nside, scheme);
+            started = true;
+        }
+        if (!hpgeom_check_pixel(hpx, *pix, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+        vec = pix2vec(hpx, *pix);
+        xs[itr->index] = vec.x;
+        ys[itr->index] = vec.y;
+        zs[itr->index] = vec.z;
+        PyArray_MultiIter_NEXT(itr);
+    }
+
+    Py_DECREF(nside_arr);
+    Py_DECREF(pix_arr);
+
+    PyObject *retval = PyTuple_New(3);
+    PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)x_arr));
+    PyTuple_SET_ITEM(retval, 1, PyArray_Return((PyArrayObject *)y_arr));
+    PyTuple_SET_ITEM(retval, 2, PyArray_Return((PyArrayObject *)z_arr));
+
+    return retval;
+
+ fail:
+      Py_XDECREF(nside_arr);
+      Py_XDECREF(x_arr);
+      Py_XDECREF(y_arr);
+      Py_XDECREF(z_arr);
+      Py_XDECREF(pix_arr);
+
+      return NULL;
 }
 
 static PyMethodDef hpgeom_methods[] = {
@@ -798,6 +1049,10 @@ static PyMethodDef hpgeom_methods[] = {
      METH_VARARGS | METH_KEYWORDS, ring_to_nest_doc},
     {"boundaries", (PyCFunction)(void (*)(void))boundaries_meth,
      METH_VARARGS | METH_KEYWORDS, boundaries_doc},
+    {"vector_to_pixel", (PyCFunction)(void (*)(void))vector_to_pixel,
+     METH_VARARGS | METH_KEYWORDS, vector_to_pixel_doc},
+    {"pixel_to_vector", (PyCFunction)(void (*)(void))pixel_to_vector,
+     METH_VARARGS | METH_KEYWORDS, pixel_to_vector_doc},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef hpgeom_module = {PyModuleDef_HEAD_INIT, "_hpgeom",

@@ -103,6 +103,17 @@ static inline int64_t special_div(int64_t a, int64_t b) {
   return (t << 1) + (a >= b);
 }
 
+static inline double safe_atan2(double y, double x) {
+    return ((x == 0.) && (y == 0.))? 0.0 : atan2(y, x);
+}
+
+static inline double fmodulo(double v1, double v2) {
+    if (v1 >= 0)
+        return (v1 < v2) ? v1 : fmod(v1, v2);
+    double tmp = fmod(v1, v2) + v2;
+    return (tmp==v2) ? 0. : tmp;
+}
+
 healpix_info healpix_info_from_order(int order, enum Scheme scheme) {
   healpix_info hpx;
 
@@ -145,18 +156,16 @@ int64_t ang2pix(healpix_info hpx, double theta, double phi) {
   }
 }
 
-/*
-int64_t vec2pix(int64_t nside_, int is_nest, double x, double y, double z) {
-    double xl = 1./sqrt(x*x + y*y + z*z);
-    double phi = atan2(y, x);
-    double nz = z*xl;
+int64_t vec2pix(healpix_info hpx, vec3 *vec) {
+    double xl = 1./vec3_length(vec);
+    double phi = safe_atan2(vec->y, vec->x);
+    double nz = vec->z*xl;
     if (fabs(nz) > 0.99) {
-        return loc2pix(nside_, is_nest, nz, phi, sqrt(x*x+y*y)*xl, true);
+        return loc2pix(hpx, nz, phi, sqrt(vec->x*vec->x + vec->y*vec->y)*xl, true);
     } else {
-        return loc2pix(nside_, is_nest, nz, phi, 0, false);
+        return loc2pix(hpx, nz, phi, 0, false);
     }
 }
-*/
 
 void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi) {
   double z, sth;
@@ -167,6 +176,24 @@ void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi) {
   } else {
     *theta = acos(z);
   }
+}
+
+vec3 pix2vec(healpix_info hpx, int64_t pix) {
+    double z, phi, sth;
+    bool have_sth;
+    vec3 res;
+    pix2loc(hpx, pix, &z, &phi, &sth, &have_sth);
+    if (have_sth) {
+        res.x = sth*cos(phi);
+        res.y = sth*sin(phi);
+        res.z = z;
+    } else {
+        sth = sqrt((1-z)*(1+z));
+        res.x = sth*cos(phi);
+        res.y = sth*sin(phi);
+        res.z = z;
+    }
+    return res;
 }
 
 void pix2zphi(healpix_info hpx, int64_t pix, double *z, double *phi) {
@@ -197,19 +224,10 @@ int64_t ring2nest(healpix_info hpx, int64_t pix) {
   return xyf2nest(hpx, ix, iy, face_num);
 }
 
-/*
-void pix2vec(int64_t nside_, int is_nest, int64_t pix, double &x, double &y,
-double &z) { double phi, sth; bool have_sth; pix2loc(nside_, is_nest, pix, z,
-&phi, &sth, &have_sth); if (have_sth) { *x = sth*cos(phi); *y = sth*sin(phi); }
-else { sth = sqrt((1.0 - z)*(1.0 + z)); *x = sth*cos(phi); *y = sth*sin(phi);
-    }
-}
-*/
-
 int64_t loc2pix(healpix_info hpx, double z, double phi, double sth,
                 bool have_sth) {
   double za = fabs(z);
-  double tt = fmod(phi * M_2_PI, 4.0); // in [0,4)
+  double tt = fmodulo(phi * M_2_PI, 4.0); // in [0,4)
 
   if (hpx.scheme == RING) {
     if (za <= M_TWOTHIRD) // Equatorial region
@@ -880,36 +898,6 @@ void locToPtg(double z, double phi, double sth, bool have_sth, ptg *p) {
     p->theta = acos(z);
   }
 }
-
-/*
-void boundaries(healpix_info hpx, int64_t pix, size_t step, vec3arr *out, int
-*status, char *err) { *status = 1;
-
-    if (out->size < 4*step) {
-        *status = 0;
-        snprintf(err, ERR_SIZE, "Output vector of insufficient size.");
-    }
-
-    int ix, iy, face;
-    pix2xyf(hpx, pix, &ix, &iy, &face);
-    double dc = 0.5/hpx.nside;
-    double xc = (ix + 0.5)/hpx.nside;
-    double yc = (iy + 0.5)/hpx.nside;
-    double d = 1.0/(step*hpx.nside);
-    for (size_t i=0; i<step; i++) {
-        double z, phi, sth;
-        bool have_sth;
-        xyf2loc(xc+dc-i*d, yc+dc, face, &z, &phi, &sth, &have_sth);
-        locToVec3(z, phi, sth, have_sth, &out[i]);
-        xyf2loc(xc-dc, yc+dc-i*d, face, &z, &phi, &sth, &have_sth);
-        locToVec3(z, phi, sth, have_sth, &out[i+step]);
-        xyf2loc(xc-dc+i*d, yc-dc, face, &z, &phi, &sth, &have_sth);
-        locToVec3(z, phi, sth, have_sth, &out[i+2*step]);
-        xyf2loc(xc+dc, yc-dc+i*d, face, &z, &phi, &sth, &have_sth);
-        locToVec3(z, phi, sth, have_sth, &out[i+3*step]);
-    }
-}
-*/
 
 void boundaries(healpix_info hpx, int64_t pix, size_t step, ptgarr *out,
                 int *status) {
