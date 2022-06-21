@@ -42,7 +42,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
                                 PyObject *kwargs) {
   PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
   PyObject *nside_arr = NULL, *a_arr = NULL, *b_arr = NULL;
-  PyObject *pix_obj = NULL;
+  PyObject *pix_arr = NULL;
   int lonlat = 1;
   int nest = 1;
   int degrees = 1;
@@ -79,11 +79,12 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
     goto fail;
   }
 
-  if ((pixels = (int64_t *)calloc(itr->size, sizeof(int64_t))) == NULL) {
-    PyErr_SetString(PyExc_RuntimeError,
-                    "Could not allocate memory for pixels.");
+  pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
+  if (pix_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output pix array.");
     goto fail;
   }
+  pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
 
   enum Scheme scheme;
   if (nest) {
@@ -127,25 +128,17 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
     PyArray_MultiIter_NEXT(itr);
   }
 
-  pix_obj =
-      PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_INT64, pixels);
-
-  /* do I free the memory from pixels? */
-
   Py_DECREF(nside_arr);
   Py_DECREF(a_arr);
   Py_DECREF(b_arr);
 
-  return pix_obj;
+  return pix_arr;
 
 fail:
-  // free memory from pixels if it's set
-  if (pixels != NULL) {
-    free(pixels);
-  }
   Py_XDECREF(nside_arr);
   Py_XDECREF(a_arr);
   Py_XDECREF(b_arr);
+  Py_XDECREF(pix_arr);
 
   return NULL;
 }
@@ -183,7 +176,7 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
                                 PyObject *kwargs) {
   PyObject *nside_obj = NULL, *pix_obj = NULL;
   PyObject *nside_arr = NULL, *pix_arr = NULL;
-  PyObject *a_obj = NULL, *b_obj = NULL;
+  PyObject *a_arr = NULL, *b_arr = NULL;
   int lonlat = 1;
   int nest = 1;
   int degrees = 1;
@@ -215,16 +208,18 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
     goto fail;
   }
 
-  if ((as = (double *)calloc(itr->size, sizeof(double))) == NULL) {
-    PyErr_SetString(PyExc_RuntimeError,
-                    "Could not allocate memory for a array.");
+  a_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+  if (a_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output a array.");
     goto fail;
   }
-  if ((bs = (double *)calloc(itr->size, sizeof(double))) == NULL) {
-    PyErr_SetString(PyExc_RuntimeError,
-                    "Could not allocate memory for b array.");
+  as = (double *)PyArray_DATA((PyArrayObject *)a_arr);
+  b_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+  if (b_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output b array.");
     goto fail;
   }
+  bs = (double *)PyArray_DATA((PyArrayObject *)b_arr);
 
   enum Scheme scheme;
   if (nest) {
@@ -267,28 +262,20 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
     PyArray_MultiIter_NEXT(itr);
   }
 
-  a_obj = PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_FLOAT64, as);
-  b_obj = PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_FLOAT64, bs);
-
-  /* do I free the memory from as, bs? Or is that grabbed by the object?*/
   Py_DECREF(nside_arr);
   Py_DECREF(pix_arr);
 
   PyObject *retval = PyTuple_New(2);
-  PyTuple_SET_ITEM(retval, 0, a_obj);
-  PyTuple_SET_ITEM(retval, 1, b_obj);
+  PyTuple_SET_ITEM(retval, 0, a_arr);
+  PyTuple_SET_ITEM(retval, 1, b_arr);
 
   return retval;
 
 fail:
-  if (as != NULL) {
-    free(as);
-  }
-  if (bs != NULL) {
-    free(bs);
-  }
   Py_XDECREF(nside_arr);
   Py_XDECREF(pix_arr);
+  Py_XDECREF(a_arr);
+  Py_XDECREF(b_arr);
 
   return NULL;
 }
@@ -452,7 +439,7 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args,
                               PyObject *kwargs) {
   PyObject *nside_obj = NULL, *nest_pix_obj = NULL;
   PyObject *nside_arr = NULL, *nest_pix_arr = NULL;
-  PyObject *ring_pix_obj = NULL;
+  PyObject *ring_pix_arr = NULL;
   static char *kwlist[] = {"nside", "pix", NULL};
 
   int64_t *ring_pix_data = NULL;
@@ -480,11 +467,12 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args,
     goto fail;
   }
 
-  if ((ring_pix_data = (int64_t *)calloc(itr->size, sizeof(int64_t))) == NULL) {
-    PyErr_SetString(PyExc_RuntimeError,
-                    "Could not allocate memory for a array.");
+  ring_pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
+  if (ring_pix_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output pix array.");
     goto fail;
   }
+  ring_pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)ring_pix_arr);
 
   int64_t *nside;
   int64_t *nest_pix;
@@ -510,20 +498,15 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args,
     PyArray_MultiIter_NEXT(itr);
   }
 
-  ring_pix_obj = PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_INT64,
-                                           ring_pix_data);
-
   Py_DECREF(nside_arr);
   Py_DECREF(nest_pix_arr);
 
-  return ring_pix_obj;
+  return ring_pix_arr;
 
 fail:
-  if (ring_pix_data != NULL) {
-    free(ring_pix_data);
-  }
   Py_XDECREF(nside_arr);
   Py_XDECREF(nest_pix_arr);
+  Py_XDECREF(ring_pix_arr);
 
   return NULL;
 }
@@ -549,7 +532,7 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args,
                               PyObject *kwargs) {
   PyObject *nside_obj = NULL, *ring_pix_obj = NULL;
   PyObject *nside_arr = NULL, *ring_pix_arr = NULL;
-  PyObject *nest_pix_obj = NULL;
+  PyObject *nest_pix_arr = NULL;
   static char *kwlist[] = {"nside", "pix", NULL};
 
   int64_t *nest_pix_data = NULL;
@@ -577,11 +560,12 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args,
     goto fail;
   }
 
-  if ((nest_pix_data = (int64_t *)calloc(itr->size, sizeof(int64_t))) == NULL) {
-    PyErr_SetString(PyExc_RuntimeError,
-                    "Could not allocate memory for a array.");
+  nest_pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
+  if (nest_pix_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output pix array.");
     goto fail;
   }
+  nest_pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)nest_pix_arr);
 
   int64_t *nside;
   int64_t *ring_pix;
@@ -607,20 +591,15 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args,
     PyArray_MultiIter_NEXT(itr);
   }
 
-  nest_pix_obj = PyArray_SimpleNewFromData(itr->nd, itr->dimensions, NPY_INT64,
-                                           nest_pix_data);
-
   Py_DECREF(nside_arr);
   Py_DECREF(ring_pix_arr);
 
-  return nest_pix_obj;
+  return nest_pix_arr;
 
 fail:
-  if (nest_pix_data != NULL) {
-    free(nest_pix_data);
-  }
   Py_XDECREF(nside_arr);
   Py_XDECREF(ring_pix_arr);
+  Py_XDECREF(nest_pix_arr);
 
   return NULL;
 }
@@ -664,7 +643,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
                                  PyObject *kwargs) {
   PyObject *nside_obj = NULL, *pix_obj = NULL;
   PyObject *nside_arr = NULL, *pix_arr = NULL;
-  PyObject *a_obj = NULL, *b_obj = NULL;
+  PyObject *a_arr = NULL, *b_arr = NULL;
   int lonlat = 1;
   int nest = 1;
   int degrees = 1;
@@ -707,16 +686,25 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
     goto fail;
   }
 
-  if ((as = (double *)calloc(itr->size * 4 * step, sizeof(double))) == NULL) {
-    PyErr_SetString(PyExc_RuntimeError,
-                    "Could not allocate memory for a array.");
+  int ndims_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
+  if (ndims_pix == 0) {
+    npy_intp dims[1];
+    dims[0] = 4 * step;
+    a_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
+    b_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
+  } else {
+    npy_intp dims[2];
+    dims[0] = PyArray_DIM((PyArrayObject *)pix_arr, 0);
+    dims[1] = 4 * step;
+    a_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
+    b_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
+  }
+  if ((a_arr == NULL) || (b_arr == NULL)) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output a, b arrays.");
     goto fail;
   }
-  if ((bs = (double *)calloc(itr->size * 4 * step, sizeof(double))) == NULL) {
-    PyErr_SetString(PyExc_RuntimeError,
-                    "Could not allocate memory for b array.");
-    goto fail;
-  }
+  as = (double *)PyArray_DATA((PyArrayObject *)a_arr);
+  bs = (double *)PyArray_DATA((PyArrayObject *)b_arr);
 
   enum Scheme scheme;
   if (nest) {
@@ -779,38 +767,20 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
     PyArray_MultiIter_NEXT(itr);
   }
 
-  int ndims_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
-  if (ndims_pix == 0) {
-    npy_intp dims[1];
-    dims[0] = 4 * step;
-    a_obj = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, as);
-    b_obj = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, bs);
-  } else {
-    npy_intp dims[2];
-    dims[0] = PyArray_DIM((PyArrayObject *)pix_arr, 0);
-    dims[1] = 4 * step;
-    a_obj = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT64, as);
-    b_obj = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT64, bs);
-  }
-
   Py_DECREF(nside_arr);
   Py_DECREF(pix_arr);
 
   PyObject *retval = PyTuple_New(2);
-  PyTuple_SET_ITEM(retval, 0, a_obj);
-  PyTuple_SET_ITEM(retval, 1, b_obj);
+  PyTuple_SET_ITEM(retval, 0, a_arr);
+  PyTuple_SET_ITEM(retval, 1, b_arr);
 
   return retval;
 
 fail:
-  if (as != NULL) {
-    free(as);
-  }
-  if (bs != NULL) {
-    free(bs);
-  }
   Py_XDECREF(nside_arr);
   Py_XDECREF(pix_arr);
+  Py_XDECREF(a_arr);
+  Py_XDECREF(b_arr);
 
   return NULL;
 }
