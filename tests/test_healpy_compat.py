@@ -225,6 +225,53 @@ def test_vec2ang():
     np.testing.assert_array_almost_equal(lat_hpgeom, lat_healpy)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_vec2pix():
+    """Test hpgeom.healpy_compat.vec2pix."""
+    np.random.seed(12345)
+
+    nside = 2048
+
+    vec = np.zeros((1000, 3))
+    vec[:, 0] = np.random.uniform(-1, 1, 1000)
+    vec[:, 1] = np.random.uniform(-1, 1, 1000)
+    vec[:, 2] = np.random.uniform(-1, 1, 1000)
+
+    pix_hpgeom = hpc.vec2pix(nside, vec[:, 0], vec[:, 1], vec[:, 2])
+    pix_healpy = hp.vec2pix(nside, vec[:, 0], vec[:, 1], vec[:, 2])
+
+    np.testing.assert_array_equal(pix_hpgeom, pix_healpy)
+
+    pix_hpgeom = hpc.vec2pix(nside, vec[:, 0], vec[:, 1], vec[:, 2], nest=True)
+    pix_healpy = hp.vec2pix(nside, vec[:, 0], vec[:, 1], vec[:, 2], nest=True)
+
+    np.testing.assert_array_equal(pix_hpgeom, pix_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_pix2vec():
+    """Test hpgeom.healpy_compat.pix2vec."""
+    np.random.seed(12345)
+
+    nside = 2048
+
+    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1000)
+
+    x_hpgeom, y_hpgeom, z_hpgeom = hpc.pix2vec(nside, pix)
+    x_healpy, y_healpy, z_healpy = hp.pix2vec(nside, pix)
+
+    np.testing.assert_array_almost_equal(x_hpgeom, x_healpy)
+    np.testing.assert_array_almost_equal(y_hpgeom, y_healpy)
+    np.testing.assert_array_almost_equal(z_hpgeom, z_healpy)
+
+    x_hpgeom, y_hpgeom, z_hpgeom = hpc.pix2vec(nside, pix, nest=True)
+    x_healpy, y_healpy, z_healpy = hp.pix2vec(nside, pix, nest=True)
+
+    np.testing.assert_array_almost_equal(x_hpgeom, x_healpy)
+    np.testing.assert_array_almost_equal(y_hpgeom, y_healpy)
+    np.testing.assert_array_almost_equal(z_hpgeom, z_healpy)
+
+
 def test_boundaries():
     """Test hpgeom.healpy_compat.boundaries."""
     # Test single pixel.

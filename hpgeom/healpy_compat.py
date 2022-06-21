@@ -11,6 +11,8 @@ from .hpgeom import (
     order_to_nside,
     angle_to_vector,
     vector_to_angle,
+    vector_to_pixel,
+    pixel_to_vector,
 )
 
 from .hpgeom import boundaries as hpgeom_boundaries
@@ -29,6 +31,8 @@ __all__ = [
     'order2nside',
     'ang2vec',
     'vec2ang',
+    'pix2vec',
+    'vec2pix',
     'boundaries',
 ]
 
@@ -329,9 +333,9 @@ def boundaries(nside, pix, step=1, nest=False):
     nside : `int` or `np.ndarray` (N,)
         HEALPix nside.  Must be power of 2 for nest ordering.
     pix : `int` or `np.ndarray` (N,)
-        Pixel number(s).\
+        Pixel number(s).
     step : `int`, optional
-        Number of steps for each side of the pixel.\
+        Number of steps for each side of the pixel.
     nest : `bool`, optional
         Use nest ordering scheme?
 
@@ -348,3 +352,51 @@ def boundaries(nside, pix, step=1, nest=False):
     else:
         # Multiple pixels
         return angle_to_vector(theta, phi).transpose([1, 2, 0])
+
+
+def pix2vec(nside, pix, nest=False):
+    """Convert pixels to cartesian vectors (x, y, z).
+
+    Parameters
+    ----------
+    nside : `int` or `np.ndarray` (N,)
+        HEALPix nside.  Must be power of 2 for nest ordering.
+    pix : `int` or `np.ndarray` (N,)
+        Pixel number(s).
+    nest : `bool`, optional
+        Use nest ordering scheme?
+
+    Returns
+    -------
+    x : `np.ndarray` (N,)
+        x coordinates of vectors.
+    y : `np.ndarray` (N,)
+        y coordinates of vectors.
+    z : `np.ndarray` (N,)
+        z coordinates of vectors.
+    """
+    return pixel_to_vector(nside, pix, nest=nest)
+
+
+def vec2pix(nside, x, y, z, nest=False):
+    """Convert cartesian vectors (x, y, z) to pixels.
+
+    Parameters
+    ----------
+    nside : `int` or `np.ndarray` (N,)
+        HEALPix nside.  Must be power of 2 for nest ordering.
+    x : `np.ndarray` (N,)
+        x coordinates of vectors.
+    y : `np.ndarray` (N,)
+        y coordinates of vectors.
+    z : `np.ndarray` (N,)
+        z coordinates of vectors.
+    nest : `bool`, optional
+        Use nest ordering scheme?
+
+    Returns
+    -------
+    pix : `int` or `np.ndarray` (N,)
+        Pixel number(s).
+    """
+    return vector_to_pixel(nside, x, y, z, nest=nest)
