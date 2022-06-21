@@ -107,8 +107,8 @@ void i64stack_clear(struct i64stack *stack) {
   stack->size = 0;
   stack->allocated_size = 0;
   if (stack->data != NULL) {
-      free(stack->data);
-      stack->data = NULL;
+    free(stack->data);
+    stack->data = NULL;
   }
 }
 
@@ -247,100 +247,100 @@ void i64rangeset_fill_buffer(struct i64rangeset *rangeset, size_t npix,
 }
 
 void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod) {
-    prod->x = v1->y*v2->z - v1->z*v2->y;
-    prod->y = v1->z*v2->x - v1->x*v2->z;
-    prod->z = v1->x*v2->y - v1->y*v2->x;
+  prod->x = v1->y * v2->z - v1->z * v2->y;
+  prod->y = v1->z * v2->x - v1->x * v2->z;
+  prod->z = v1->x * v2->y - v1->y * v2->x;
 }
 
 double vec3_dotprod(vec3 *v1, vec3 *v2) {
-    return v1->x*v2->x + v1->y*v2->y + v1->z*v2->z;
+  return v1->x * v2->x + v1->y * v2->y + v1->z * v2->z;
 }
 
 double vec3_length(vec3 *v) {
-    return sqrt(v->x*v->x + v->y*v->y + v->z*v->z);
+  return sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 }
 
 void vec3_add(vec3 *v1, vec3 *v2, vec3 *sum) {
-    sum->x = v1->x + v2->x;
-    sum->y = v1->y + v2->y;
-    sum->z = v1->z + v2->z;
+  sum->x = v1->x + v2->x;
+  sum->y = v1->y + v2->y;
+  sum->z = v1->z + v2->z;
 }
 
 void vec3_normalize(vec3 *v) {
-    double norm = 1./vec3_length(v);
-    v->x *= norm;
-    v->y *= norm;
-    v->z *= norm;
+  double norm = 1. / vec3_length(v);
+  v->x *= norm;
+  v->y *= norm;
+  v->z *= norm;
 }
 
 void vec3_flip(vec3 *v) {
-    v->x *= -1;
-    v->y *= -1;
-    v->z *= -1;
+  v->x *= -1;
+  v->y *= -1;
+  v->z *= -1;
 }
 
 vec3arr *vec3arr_new(size_t num, int *status, char *err) {
-    *status = 1;
-    vec3arr *arr = malloc(sizeof(vec3arr));
-    if (arr == NULL) {
-        *status = 0;
-        snprintf(err, ERR_SIZE, "Could not allocate vec3arr");
-        return NULL;
-    }
+  *status = 1;
+  vec3arr *arr = malloc(sizeof(vec3arr));
+  if (arr == NULL) {
+    *status = 0;
+    snprintf(err, ERR_SIZE, "Could not allocate vec3arr");
+    return NULL;
+  }
 
-    arr->size = num;
-    arr->data = calloc(num, sizeof(vec3));
-    if (arr->data == NULL) {
-        *status = 0;
-        snprintf(err, ERR_SIZE, "Could not allocate data in vec3arr");
-        return NULL;
-    }
+  arr->size = num;
+  arr->data = calloc(num, sizeof(vec3));
+  if (arr->data == NULL) {
+    *status = 0;
+    snprintf(err, ERR_SIZE, "Could not allocate data in vec3arr");
+    return NULL;
+  }
 
-    return arr;
+  return arr;
 }
 
 vec3arr *vec3arr_delete(vec3arr *arr) {
-    if (arr != NULL) {
-        arr->size = 0;
-        if (arr->data != NULL) {
-            free(arr->data);
-            arr->data = NULL;
-        }
-        free(arr);
+  if (arr != NULL) {
+    arr->size = 0;
+    if (arr->data != NULL) {
+      free(arr->data);
+      arr->data = NULL;
     }
-    return NULL;
+    free(arr);
+  }
+  return NULL;
 }
 
 ptgarr *ptgarr_new(size_t num, int *status, char *err) {
-    *status = 1;
-    ptgarr *arr = malloc(sizeof(ptgarr));
-    if (arr == NULL) {
-        *status = 0;
-        snprintf(err, ERR_SIZE, "Could not allocate ptgarr");
-        return NULL;
-    }
+  *status = 1;
+  ptgarr *arr = malloc(sizeof(ptgarr));
+  if (arr == NULL) {
+    *status = 0;
+    snprintf(err, ERR_SIZE, "Could not allocate ptgarr");
+    return NULL;
+  }
 
-    arr->size = num;
-    arr->data = calloc(num, sizeof(vec3));
-    if (arr->data == NULL) {
-        *status = 0;
-        snprintf(err, ERR_SIZE, "Could not allocate data in ptgarr");
-        return NULL;
-    }
+  arr->size = num;
+  arr->data = calloc(num, sizeof(vec3));
+  if (arr->data == NULL) {
+    *status = 0;
+    snprintf(err, ERR_SIZE, "Could not allocate data in ptgarr");
+    return NULL;
+  }
 
-    return arr;
+  return arr;
 }
 
 ptgarr *ptgarr_delete(ptgarr *arr) {
-    if (arr != NULL) {
-        arr->size = 0;
-        if (arr->data != NULL) {
-            free(arr->data);
-            arr->data = NULL;
-        }
-        free(arr);
+  if (arr != NULL) {
+    arr->size = 0;
+    if (arr->data != NULL) {
+      free(arr->data);
+      arr->data = NULL;
     }
-    return NULL;
+    free(arr);
+  }
+  return NULL;
 }
 
 /*

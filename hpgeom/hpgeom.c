@@ -9,6 +9,35 @@
 #include "hpgeom_stack.h"
 #include "hpgeom_utils.h"
 
+PyDoc_STRVAR(
+    angle_to_pixel_doc,
+    "angle_to_pixel(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
+    "--\n\n"
+    "Convert angles to pixels.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "nside : `int`\n"
+    "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
+    "a : `np.ndarray` (N,)\n"
+    "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
+    "and degrees=True)\n"
+    "b : `np.ndarray` (N,)\n"
+    "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
+    "and degrees=True)\n"
+    "nest : `bool`, optional\n"
+    "    Use nest ordering scheme?\n"
+    "lonlat : `bool`, optional\n"
+    "    Use longitude/latitude instead of longitude/co-latitude (radians).\n"
+    "degrees : `bool`, optional\n"
+    "    If lonlat is True then this sets if the units are degrees or "
+    "radians.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "pix : `np.ndarray` (N,)\n"
+    "    HEALPix pixel numbers.\n");
+
 static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
                                 PyObject *kwargs) {
   PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
@@ -120,6 +149,35 @@ fail:
 
   return NULL;
 }
+
+PyDoc_STRVAR(
+    pixel_to_angle_doc,
+    "pixel_to_angle(nside, pix, nest=True, lonlat=True, degrees=True)\n"
+    "--\n\n"
+    "Convert pixels to angles.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "nside : `int`\n"
+    "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
+    "pix : `np.ndarray` (N,)\n"
+    "    Pixel numbers\n"
+    "nest : `bool`, optional\n"
+    "    Use nest ordering scheme?\n"
+    "lonlat : `bool`, optional\n"
+    "    Output longitude/latitude instead of longitude/co-latitude "
+    "(radians).\n"
+    "degrees : `bool`, optional\n"
+    "    If lonlat is True then this sets if the units are degrees or "
+    "radians.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "a : `np.ndarray` (N,)\n"
+    "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
+    "and degrees=True)\n"
+    "b : `np.ndarray` (N,)\n"
+    "    Latitude or phi\n");
 
 static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
                                 PyObject *kwargs) {
@@ -235,6 +293,47 @@ fail:
   return NULL;
 }
 
+PyDoc_STRVAR(
+    query_circle_doc,
+    "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
+    "lonlat=True, degrees=True)\n"
+    "--\n\n"
+    "Returns pixels whose centers lie within the circle defined by a, b\n"
+    "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
+    "degrees if lonlat=True and degrees=True, otherwise radians) if\n"
+    "inclusive is False, or which overlap with this circle (if inclusive\n"
+    "is True)."
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "nside : `int`\n"
+    "    HEALPix nside. Must be power of 2 for nest ordering.\n"
+    "a : `float`\n"
+    "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
+    "and degrees=True)\n"
+    "b : `float`\n"
+    "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
+    "and degrees=True)\n"
+    "radius : `float`\n"
+    "    The radius (in radians) of the circle.\n"
+    "inclusive : `bool`, optional\n"
+    "    If False, return the exact set of pixels whose pixel centers lie\n"
+    "    within the circle. If True, return all pixels that overlap with\n"
+    "    the circle. This is an approximation and may return a few extra\n"
+    "    pixels.\n"
+    "fact : `int`, optional\n"
+    "    Only used when inclusive=True. The overlap test is performed at\n"
+    "    a resolution fact*nside. For nest ordering, fact must be a power\n"
+    "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n"
+    "    fact may be any positive integer.\n"
+    "nest : `bool`, optional\n"
+    "    If True, use nest ordering.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "pixels : `np.ndarray` (N,)\n"
+    "    Array of pixels (`np.int64`) which cover the circle.\n");
+
 static PyObject *query_circle(PyObject *dummy, PyObject *args,
                               PyObject *kwargs) {
   int64_t nside;
@@ -332,6 +431,23 @@ fail:
   return NULL;
 }
 
+PyDoc_STRVAR(nest_to_ring_doc,
+             "nest_to_ring(nside, pix)\n"
+             "--\n\n"
+             "Convert pixel number from nest to ring ordering.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "nside : `int`, scalar\n"
+             "    The healpix nside parameter.  Must be power of 2.\n"
+             "pix : `int` or `np.ndarray` (N,)\n"
+             "    The pixel numbers in nest scheme.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "pix : `int` or `np.ndarray` (N,)\n"
+             "    The pixel numbers in ring scheme.\n");
+
 static PyObject *nest_to_ring(PyObject *dummy, PyObject *args,
                               PyObject *kwargs) {
   PyObject *nside_obj = NULL, *nest_pix_obj = NULL;
@@ -411,6 +527,23 @@ fail:
 
   return NULL;
 }
+
+PyDoc_STRVAR(ring_to_nest_doc,
+             "ring_to_nest(nside, pix)\n"
+             "--\n\n"
+             "Convert pixel number from ring to nest ordering.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "nside : `int`, scalar\n"
+             "    The healpix nside parameter.  Must be power of 2.\n"
+             "pix : `int` or `np.ndarray` (N,)\n"
+             "    The pixel numbers in ring scheme.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "pix : `int` or `np.ndarray` (N,)\n"
+             "    The pixel numbers in nest scheme.\n");
 
 static PyObject *ring_to_nest(PyObject *dummy, PyObject *args,
                               PyObject *kwargs) {
@@ -493,233 +626,23 @@ fail:
 }
 
 PyDoc_STRVAR(
-             boundaries_doc,
-             "boundaries(nside, pix, step=1, nest=True, lonlat=True, degrees=True)\n"
-             "--\n\n"
-             "Returns an array containing lon/lat or colatitude/longitude to the\n"
-             "boundary of the given pixel(s).\n"
-             "\n"
-             "The returned arrays have the shape (4*step) or (npixel, 4*step).\n"
-             "In order to get coordinates for just the corners, specify step=1.\n"
-             "\n"
-             "Parameters"
-             "----------"
-             "nside : `int` or `np.ndarray` (N,)\n"
-             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-             "pix : `int` or `np.ndarray` (N,)\n"
-             "    Pixel number(s).\n"
-             "step : `int`, optional\n"
-             "    Number of steps for each side of the pixel.\n"
-             "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?\n"
-             "lonlat : `bool`, optional\n"
-             "    Output longitude/latitude instead of longitude/co-latitude "
-             "(radians).\n"
-             "degrees : `bool`, optional\n"
-             "    If lonlat is True then this sets if the units are degrees or "
-             "radians.\n"
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "a : `np.ndarray` (4*step,) or (N,4*step,)\n"
-             "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "b : `np.ndarray` (step,) or (N,4*step,)\n"
-             "    Latitude or phi\n");
-
-static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
-    PyObject *nside_obj = NULL, *pix_obj = NULL;
-    PyObject *nside_arr = NULL, *pix_arr = NULL;
-    PyObject *a_obj = NULL, *b_obj = NULL;
-    int lonlat = 1;
-    int nest = 1;
-    int degrees = 1;
-    long step = 1;
-    static char *kwlist[] = {"nside", "pix", "step", "lonlat", "nest", "degrees", NULL};
-
-    double *as = NULL, *bs = NULL;
-    healpix_info hpx;
-    int status;
-    char err[ERR_SIZE];
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Lppp", kwlist, &nside_obj,
-                                     &pix_obj, &step, &lonlat, &nest, &degrees))
-        goto fail;
-    nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
-                                 NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL)
-        goto fail;
-    pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64,
-                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (pix_arr == NULL)
-        goto fail;
-
-    if (step < 1) {
-        PyErr_SetString(PyExc_ValueError,
-                        "step must be positive.");
-        goto fail;
-    }
-
-    if (PyArray_NDIM((PyArrayObject *) pix_arr) > 1) {
-        PyErr_SetString(PyExc_ValueError, "pix array must be at most 1D.");
-        goto fail;
-    }
-
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
-    if (itr == NULL) {
-        PyErr_SetString(PyExc_ValueError,
-                        "nside, pix arrays could not be broadcast together.");
-        goto fail;
-    }
-
-    if ((as = (double *)calloc(itr->size*4*step, sizeof(double))) == NULL) {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "Could not allocate memory for a array.");
-        goto fail;
-    }
-    if ((bs = (double *)calloc(itr->size*4*step, sizeof(double))) == NULL) {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "Could not allocate memory for b array.");
-        goto fail;
-    }
-
-    enum Scheme scheme;
-    if (nest) {
-        scheme = NEST;
-    } else {
-        scheme = RING;
-    }
-
-    ptgarr *ptg_arr = ptgarr_new(4*step, &status, err);
-    if (!status) {
-        PyErr_SetString(PyExc_RuntimeError, err);
-        goto fail;
-    }
-
-    int64_t *nside;
-    int64_t *pix;
-    int64_t last_nside = -1;
-    bool started = false;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
-
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
-            }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
-
-        if (!hpgeom_check_pixel(hpx, *pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-
-        boundaries(hpx, *pix, step, ptg_arr, &status);
-        if (!status) {
-            PyErr_SetString(PyExc_RuntimeError, "Fatal programming error in boundaries.");
-            goto fail;
-        }
-
-        size_t index;
-        for (size_t i=0; i<ptg_arr->size; i++) {
-            index = ptg_arr->size*itr->index + i;
-            if (lonlat) {
-                if (!hpgeom_thetaphi_to_lonlat(ptg_arr->data[i].theta, ptg_arr->data[i].phi,
-                                               &as[index], &bs[index], (bool)degrees, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
-                }
-            } else {
-                as[index] = ptg_arr->data[i].theta;
-                bs[index] = ptg_arr->data[i].phi;
-            }
-        }
-
-        PyArray_MultiIter_NEXT(itr);
-    }
-
-    int ndims_pix = PyArray_NDIM((PyArrayObject *) pix_arr);
-    if (ndims_pix == 0) {
-        npy_intp dims[1];
-        dims[0] = 4*step;
-        a_obj = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, as);
-        b_obj = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, bs);
-    } else {
-        npy_intp dims[2];
-        dims[0] = PyArray_DIM((PyArrayObject *) pix_arr, 0);
-        dims[1] = 4*step;
-        a_obj = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT64, as);
-        b_obj = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT64, bs);
-    }
-
-    Py_DECREF(nside_arr);
-    Py_DECREF(pix_arr);
-
-    PyObject *retval = PyTuple_New(2);
-    PyTuple_SET_ITEM(retval, 0, a_obj);
-    PyTuple_SET_ITEM(retval, 1, b_obj);
-
-    return retval;
-
- fail:
-    if (as != NULL) {
-        free(as);
-    }
-    if (bs != NULL) {
-        free(bs);
-    }
-    Py_XDECREF(nside_arr);
-    Py_XDECREF(pix_arr);
-
-    return NULL;
-}
-
-PyDoc_STRVAR(
-    angle_to_pixel_doc,
-    "angle_to_pixel(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
+    boundaries_doc,
+    "boundaries(nside, pix, step=1, nest=True, lonlat=True, degrees=True)\n"
     "--\n\n"
-    "Convert angles to pixels.\n"
+    "Returns an array containing lon/lat or colatitude/longitude to the\n"
+    "boundary of the given pixel(s).\n"
     "\n"
-    "Parameters\n"
-    "----------\n"
-    "nside : `int`\n"
+    "The returned arrays have the shape (4*step) or (npixel, 4*step).\n"
+    "In order to get coordinates for just the corners, specify step=1.\n"
+    "\n"
+    "Parameters"
+    "----------"
+    "nside : `int` or `np.ndarray` (N,)\n"
     "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-    "a : `np.ndarray` (N,)\n"
-    "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-    "and degrees=True)\n"
-    "b : `np.ndarray` (N,)\n"
-    "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
-    "and degrees=True)\n"
-    "nest : `bool`, optional\n"
-    "    Use nest ordering scheme?\n"
-    "lonlat : `bool`, optional\n"
-    "    Use longitude/latitude instead of longitude/co-latitude (radians).\n"
-    "degrees : `bool`, optional\n"
-    "    If lonlat is True then this sets if the units are degrees or "
-    "radians.\n"
-    "\n"
-    "Returns\n"
-    "-------\n"
-    "pix : `np.ndarray` (N,)\n"
-    "    HEALPix pixel numbers.\n");
-
-PyDoc_STRVAR(
-    pixel_to_angle_doc,
-    "pixel_to_angle(nside, pix, nest=True, lonlat=True, degrees=True)\n"
-    "--\n\n"
-    "Convert pixels to angles.\n"
-    "\n"
-    "Parameters\n"
-    "----------\n"
-    "nside : `int`\n"
-    "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-    "pix : `np.ndarray` (N,)\n"
-    "    Pixel numbers\n"
+    "pix : `int` or `np.ndarray` (N,)\n"
+    "    Pixel number(s).\n"
+    "step : `int`, optional\n"
+    "    Number of steps for each side of the pixel.\n"
     "nest : `bool`, optional\n"
     "    Use nest ordering scheme?\n"
     "lonlat : `bool`, optional\n"
@@ -731,86 +654,166 @@ PyDoc_STRVAR(
     "\n"
     "Returns\n"
     "-------\n"
-    "a : `np.ndarray` (N,)\n"
+    "a : `np.ndarray` (4*step,) or (N,4*step,)\n"
     "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
     "and degrees=True)\n"
-    "b : `np.ndarray` (N,)\n"
+    "b : `np.ndarray` (step,) or (N,4*step,)\n"
     "    Latitude or phi\n");
 
-PyDoc_STRVAR(
-    query_circle_doc,
-    "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
-    "lonlat=True, degrees=True)\n"
-    "--\n\n"
-    "Returns pixels whose centers lie within the circle defined by a, b\n"
-    "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
-    "degrees if lonlat=True and degrees=True, otherwise radians) if\n"
-    "inclusive is False, or which overlap with this circle (if inclusive\n"
-    "is True)."
-    "\n"
-    "Parameters\n"
-    "----------\n"
-    "nside : `int`\n"
-    "    HEALPix nside. Must be power of 2 for nest ordering.\n"
-    "a : `float`\n"
-    "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-    "and degrees=True)\n"
-    "b : `float`\n"
-    "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
-    "and degrees=True)\n"
-    "radius : `float`\n"
-    "    The radius (in radians) of the circle.\n"
-    "inclusive : `bool`, optional\n"
-    "    If False, return the exact set of pixels whose pixel centers lie\n"
-    "    within the circle. If True, return all pixels that overlap with\n"
-    "    the circle. This is an approximation and may return a few extra\n"
-    "    pixels.\n"
-    "fact : `int`, optional\n"
-    "    Only used when inclusive=True. The overlap test is performed at\n"
-    "    a resolution fact*nside. For nest ordering, fact must be a power\n"
-    "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n"
-    "    fact may be any positive integer.\n"
-    "nest : `bool`, optional\n"
-    "    If True, use nest ordering.\n"
-    "\n"
-    "Returns\n"
-    "-------\n"
-    "pixels : `np.ndarray` (N,)\n"
-    "    Array of pixels (`np.int64`) which cover the circle.\n");
+static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
+                                 PyObject *kwargs) {
+  PyObject *nside_obj = NULL, *pix_obj = NULL;
+  PyObject *nside_arr = NULL, *pix_arr = NULL;
+  PyObject *a_obj = NULL, *b_obj = NULL;
+  int lonlat = 1;
+  int nest = 1;
+  int degrees = 1;
+  long step = 1;
+  static char *kwlist[] = {"nside", "pix",     "step", "lonlat",
+                           "nest",  "degrees", NULL};
 
-PyDoc_STRVAR(nest_to_ring_doc,
-             "nest_to_ring(nside, pix)\n"
-             "--\n\n"
-             "Convert pixel number from nest to ring ordering.\n"
-             "\n"
-             "Parameters\n"
-             "----------\n"
-             "nside : `int`, scalar\n"
-             "    The healpix nside parameter.  Must be power of 2.\n"
-             "pix : `int` or `np.ndarray` (N,)\n"
-             "    The pixel numbers in nest scheme.\n"
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "pix : `int` or `np.ndarray` (N,)\n"
-             "    The pixel numbers in ring scheme.\n");
+  double *as = NULL, *bs = NULL;
+  healpix_info hpx;
+  int status;
+  char err[ERR_SIZE];
 
-PyDoc_STRVAR(ring_to_nest_doc,
-             "ring_to_nest(nside, pix)\n"
-             "--\n\n"
-             "Convert pixel number from ring to nest ordering.\n"
-             "\n"
-             "Parameters\n"
-             "----------\n"
-             "nside : `int`, scalar\n"
-             "    The healpix nside parameter.  Must be power of 2.\n"
-             "pix : `int` or `np.ndarray` (N,)\n"
-             "    The pixel numbers in ring scheme.\n"
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "pix : `int` or `np.ndarray` (N,)\n"
-             "    The pixel numbers in nest scheme.\n");
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Lppp", kwlist, &nside_obj,
+                                   &pix_obj, &step, &lonlat, &nest, &degrees))
+    goto fail;
+  nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (nside_arr == NULL)
+    goto fail;
+  pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64,
+                             NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (pix_arr == NULL)
+    goto fail;
+
+  if (step < 1) {
+    PyErr_SetString(PyExc_ValueError, "step must be positive.");
+    goto fail;
+  }
+
+  if (PyArray_NDIM((PyArrayObject *)pix_arr) > 1) {
+    PyErr_SetString(PyExc_ValueError, "pix array must be at most 1D.");
+    goto fail;
+  }
+
+  PyArrayMultiIterObject *itr =
+      (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+  if (itr == NULL) {
+    PyErr_SetString(PyExc_ValueError,
+                    "nside, pix arrays could not be broadcast together.");
+    goto fail;
+  }
+
+  if ((as = (double *)calloc(itr->size * 4 * step, sizeof(double))) == NULL) {
+    PyErr_SetString(PyExc_RuntimeError,
+                    "Could not allocate memory for a array.");
+    goto fail;
+  }
+  if ((bs = (double *)calloc(itr->size * 4 * step, sizeof(double))) == NULL) {
+    PyErr_SetString(PyExc_RuntimeError,
+                    "Could not allocate memory for b array.");
+    goto fail;
+  }
+
+  enum Scheme scheme;
+  if (nest) {
+    scheme = NEST;
+  } else {
+    scheme = RING;
+  }
+
+  ptgarr *ptg_arr = ptgarr_new(4 * step, &status, err);
+  if (!status) {
+    PyErr_SetString(PyExc_RuntimeError, err);
+    goto fail;
+  }
+
+  int64_t *nside;
+  int64_t *pix;
+  int64_t last_nside = -1;
+  bool started = false;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+
+    if ((!started) || (*nside != last_nside)) {
+      if (!hpgeom_check_nside(*nside, scheme, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+      }
+      hpx = healpix_info_from_nside(*nside, scheme);
+      started = true;
+    }
+
+    if (!hpgeom_check_pixel(hpx, *pix, err)) {
+      PyErr_SetString(PyExc_ValueError, err);
+      goto fail;
+    }
+
+    boundaries(hpx, *pix, step, ptg_arr, &status);
+    if (!status) {
+      PyErr_SetString(PyExc_RuntimeError,
+                      "Fatal programming error in boundaries.");
+      goto fail;
+    }
+
+    size_t index;
+    for (size_t i = 0; i < ptg_arr->size; i++) {
+      index = ptg_arr->size * itr->index + i;
+      if (lonlat) {
+        if (!hpgeom_thetaphi_to_lonlat(ptg_arr->data[i].theta,
+                                       ptg_arr->data[i].phi, &as[index],
+                                       &bs[index], (bool)degrees, err)) {
+          PyErr_SetString(PyExc_ValueError, err);
+          goto fail;
+        }
+      } else {
+        as[index] = ptg_arr->data[i].theta;
+        bs[index] = ptg_arr->data[i].phi;
+      }
+    }
+
+    PyArray_MultiIter_NEXT(itr);
+  }
+
+  int ndims_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
+  if (ndims_pix == 0) {
+    npy_intp dims[1];
+    dims[0] = 4 * step;
+    a_obj = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, as);
+    b_obj = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, bs);
+  } else {
+    npy_intp dims[2];
+    dims[0] = PyArray_DIM((PyArrayObject *)pix_arr, 0);
+    dims[1] = 4 * step;
+    a_obj = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT64, as);
+    b_obj = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT64, bs);
+  }
+
+  Py_DECREF(nside_arr);
+  Py_DECREF(pix_arr);
+
+  PyObject *retval = PyTuple_New(2);
+  PyTuple_SET_ITEM(retval, 0, a_obj);
+  PyTuple_SET_ITEM(retval, 1, b_obj);
+
+  return retval;
+
+fail:
+  if (as != NULL) {
+    free(as);
+  }
+  if (bs != NULL) {
+    free(bs);
+  }
+  Py_XDECREF(nside_arr);
+  Py_XDECREF(pix_arr);
+
+  return NULL;
+}
 
 static PyMethodDef hpgeom_methods[] = {
     {"angle_to_pixel", (PyCFunction)(void (*)(void))angle_to_pixel,

@@ -93,9 +93,11 @@ void check_pixel_nest(int o, int order_, int omax, int zone,
 void query_disc(healpix_info hpx, double theta, double phi, double radius,
                 int fact, struct i64rangeset *pixset, int *status, char *err);
 
-void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth, bool *have_sth);
+void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
+             bool *have_sth);
 void locToVec3(double z, double phi, double sth, bool have_sth, vec3 *vec);
 // void boundaries(healpix_info hpx, int64_t pix, size_t step, vec3 *out);
-void boundaries(healpix_info hpx, int64_t pix, size_t step, ptgarr *out, int *status);
+void boundaries(healpix_info hpx, int64_t pix, size_t step, ptgarr *out,
+                int *status);
 
 #endif

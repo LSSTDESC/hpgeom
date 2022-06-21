@@ -47,28 +47,26 @@ typedef struct i64rangeset {
 } i64rangeset;
 
 typedef struct ptg {
-    double theta, phi;
+  double theta, phi;
 } ptg;
 
 typedef struct ptgarr {
-    size_t size;
-    ptg *data;
+  size_t size;
+  ptg *data;
 } ptgarr;
 
 typedef struct vec3 {
-    double x, y, z;
+  double x, y, z;
 } vec3;
 
 typedef struct vec3arr {
-    size_t size;
-    vec3 *data;
+  size_t size;
+  vec3 *data;
 } vec3arr;
 
 i64stack *i64stack_new(size_t num, int *status, char *err);
-void i64stack_realloc(i64stack *stack, size_t newsize, int *status,
-                      char *err);
-void i64stack_resize(i64stack *stack, size_t newsize, int *status,
-                     char *err);
+void i64stack_realloc(i64stack *stack, size_t newsize, int *status, char *err);
+void i64stack_resize(i64stack *stack, size_t newsize, int *status, char *err);
 void i64stack_clear(i64stack *stack);
 i64stack *i64stack_delete(i64stack *stack);
 void i64stack_push(i64stack *stack, int64_t val, int *status, char *err);
@@ -76,16 +74,14 @@ void i64stack_push(i64stack *stack, int64_t val, int *status, char *err);
 i64rangeset *i64rangeset_new(int *status, char *err);
 void i64rangeset_append(i64rangeset *rangeset, int64_t v1, int64_t v2,
                         int *status, char *err);
-void i64rangeset_append_single(i64rangeset *rangeset, int64_t v1,
-                               int *status, char *err);
+void i64rangeset_append_single(i64rangeset *rangeset, int64_t v1, int *status,
+                               char *err);
 void i64rangeset_clear(i64rangeset *rangeset, int *status, char *err);
-void i64rangeset_append_i64rangeset(i64rangeset *rangeset,
-                                    i64rangeset *other, int *status,
-                                    char *err);
+void i64rangeset_append_i64rangeset(i64rangeset *rangeset, i64rangeset *other,
+                                    int *status, char *err);
 i64rangeset *i64rangeset_delete(i64rangeset *rangeset);
 size_t i64rangeset_npix(i64rangeset *rangeset);
-void i64rangeset_fill_buffer(i64rangeset *rangeset, size_t npix,
-                             int64_t *buf);
+void i64rangeset_fill_buffer(i64rangeset *rangeset, size_t npix, int64_t *buf);
 
 void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod);
 double vec3_dotprod(vec3 *v1, vec3 *v2);
