@@ -179,3 +179,83 @@ def test_order2nside():
     nside_healpy = hp.order2nside(10)
 
     assert (nside_hpcompat == nside_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_ang2vec():
+    """Test hpgeom.healpy_compat.ang2vec."""
+    np.random.seed(12345)
+
+    lon = np.random.uniform(0, 360.0, 1000)
+    lat = np.random.uniform(-90.0, 90.0, 1000)
+
+    vec_hpgeom = hpc.ang2vec(lon, lat, lonlat=True)
+    vec_healpy = hp.ang2vec(lon, lat, lonlat=True)
+
+    np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
+
+    theta, phi = hpgeom.lonlat_to_thetaphi(lon, lat)
+
+    vec_hpgeom = hpc.ang2vec(theta, phi)
+    vec_healpy = hp.ang2vec(theta, phi)
+
+    np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_vec2ang():
+    """Test hpgeom.healpy_compat.vec2ang."""
+    np.random.seed(12345)
+
+    vec = np.zeros((1000, 3))
+    vec[:, 0] = np.random.uniform(-1, 1, 1000)
+    vec[:, 1] = np.random.uniform(-1, 1, 1000)
+    vec[:, 2] = np.random.uniform(-1, 1, 1000)
+
+    theta_hpgeom, phi_hpgeom = hpc.vec2ang(vec)
+    theta_healpy, phi_healpy = hp.vec2ang(vec)
+
+    np.testing.assert_array_almost_equal(theta_hpgeom, theta_healpy)
+    np.testing.assert_array_almost_equal(phi_hpgeom, phi_healpy)
+
+    lon_hpgeom, lat_hpgeom = hpc.vec2ang(vec, lonlat=True)
+    lon_healpy, lat_healpy = hp.vec2ang(vec, lonlat=True)
+
+    np.testing.assert_array_almost_equal(lon_hpgeom, lon_healpy)
+    np.testing.assert_array_almost_equal(lat_hpgeom, lat_healpy)
+
+
+def test_boundaries():
+    """Test hpgeom.healpy_compat.boundaries."""
+    # Test single pixel.
+
+    vec_hpgeom = hpc.boundaries(1024, 1000)
+    vec_healpy = hp.boundaries(1024, 1000)
+
+    np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
+
+    vec_hpgeom = hpc.boundaries(1024, 1000, step=4)
+    vec_healpy = hp.boundaries(1024, 1000, step=4)
+
+    np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
+
+    vec_hpgeom = hpc.boundaries(1024, 1000, nest=False)
+    vec_healpy = hp.boundaries(1024, 1000, nest=False)
+
+    np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
+
+    # Test multiple pixels.
+    vec_hpgeom = hpc.boundaries(1024, [1000, 1200])
+    vec_healpy = hp.boundaries(1024, [1000, 1200])
+
+    np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
+
+    vec_hpgeom = hpc.boundaries(1024, [1000, 1200], step=4)
+    vec_healpy = hp.boundaries(1024, [1000, 1200], step=4)
+
+    np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
+
+    vec_hpgeom = hpc.boundaries(1024, [1000, 1200], nest=False)
+    vec_healpy = hp.boundaries(1024, [1000, 1200], nest=False)
+
+    np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)

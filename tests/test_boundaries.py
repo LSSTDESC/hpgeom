@@ -65,11 +65,14 @@ def test_boundaries_multiple(nside, pixfrac, step, scheme, npix):
         nest = False
 
     theta_hpgeom, phi_hpgeom = hpgeom.boundaries(nside, pixels, step=step, nest=nest, lonlat=False)
-    vec_healpy = hp.boundaries(nside, pixels, step=step, nest=nest)
-    theta_healpy = np.zeros((npix, 4*step))
-    phi_healpy = np.zeros_like(theta_healpy)
-    for i in range(npix):
-        theta_healpy[i, :], phi_healpy[i, :] = hp.vec2ang(vec_healpy[i, :, :].T)
+    theta_healpy, phi_healpy = hp.vec2ang(hp.boundaries(
+        nside,
+        pixels,
+        step=step,
+        nest=nest
+    ).transpose([0, 2, 1]))
+    theta_healpy = theta_healpy.reshape((npix, step*4))
+    phi_healpy = phi_healpy.reshape((npix, step*4))
 
     assert(theta_hpgeom.shape == (npix, step*4,))
     assert(phi_hpgeom.shape == (npix, step*4,))
@@ -78,11 +81,14 @@ def test_boundaries_multiple(nside, pixfrac, step, scheme, npix):
     np.testing.assert_array_almost_equal(phi_hpgeom, phi_healpy)
 
     lon_hpgeom, lat_hpgeom = hpgeom.boundaries(nside, pixels, step=step, nest=nest, lonlat=True, degrees=True)
-    vec_healpy = hp.boundaries(nside, pixels, step=step, nest=nest)
-    lon_healpy = np.zeros((npix, 4*step))
-    lat_healpy = np.zeros_like(lon_healpy)
-    for i in range(npix):
-        lon_healpy[i, :], lat_healpy[i, :] = hp.vec2ang(vec_healpy[i, :, :].T, lonlat=True)
+    lon_healpy, lat_healpy = hp.vec2ang(hp.boundaries(
+        nside,
+        pixels,
+        step=step,
+        nest=nest,
+    ).transpose([0, 2, 1]), lonlat=True)
+    lon_healpy = lon_healpy.reshape((npix, step*4))
+    lat_healpy = lat_healpy.reshape((npix, step*4))
 
     np.testing.assert_array_almost_equal(lon_hpgeom, lon_healpy)
     np.testing.assert_array_almost_equal(lat_hpgeom, lat_healpy)

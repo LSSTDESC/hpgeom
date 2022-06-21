@@ -9,7 +9,11 @@ from .hpgeom import (
     nside_to_resolution,
     nside_to_order,
     order_to_nside,
+    angle_to_vector,
+    vector_to_angle,
 )
+
+from .hpgeom import boundaries as hpgeom_boundaries
 
 __all__ = [
     'ang2pix',
@@ -23,6 +27,9 @@ __all__ = [
     'nside2resol',
     'nside2order',
     'order2nside',
+    'ang2vec',
+    'vec2ang',
+    'boundaries',
 ]
 
 
@@ -260,3 +267,84 @@ def order2nside(order):
         HEALPix nside corresponding to given order, such that nside = 2**order.
     """
     return order_to_nside(order)
+
+
+def ang2vec(theta, phi, lonlat=False):
+    """Convert angles to cartesian unit vectors.
+
+    Parameters
+    ----------
+    theta : `float` or `np.ndarray` (N,)
+        Co-latitude (theta, radians) or longitude (degrees).
+    phi : `float` or `np.ndarray` (N,)
+        Longitude (phi, radians) or latitude (degrees).
+    lonlat : `bool`, optional
+        Use longitude/latitude (degrees) instead of longitude/co-latitude (radians).
+
+    Returns
+    -------
+    vec : `np.ndarray` (N, 3) or (3,)
+        If theta, phi are vectors, returns a 2D array with dimensions (N, 3) with
+        one vector per row.  If not vectors, a 1D array with dimensions (3,).
+    """
+    return angle_to_vector(theta, phi, lonlat=lonlat, degrees=True)
+
+
+def vec2ang(vectors, lonlat=False):
+    """Convert cartesian (x, y, z) vectors to angles.
+
+    Parameters
+    ----------
+    vec : `np.ndarray` (3,) or (N, 3)
+        The vectors to convert to angles.
+    lonlat : `bool`, optional
+        Use longitude/latitude instead of co-latitude/longitude (radians).
+    degrees : `bool`, optional
+        If lonlat is True then this sets if the units are degrees or
+        radians.
+
+    Returns
+    -------
+    theta : `float` or `np.ndarray` (N,)
+        Longitude or co-latitude theta (radians if lonlat=False, degrees if
+        lonlat=True and degrees=True).
+    phi : `float` or `np.ndarray` (N,)
+        Latitude or longitude phi (radians if lonlat=False, degrees if lonlat=True
+        and degrees=True).
+    """
+    return vector_to_angle(vectors, lonlat=lonlat, degrees=True)
+
+
+def boundaries(nside, pix, step=1, nest=False):
+    """Returns an array containing vectors to the boundary of the
+    given pixel.
+
+    The returned array has shape (3, 4*step) (for a single pixel) or
+    (N, 3, 4*step) for multiple pixels.  The elements are the x,y,z
+    positions on the unit sphere of the pixel boundary. To retrieve
+    corners, specify step=1.
+
+    Parameters
+    ----------
+    nside : `int` or `np.ndarray` (N,)
+        HEALPix nside.  Must be power of 2 for nest ordering.
+    pix : `int` or `np.ndarray` (N,)
+        Pixel number(s).\
+    step : `int`, optional
+        Number of steps for each side of the pixel.\
+    nest : `bool`, optional
+        Use nest ordering scheme?
+
+    Returns
+    -------
+    boundary : `np.ndarray` (N, 3, 4*step)
+        x,y,z for positions on the boundary of the pixel.
+    """
+    theta, phi = hpgeom_boundaries(nside, pix, step=step, nest=nest)
+
+    if theta.ndim == 1:
+        # Single pixel
+        return angle_to_vector(theta, phi).transpose()
+    else:
+        # Multiple pixels
+        return angle_to_vector(theta, phi).transpose([1, 2, 0])

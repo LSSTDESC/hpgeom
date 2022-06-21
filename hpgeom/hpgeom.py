@@ -10,6 +10,8 @@ from ._hpgeom import (
 )
 
 __all__ = [
+    'thetaphi_to_lonlat',
+    'lonlat_to_thetaphi',
     'angle_to_pixel',
     'pixel_to_angle',
     'query_circle',
@@ -23,6 +25,8 @@ __all__ = [
     'nside_to_resolution',
     'nside_to_order',
     'order_to_nside',
+    'angle_to_vector',
+    'vector_to_angle',
     'boundaries',
     'UNSEEN',
 ]
@@ -31,10 +35,8 @@ __all__ = [
 #  query_polygon (with lonlat option as default!)
 #  vector_to_pixel
 #  pixel_to_vector
-#  vector_to_angle (python or c?)
-#  angle_to_vector (python or c?)
-#  boundaries (with lonlat option as default!)
 #  neighbors (with an o)
+#  update array memory allocation
 
 UNSEEN = -1.6375e+30
 max_nside = 1 << 29
@@ -73,6 +75,34 @@ def lonlat_to_thetaphi(lon, lat, degrees=True):
     phi = lon_
 
     return theta, phi
+
+
+def thetaphi_to_lonlat(theta, phi, degrees=True):
+    """Convert theta/phi to longitude/latitude.
+
+    Parameters
+    ----------
+    theta : `np.ndarray` (N,) or `float`
+        Theta (co-latitude), in radians, array or scalar.
+    phi : `np.ndarray` (N,) or `float`
+        Phi (longitude), in radians, array or scalar.
+    degrees : `bool`, optional
+        If True, longitude and latitude will be in degrees.
+
+    Returns
+    -------
+    lon : `np.ndarray` (N,) or `float`
+        Longitude array or scalar.
+    lat : `np.ndarray` (N,) or `float`
+        Latitude array or scalar.
+    """
+    lon = phi
+    lat = -(theta - np.pi/2.)
+    if (degrees):
+        lon = np.rad2deg(lon)
+        lat = np.rad2deg(lat)
+
+    return lon, lat
 
 
 def query_circle_vec(nside, vec, radius, inclusive=False, fact=4, nest=True):
@@ -219,6 +249,7 @@ def nside_to_resolution(nside, units='degrees'):
 
     return value
 
+
 def nside_to_order(nside):
     """Return the resolution order for a given nside.
 
@@ -261,3 +292,91 @@ def order_to_nside(order):
         raise ValueError("Order must be integer, 0<=order<=29.")
 
     return 2**order
+
+
+def _check_theta_phi(theta, phi):
+    """Check that theta/phi are valid.
+
+    Parameters
+    ----------
+    theta : `float` or `np.ndarray` (N,)
+        Co-latitude in radians.
+    phi : `float` or `np.ndarray` (N,)
+        Longitude in radians.
+
+    Raises
+    ------
+    ValueError if theta or phi is invalid.
+    """
+    _theta = np.atleast_1d(theta)
+    _phi = np.atleast_1d(phi)
+    if np.any((_theta < 0.0) | (_theta > np.pi)):
+        raise ValueError("Co-latitude (theta) out of range.")
+    if np.any((_phi < 0.0) | (_phi > 2*np.pi)):
+        raise ValueError("Longitude (phi) out of range.")
+
+
+def angle_to_vector(a, b, lonlat=True, degrees=True):
+    """Convert angles to cartesion (x, y, z) unit vectors.
+
+    Parameters
+    ----------
+    a : `float` or `np.ndarray` (N,)
+        Longitude or theta (radians if lonlat=False, degrees if lonlat=True
+        and degrees=True).
+    b : `float` or `np.ndarray` (N,)
+        Latitude or phi (radians if lonlat=False, degrees if lonlat=True
+        and degrees=True).
+    lonlat : `bool`, optional
+        Use longitude/latitude instead of co-latitude/longitude (radians).
+    degrees : `bool`, optional
+        If lonlat is True then this sets if the units are degrees or
+        radians.
+
+    Returns
+    -------
+    vec : `np.ndarray` (N, 3) or (3,)
+        If a, b are vectors, returns a 2D array with dimensions (N, 3) with
+        one vector per row.  If not vectors, a 1D array with dimensions (3,).
+    """
+    if lonlat:
+        theta, phi = lonlat_to_thetaphi(a, b, degrees=degrees)
+    else:
+        _check_theta_phi(a, b)
+        theta = a
+        phi = b
+
+    sin_theta = np.sin(theta)
+    return np.array([sin_theta * np.cos(phi), sin_theta * np.sin(phi), np.cos(theta)]).transpose()
+
+
+def vector_to_angle(vec, lonlat=True, degrees=True):
+    """Convert cartesian (x, y, z) vectors to angles.
+
+    Parameters
+    ----------
+    vec : `np.ndarray` (3,) or (N, 3)
+        The vectors to convert to angles.
+    lonlat : `bool`, optional
+        Use longitude/latitude instead of co-latitude/longitude (radians).
+    degrees : `bool`, optional
+        If lonlat is True then this sets if the units are degrees or
+        radians.
+
+    Returns
+    -------
+    a : `float` or `np.ndarray` (N,)
+        Longitude or theta (radians if lonlat=False, degrees if lonlat=True
+        and degrees=True).
+    b : `float` or `np.ndarray` (N,)
+        Latitude or phi (radians if lonlat=False, degrees if lonlat=True
+        and degrees=True).
+    """
+    vec = vec.reshape(-1, 3)
+    norm = np.sqrt(np.sum(np.square(vec), axis=1))
+    theta = np.arccos(vec[:, 2]/norm)
+    phi = np.arctan2(vec[:, 1], vec[:, 0]) % (2.*np.pi)
+    if lonlat:
+        return thetaphi_to_lonlat(theta, phi, degrees=degrees)
+    else:
+        return theta, phi
