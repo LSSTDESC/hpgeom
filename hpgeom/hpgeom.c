@@ -785,8 +785,7 @@ fail:
   return NULL;
 }
 
-PyDoc_STRVAR(
-             vector_to_pixel_doc,
+PyDoc_STRVAR(vector_to_pixel_doc,
              "vector_to_pixel(nside, x, y, z, nest=True)\n"
              "--\n\n"
              "Convert vectors to pixels.\n"
@@ -811,38 +810,39 @@ PyDoc_STRVAR(
 
 static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args,
                                  PyObject *kwargs) {
-    PyObject *nside_obj = NULL, *x_obj = NULL, *y_obj = NULL, *z_obj = NULL;
-    PyObject *nside_arr = NULL, *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
-    PyObject *pix_arr = NULL;
-    int nest = 1;
-    static char *kwlist[] = {"nside", "x", "y", "z", "nest", NULL};
+  PyObject *nside_obj = NULL, *x_obj = NULL, *y_obj = NULL, *z_obj = NULL;
+  PyObject *nside_arr = NULL, *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
+  PyObject *pix_arr = NULL;
+  int nest = 1;
+  static char *kwlist[] = {"nside", "x", "y", "z", "nest", NULL};
 
-    int64_t *pixels = NULL;
-    healpix_info hpx;
-    char err[ERR_SIZE];
+  int64_t *pixels = NULL;
+  healpix_info hpx;
+  char err[ERR_SIZE];
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO|p", kwlist, &nside_obj,
-                                     &x_obj, &y_obj, &z_obj, &nest))
-        return NULL;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO|p", kwlist, &nside_obj,
+                                   &x_obj, &y_obj, &z_obj, &nest))
+    return NULL;
 
-    nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+  nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
                                NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL)
-        return NULL;
-    x_arr = PyArray_FROM_OTF(x_obj, NPY_DOUBLE,
+  if (nside_arr == NULL)
+    return NULL;
+  x_arr = PyArray_FROM_OTF(x_obj, NPY_DOUBLE,
                            NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (x_arr == NULL)
-        goto fail;
-    y_arr = PyArray_FROM_OTF(y_obj, NPY_DOUBLE,
+  if (x_arr == NULL)
+    goto fail;
+  y_arr = PyArray_FROM_OTF(y_obj, NPY_DOUBLE,
                            NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (y_arr == NULL)
-        goto fail;
-    z_arr = PyArray_FROM_OTF(z_obj, NPY_DOUBLE,
+  if (y_arr == NULL)
+    goto fail;
+  z_arr = PyArray_FROM_OTF(z_obj, NPY_DOUBLE,
                            NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (z_arr == NULL)
-        goto fail;
+  if (z_arr == NULL)
+    goto fail;
 
-    PyArrayMultiIterObject *itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(4, nside_arr, x_arr, y_arr, z_arr);
+  PyArrayMultiIterObject *itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(
+      4, nside_arr, x_arr, y_arr, z_arr);
   if (itr == NULL) {
     PyErr_SetString(PyExc_ValueError,
                     "nside, x, y, z arrays could not be broadcast together.");
@@ -906,8 +906,7 @@ fail:
   return NULL;
 }
 
-PyDoc_STRVAR(
-             pixel_to_vector_doc,
+PyDoc_STRVAR(pixel_to_vector_doc,
              "pixel_to_vector(nside, pix, nest=True)\n"
              "--\n\n"
              "Convert pixels to vectors.\n"
@@ -932,108 +931,109 @@ PyDoc_STRVAR(
 
 static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args,
                                  PyObject *kwargs) {
-    PyObject *nside_obj = NULL, *pix_obj = NULL;
-    PyObject *nside_arr = NULL, *pix_arr = NULL;
-    PyObject *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
-    int nest = 1;
-    static char *kwlist[] = {"nside", "pix", "nest", NULL};
+  PyObject *nside_obj = NULL, *pix_obj = NULL;
+  PyObject *nside_arr = NULL, *pix_arr = NULL;
+  PyObject *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
+  int nest = 1;
+  static char *kwlist[] = {"nside", "pix", "nest", NULL};
 
-    double *xs = NULL, *ys = NULL, *zs = NULL;
-    healpix_info hpx;
-    char err[ERR_SIZE];
+  double *xs = NULL, *ys = NULL, *zs = NULL;
+  healpix_info hpx;
+  char err[ERR_SIZE];
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj,
-                                     &pix_obj, &nest))
-        return NULL;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj,
+                                   &pix_obj, &nest))
+    return NULL;
 
-    nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+  nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
                                NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL)
-        return NULL;
-    pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64,
-                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (pix_arr == NULL)
+  if (nside_arr == NULL)
+    return NULL;
+  pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64,
+                             NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (pix_arr == NULL)
+    goto fail;
+
+  PyArrayMultiIterObject *itr =
+      (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+  if (itr == NULL) {
+    PyErr_SetString(PyExc_ValueError,
+                    "nside, pix arrays could not be broadcast together.");
+    goto fail;
+  }
+
+  x_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+  if (x_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output x array.");
+    goto fail;
+  }
+  xs = (double *)PyArray_DATA((PyArrayObject *)x_arr);
+  y_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+  if (y_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output y array.");
+    goto fail;
+  }
+  ys = (double *)PyArray_DATA((PyArrayObject *)y_arr);
+  z_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+  if (z_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError, "Could not create output z array.");
+    goto fail;
+  }
+  zs = (double *)PyArray_DATA((PyArrayObject *)z_arr);
+
+  enum Scheme scheme;
+  if (nest) {
+    scheme = NEST;
+  } else {
+    scheme = RING;
+  }
+
+  int64_t *nside;
+  int64_t *pix;
+  int64_t last_nside = -1;
+  bool started = false;
+  vec3 vec;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+
+    if ((!started) || (*nside != last_nside)) {
+      if (!hpgeom_check_nside(*nside, scheme, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
         goto fail;
-
-    PyArrayMultiIterObject *itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
-    if (itr == NULL) {
-        PyErr_SetString(PyExc_ValueError,
-                        "nside, pix arrays could not be broadcast together.");
-        goto fail;
+      }
+      hpx = healpix_info_from_nside(*nside, scheme);
+      started = true;
     }
-
-    x_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (x_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output x array.");
-        goto fail;
+    if (!hpgeom_check_pixel(hpx, *pix, err)) {
+      PyErr_SetString(PyExc_ValueError, err);
+      goto fail;
     }
-    xs = (double *)PyArray_DATA((PyArrayObject *)x_arr);
-    y_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (y_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output y array.");
-        goto fail;
-    }
-    ys = (double *)PyArray_DATA((PyArrayObject *)y_arr);
-    z_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (z_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output z array.");
-        goto fail;
-    }
-    zs = (double *)PyArray_DATA((PyArrayObject *)z_arr);
+    vec = pix2vec(hpx, *pix);
+    xs[itr->index] = vec.x;
+    ys[itr->index] = vec.y;
+    zs[itr->index] = vec.z;
+    PyArray_MultiIter_NEXT(itr);
+  }
 
-    enum Scheme scheme;
-    if (nest) {
-        scheme = NEST;
-    } else {
-        scheme = RING;
-    }
+  Py_DECREF(nside_arr);
+  Py_DECREF(pix_arr);
 
-    int64_t *nside;
-    int64_t *pix;
-    int64_t last_nside = -1;
-    bool started = false;
-    vec3 vec;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+  PyObject *retval = PyTuple_New(3);
+  PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)x_arr));
+  PyTuple_SET_ITEM(retval, 1, PyArray_Return((PyArrayObject *)y_arr));
+  PyTuple_SET_ITEM(retval, 2, PyArray_Return((PyArrayObject *)z_arr));
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
-            }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
-        if (!hpgeom_check_pixel(hpx, *pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        vec = pix2vec(hpx, *pix);
-        xs[itr->index] = vec.x;
-        ys[itr->index] = vec.y;
-        zs[itr->index] = vec.z;
-        PyArray_MultiIter_NEXT(itr);
-    }
+  return retval;
 
-    Py_DECREF(nside_arr);
-    Py_DECREF(pix_arr);
+fail:
+  Py_XDECREF(nside_arr);
+  Py_XDECREF(x_arr);
+  Py_XDECREF(y_arr);
+  Py_XDECREF(z_arr);
+  Py_XDECREF(pix_arr);
 
-    PyObject *retval = PyTuple_New(3);
-    PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)x_arr));
-    PyTuple_SET_ITEM(retval, 1, PyArray_Return((PyArrayObject *)y_arr));
-    PyTuple_SET_ITEM(retval, 2, PyArray_Return((PyArrayObject *)z_arr));
-
-    return retval;
-
- fail:
-      Py_XDECREF(nside_arr);
-      Py_XDECREF(x_arr);
-      Py_XDECREF(y_arr);
-      Py_XDECREF(z_arr);
-      Py_XDECREF(pix_arr);
-
-      return NULL;
+  return NULL;
 }
 
 static PyMethodDef hpgeom_methods[] = {

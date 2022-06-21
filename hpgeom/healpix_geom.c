@@ -104,14 +104,14 @@ static inline int64_t special_div(int64_t a, int64_t b) {
 }
 
 static inline double safe_atan2(double y, double x) {
-    return ((x == 0.) && (y == 0.))? 0.0 : atan2(y, x);
+  return ((x == 0.) && (y == 0.)) ? 0.0 : atan2(y, x);
 }
 
 static inline double fmodulo(double v1, double v2) {
-    if (v1 >= 0)
-        return (v1 < v2) ? v1 : fmod(v1, v2);
-    double tmp = fmod(v1, v2) + v2;
-    return (tmp==v2) ? 0. : tmp;
+  if (v1 >= 0)
+    return (v1 < v2) ? v1 : fmod(v1, v2);
+  double tmp = fmod(v1, v2) + v2;
+  return (tmp == v2) ? 0. : tmp;
 }
 
 healpix_info healpix_info_from_order(int order, enum Scheme scheme) {
@@ -157,14 +157,15 @@ int64_t ang2pix(healpix_info hpx, double theta, double phi) {
 }
 
 int64_t vec2pix(healpix_info hpx, vec3 *vec) {
-    double xl = 1./vec3_length(vec);
-    double phi = safe_atan2(vec->y, vec->x);
-    double nz = vec->z*xl;
-    if (fabs(nz) > 0.99) {
-        return loc2pix(hpx, nz, phi, sqrt(vec->x*vec->x + vec->y*vec->y)*xl, true);
-    } else {
-        return loc2pix(hpx, nz, phi, 0, false);
-    }
+  double xl = 1. / vec3_length(vec);
+  double phi = safe_atan2(vec->y, vec->x);
+  double nz = vec->z * xl;
+  if (fabs(nz) > 0.99) {
+    return loc2pix(hpx, nz, phi, sqrt(vec->x * vec->x + vec->y * vec->y) * xl,
+                   true);
+  } else {
+    return loc2pix(hpx, nz, phi, 0, false);
+  }
 }
 
 void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi) {
@@ -179,21 +180,21 @@ void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi) {
 }
 
 vec3 pix2vec(healpix_info hpx, int64_t pix) {
-    double z, phi, sth;
-    bool have_sth;
-    vec3 res;
-    pix2loc(hpx, pix, &z, &phi, &sth, &have_sth);
-    if (have_sth) {
-        res.x = sth*cos(phi);
-        res.y = sth*sin(phi);
-        res.z = z;
-    } else {
-        sth = sqrt((1-z)*(1+z));
-        res.x = sth*cos(phi);
-        res.y = sth*sin(phi);
-        res.z = z;
-    }
-    return res;
+  double z, phi, sth;
+  bool have_sth;
+  vec3 res;
+  pix2loc(hpx, pix, &z, &phi, &sth, &have_sth);
+  if (have_sth) {
+    res.x = sth * cos(phi);
+    res.y = sth * sin(phi);
+    res.z = z;
+  } else {
+    sth = sqrt((1 - z) * (1 + z));
+    res.x = sth * cos(phi);
+    res.y = sth * sin(phi);
+    res.z = z;
+  }
+  return res;
 }
 
 void pix2zphi(healpix_info hpx, int64_t pix, double *z, double *phi) {
