@@ -55,36 +55,36 @@ static inline int64_t i64max(int64_t v1, int64_t v2);
 static inline int64_t i64min(int64_t v1, int64_t v2);
 static inline int64_t special_div(int64_t a, int64_t b);
 
-int64_t ang2pix(healpix_info hpx, double theta, double phi);
-int64_t loc2pix(healpix_info hpx, double z, double phi, double sth,
+int64_t ang2pix(healpix_info *hpx, double theta, double phi);
+int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth,
                 bool hav_sth);
-int64_t xyf2nest(healpix_info hpx, int ix, int iy, int face_num);
-int64_t xyf2ring(healpix_info hpx, int ix, int iy, int face_num);
+int64_t xyf2nest(healpix_info *hpx, int ix, int iy, int face_num);
+int64_t xyf2ring(healpix_info *hpx, int ix, int iy, int face_num);
 
-double ring2z(healpix_info hpx, int64_t ring);
-void pix2zphi(healpix_info hpx, int64_t pix, double *z, double *phi);
-void pix2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
-int64_t xyf2pix(healpix_info hpx, int ix, int iy, int face_num);
+double ring2z(healpix_info *hpx, int64_t ring);
+void pix2zphi(healpix_info *hpx, int64_t pix, double *z, double *phi);
+void pix2xyf(healpix_info *hpx, int64_t pix, int *ix, int *iy, int *face_num);
+int64_t xyf2pix(healpix_info *hpx, int ix, int iy, int face_num);
 
-void pix2ang(healpix_info hpx, int64_t pix, double *theta, double *phi);
-void pix2loc(healpix_info hpx, int64_t pix, double *z, double *phi, double *sth,
+void pix2ang(healpix_info *hpx, int64_t pix, double *theta, double *phi);
+void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi, double *sth,
              bool *have_sth);
-void nest2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
-void ring2xyf(healpix_info hpx, int64_t pix, int *ix, int *iy, int *face_num);
-int64_t nest2ring(healpix_info hpx, int64_t pix);
-int64_t ring2nest(healpix_info hpx, int64_t pix);
-vec3 pix2vec(healpix_info hpx, int64_t pix);
-int64_t vec2pix(healpix_info hpx, vec3 *vec);
+void nest2xyf(healpix_info *hpx, int64_t pix, int *ix, int *iy, int *face_num);
+void ring2xyf(healpix_info *hpx, int64_t pix, int *ix, int *iy, int *face_num);
+int64_t nest2ring(healpix_info *hpx, int64_t pix);
+int64_t ring2nest(healpix_info *hpx, int64_t pix);
+vec3 pix2vec(healpix_info *hpx, int64_t pix);
+int64_t vec2pix(healpix_info *hpx, vec3 *vec);
 
 int64_t spread_bits64(int v);
 int compress_bits64(int64_t v);
 
-int64_t ring_above(healpix_info hpx, double z);
-void get_ring_info_small(healpix_info hpx, int64_t ring, int64_t *startpix,
+int64_t ring_above(healpix_info *hpx, double z);
+void get_ring_info_small(healpix_info *hpx, int64_t ring, int64_t *startpix,
                          int64_t *ringpix, bool *shifted);
 
-double max_pixrad(healpix_info hpx);
-bool check_pixel_ring(healpix_info hpx1, healpix_info hpx2, int64_t pix,
+double max_pixrad(healpix_info *hpx);
+bool check_pixel_ring(healpix_info *hpx1, healpix_info *hpx2, int64_t pix,
                       int64_t nr, int64_t ipix1, int fct, double cz,
                       double cphi, double cosrp2, int64_t cpix);
 void check_pixel_nest(int o, int order_, int omax, int zone,
@@ -92,14 +92,13 @@ void check_pixel_nest(int o, int order_, int omax, int zone,
                       struct i64stack *stk, bool inclusive, int *stacktop,
                       int *status, char *err);
 
-void query_disc(healpix_info hpx, double theta, double phi, double radius,
+void query_disc(healpix_info *hpx, double theta, double phi, double radius,
                 int fact, struct i64rangeset *pixset, int *status, char *err);
 
 void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
              bool *have_sth);
 void locToVec3(double z, double phi, double sth, bool have_sth, vec3 *vec);
-// void boundaries(healpix_info hpx, int64_t pix, size_t step, vec3 *out);
-void boundaries(healpix_info hpx, int64_t pix, size_t step, ptgarr *out,
+void boundaries(healpix_info *hpx, int64_t pix, size_t step, ptgarr *out,
                 int *status);
 
 #endif

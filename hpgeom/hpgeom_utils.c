@@ -38,28 +38,28 @@ int hpgeom_check_theta_phi(double theta, double phi, char *err) {
   return 1;
 }
 
-int hpgeom_check_pixel(healpix_info hpx, int64_t pix, char *err) {
+int hpgeom_check_pixel(healpix_info *hpx, int64_t pix, char *err) {
   err[0] = '\0';
 
-  if (pix < 0 || pix >= hpx.npix) {
+  if (pix < 0 || pix >= hpx->npix) {
     snprintf(err, ERR_SIZE, "Pixel value %lld out of range for nside %lld", pix,
-             hpx.nside);
+             hpx->nside);
     return 0;
   }
   return 1;
 }
 
-int hpgeom_check_fact(healpix_info hpx, long fact, char *err) {
+int hpgeom_check_fact(healpix_info *hpx, long fact, char *err) {
   err[0] = '\0';
 
   if (fact <= 0) {
     snprintf(err, ERR_SIZE, "Inclusive factor %ld must be >= 0.", fact);
     return 0;
-  } else if (fact * hpx.nside > MAX_NSIDE) {
+  } else if (fact * hpx->nside > MAX_NSIDE) {
     snprintf(err, ERR_SIZE, "Inclusive factor * nside must be <= %lld",
              MAX_NSIDE);
     return 0;
-  } else if ((hpx.scheme == NEST) & ((fact & (fact - 1)) > 0)) {
+  } else if ((hpx->scheme == NEST) & ((fact & (fact - 1)) > 0)) {
     snprintf(err, ERR_SIZE, "Inclusive factor %ld must be power of 2 for nest.",
              fact);
     return 0;

@@ -124,7 +124,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args,
       theta = *a;
       phi = *b;
     }
-    pixels[itr->index] = ang2pix(hpx, theta, phi);
+    pixels[itr->index] = ang2pix(&hpx, theta, phi);
     PyArray_MultiIter_NEXT(itr);
   }
 
@@ -244,11 +244,11 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args,
       hpx = healpix_info_from_nside(*nside, scheme);
       started = true;
     }
-    if (!hpgeom_check_pixel(hpx, *pix, err)) {
+    if (!hpgeom_check_pixel(&hpx, *pix, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
-    pix2ang(hpx, *pix, &theta, &phi);
+    pix2ang(&hpx, *pix, &theta, &phi);
     if (lonlat) {
       if (!hpgeom_thetaphi_to_lonlat(theta, phi, &as[itr->index],
                                      &bs[itr->index], (bool)degrees, err)) {
@@ -386,12 +386,12 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args,
   if (!inclusive) {
     fact = 0;
   } else {
-    if (!hpgeom_check_fact(hpx, fact, err)) {
+    if (!hpgeom_check_fact(&hpx, fact, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
   }
-  query_disc(hpx, theta, phi, radius, fact, pixset, &status, err);
+  query_disc(&hpx, theta, phi, radius, fact, pixset, &status, err);
 
   if (!status) {
     PyErr_SetString(PyExc_RuntimeError, err);
@@ -490,11 +490,11 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args,
       hpx = healpix_info_from_nside(*nside, NEST);
       started = true;
     }
-    if (!hpgeom_check_pixel(hpx, *nest_pix, err)) {
+    if (!hpgeom_check_pixel(&hpx, *nest_pix, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
-    ring_pix_data[itr->index] = nest2ring(hpx, *nest_pix);
+    ring_pix_data[itr->index] = nest2ring(&hpx, *nest_pix);
     PyArray_MultiIter_NEXT(itr);
   }
 
@@ -583,11 +583,11 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args,
       hpx = healpix_info_from_nside(*nside, NEST);
       started = true;
     }
-    if (!hpgeom_check_pixel(hpx, *ring_pix, err)) {
+    if (!hpgeom_check_pixel(&hpx, *ring_pix, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
-    nest_pix_data[itr->index] = ring2nest(hpx, *ring_pix);
+    nest_pix_data[itr->index] = ring2nest(&hpx, *ring_pix);
     PyArray_MultiIter_NEXT(itr);
   }
 
@@ -736,12 +736,12 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
       started = true;
     }
 
-    if (!hpgeom_check_pixel(hpx, *pix, err)) {
+    if (!hpgeom_check_pixel(&hpx, *pix, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
 
-    boundaries(hpx, *pix, step, ptg_arr, &status);
+    boundaries(&hpx, *pix, step, ptg_arr, &status);
     if (!status) {
       PyErr_SetString(PyExc_RuntimeError,
                       "Fatal programming error in boundaries.");
@@ -885,7 +885,7 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args,
     vec.x = *x;
     vec.y = *y;
     vec.z = *z;
-    pixels[itr->index] = vec2pix(hpx, &vec);
+    pixels[itr->index] = vec2pix(&hpx, &vec);
     PyArray_MultiIter_NEXT(itr);
   }
 
@@ -1005,11 +1005,11 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args,
       hpx = healpix_info_from_nside(*nside, scheme);
       started = true;
     }
-    if (!hpgeom_check_pixel(hpx, *pix, err)) {
+    if (!hpgeom_check_pixel(&hpx, *pix, err)) {
       PyErr_SetString(PyExc_ValueError, err);
       goto fail;
     }
-    vec = pix2vec(hpx, *pix);
+    vec = pix2vec(&hpx, *pix);
     xs[itr->index] = vec.x;
     ys[itr->index] = vec.y;
     zs[itr->index] = vec.z;
