@@ -1036,144 +1036,146 @@ fail:
   return NULL;
 }
 
-PyDoc_STRVAR(neighbors_doc,
-             "neighbors(nside, pix, nest=True)\n"
-             "--\n\n"
-             "Return 8 nearest neighbors for given pixels.\n"
-             "\n"
-             "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-             "pix : `np.ndarray` (N,) or `int`\n"
-             "    Pixel numbers to find neighbors.\n"
-             "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?\n"
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "neighbor_pixels : `np.ndarray` (N, 8) or (8,)\n"
-             "    Pixel numbers of the SW, W, NW, N, NE, E, SE, and S neighbors.\n"
-             "    If a neighbor does not exist (as can be the case for W, N, E, and S)\n"
-             "    the corresponding pixel number will be -1.\n");
+PyDoc_STRVAR(
+    neighbors_doc,
+    "neighbors(nside, pix, nest=True)\n"
+    "--\n\n"
+    "Return 8 nearest neighbors for given pixels.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "nside : `int`\n"
+    "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
+    "pix : `np.ndarray` (N,) or `int`\n"
+    "    Pixel numbers to find neighbors.\n"
+    "nest : `bool`, optional\n"
+    "    Use nest ordering scheme?\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "neighbor_pixels : `np.ndarray` (N, 8) or (8,)\n"
+    "    Pixel numbers of the SW, W, NW, N, NE, E, SE, and S neighbors.\n"
+    "    If a neighbor does not exist (as can be the case for W, N, E, and S)\n"
+    "    the corresponding pixel number will be -1.\n");
 
 static PyObject *neighbors_meth(PyObject *dummy, PyObject *args,
-                                 PyObject *kwargs) {
-    PyObject *nside_obj = NULL, *pix_obj = NULL;
-    PyObject *nside_arr = NULL, *pix_arr = NULL;
-    PyObject *neighbor_arr = NULL;
-    int nest = 1;
-    static char *kwlist[] = {"nside", "pix", "nest", NULL};
+                                PyObject *kwargs) {
+  PyObject *nside_obj = NULL, *pix_obj = NULL;
+  PyObject *nside_arr = NULL, *pix_arr = NULL;
+  PyObject *neighbor_arr = NULL;
+  int nest = 1;
+  static char *kwlist[] = {"nside", "pix", "nest", NULL};
 
-    int64_t *neighbor_pixels;
-    healpix_info hpx;
-    int status;
-    char err[ERR_SIZE];
+  int64_t *neighbor_pixels;
+  healpix_info hpx;
+  int status;
+  char err[ERR_SIZE];
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj,
-                                     &pix_obj, &nest))
-        return NULL;
-
-    nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
-                                 NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL)
-        return NULL;
-    pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64,
-                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (pix_arr == NULL)
-        goto fail;
-
-    if (PyArray_NDIM((PyArrayObject *)pix_arr) > 1) {
-        PyErr_SetString(PyExc_ValueError, "pix array must be at most 1D.");
-        goto fail;
-    }
-
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
-    if (itr == NULL) {
-        PyErr_SetString(PyExc_ValueError,
-                        "nside, pix arrays could not be broadcast together.");
-        goto fail;
-    }
-
-    int ndims_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
-    if (ndims_pix == 0) {
-        npy_intp dims[1];
-        dims[0] = 8;
-        neighbor_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-    } else {
-        npy_intp dims[2];
-        dims[0] = PyArray_DIM((PyArrayObject *)pix_arr, 0);
-        dims[1] = 8;
-        neighbor_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
-    }
-    if (neighbor_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output neighbor array.");
-        goto fail;
-    }
-    neighbor_pixels = (int64_t *)PyArray_DATA((PyArrayObject *)neighbor_arr);
-
-    enum Scheme scheme;
-    if (nest) {
-        scheme = NEST;
-    } else {
-        scheme = RING;
-    }
-
-    i64stack *neigh = i64stack_new(8, &status, err);
-    if (!status) {
-        PyErr_SetString(PyExc_RuntimeError, err);
-        goto fail;
-    }
-    i64stack_resize(neigh, 8, &status, err);
-    if (!status) {
-        PyErr_SetString(PyExc_RuntimeError, err);
-        goto fail;
-    }
-
-    int64_t *nside;
-    int64_t *pix;
-    int64_t last_nside = -1;
-    bool started = false;
-    size_t index;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
-
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
-            }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
-
-        if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        neighbors(&hpx, *pix, neigh, &status, err);
-
-        for (size_t i = 0; i<neigh->size; i++) {
-            index = neigh->size * itr->index + i;
-            neighbor_pixels[index] = neigh->data[i];
-        }
-
-        PyArray_MultiIter_NEXT(itr);
-    }
-
-    Py_DECREF(nside_arr);
-    Py_DECREF(pix_arr);
-
-    return PyArray_Return((PyArrayObject *)neighbor_arr);
-
- fail:
-    Py_XDECREF(nside_arr);
-    Py_XDECREF(pix_arr);
-    Py_XDECREF(neighbor_arr);
-
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj,
+                                   &pix_obj, &nest))
     return NULL;
+
+  nside_arr = PyArray_FROM_OTF(nside_obj, NPY_INT64,
+                               NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (nside_arr == NULL)
+    return NULL;
+  pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64,
+                             NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+  if (pix_arr == NULL)
+    goto fail;
+
+  if (PyArray_NDIM((PyArrayObject *)pix_arr) > 1) {
+    PyErr_SetString(PyExc_ValueError, "pix array must be at most 1D.");
+    goto fail;
+  }
+
+  PyArrayMultiIterObject *itr =
+      (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+  if (itr == NULL) {
+    PyErr_SetString(PyExc_ValueError,
+                    "nside, pix arrays could not be broadcast together.");
+    goto fail;
+  }
+
+  int ndims_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
+  if (ndims_pix == 0) {
+    npy_intp dims[1];
+    dims[0] = 8;
+    neighbor_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+  } else {
+    npy_intp dims[2];
+    dims[0] = PyArray_DIM((PyArrayObject *)pix_arr, 0);
+    dims[1] = 8;
+    neighbor_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
+  }
+  if (neighbor_arr == NULL) {
+    PyErr_SetString(PyExc_RuntimeError,
+                    "Could not create output neighbor array.");
+    goto fail;
+  }
+  neighbor_pixels = (int64_t *)PyArray_DATA((PyArrayObject *)neighbor_arr);
+
+  enum Scheme scheme;
+  if (nest) {
+    scheme = NEST;
+  } else {
+    scheme = RING;
+  }
+
+  i64stack *neigh = i64stack_new(8, &status, err);
+  if (!status) {
+    PyErr_SetString(PyExc_RuntimeError, err);
+    goto fail;
+  }
+  i64stack_resize(neigh, 8, &status, err);
+  if (!status) {
+    PyErr_SetString(PyExc_RuntimeError, err);
+    goto fail;
+  }
+
+  int64_t *nside;
+  int64_t *pix;
+  int64_t last_nside = -1;
+  bool started = false;
+  size_t index;
+  while (PyArray_MultiIter_NOTDONE(itr)) {
+    nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+
+    if ((!started) || (*nside != last_nside)) {
+      if (!hpgeom_check_nside(*nside, scheme, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+      }
+      hpx = healpix_info_from_nside(*nside, scheme);
+      started = true;
+    }
+
+    if (!hpgeom_check_pixel(&hpx, *pix, err)) {
+      PyErr_SetString(PyExc_ValueError, err);
+      goto fail;
+    }
+    neighbors(&hpx, *pix, neigh, &status, err);
+
+    for (size_t i = 0; i < neigh->size; i++) {
+      index = neigh->size * itr->index + i;
+      neighbor_pixels[index] = neigh->data[i];
+    }
+
+    PyArray_MultiIter_NEXT(itr);
+  }
+
+  Py_DECREF(nside_arr);
+  Py_DECREF(pix_arr);
+
+  return PyArray_Return((PyArrayObject *)neighbor_arr);
+
+fail:
+  Py_XDECREF(nside_arr);
+  Py_XDECREF(pix_arr);
+  Py_XDECREF(neighbor_arr);
+
+  return NULL;
 }
 
 static PyMethodDef hpgeom_methods[] = {

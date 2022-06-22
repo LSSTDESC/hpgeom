@@ -67,8 +67,8 @@ void pix2xyf(healpix_info *hpx, int64_t pix, int *ix, int *iy, int *face_num);
 int64_t xyf2pix(healpix_info *hpx, int ix, int iy, int face_num);
 
 void pix2ang(healpix_info *hpx, int64_t pix, double *theta, double *phi);
-void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi, double *sth,
-             bool *have_sth);
+void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi,
+             double *sth, bool *have_sth);
 void nest2xyf(healpix_info *hpx, int64_t pix, int *ix, int *iy, int *face_num);
 void ring2xyf(healpix_info *hpx, int64_t pix, int *ix, int *iy, int *face_num);
 int64_t nest2ring(healpix_info *hpx, int64_t pix);
@@ -100,6 +100,7 @@ void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
 void locToVec3(double z, double phi, double sth, bool have_sth, vec3 *vec);
 void boundaries(healpix_info *hpx, int64_t pix, size_t step, ptgarr *out,
                 int *status);
-void neighbors(healpix_info *hpx, int64_t pix, i64stack *result, int *status, char *err);
+void neighbors(healpix_info *hpx, int64_t pix, i64stack *result, int *status,
+               char *err);
 
 #endif

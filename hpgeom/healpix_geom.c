@@ -206,12 +206,12 @@ void pix2zphi(healpix_info *hpx, int64_t pix, double *z, double *phi) {
 
 void pix2xyf(healpix_info *hpx, int64_t pix, int *ix, int *iy, int *face_num) {
   (hpx->scheme == RING) ? ring2xyf(hpx, pix, ix, iy, face_num)
-                       : nest2xyf(hpx, pix, ix, iy, face_num);
+                        : nest2xyf(hpx, pix, ix, iy, face_num);
 }
 
 int64_t xyf2pix(healpix_info *hpx, int ix, int iy, int face_num) {
   return (hpx->scheme == RING) ? xyf2ring(hpx, ix, iy, face_num)
-                              : xyf2nest(hpx, ix, iy, face_num);
+                               : xyf2nest(hpx, ix, iy, face_num);
 }
 
 int64_t nest2ring(healpix_info *hpx, int64_t pix) {
@@ -242,11 +242,11 @@ int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth,
 
       // ring number counted from z=2/3
       int64_t ir = hpx->nside + 1 + jp - jm; // in {1,2n+1}
-      int64_t kshift = 1 - (ir & 1);        // kshift=1 if ir even, 0 otherwise
+      int64_t kshift = 1 - (ir & 1);         // kshift=1 if ir even, 0 otherwise
 
       int64_t t1 = jp + jm - hpx->nside + kshift + 1 + nl4 + nl4;
       int64_t ip = (hpx->order > 0) ? (t1 >> 1) & (nl4 - 1)
-                                   : ((t1 >> 1) % nl4); // in {0,4n-1}
+                                    : ((t1 >> 1) % nl4); // in {0,4n-1}
 
       return hpx->ncap + (ir - 1) * nl4 + ip;
     } else // North & South polar caps
@@ -276,7 +276,7 @@ int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth,
       double temp2 = hpx->nside * (z * 0.75);
       int64_t jp = (int64_t)(temp1 - temp2); // index of  ascending edge line
       int64_t jm = (int64_t)(temp1 + temp2); // index of descending edge line
-      int64_t ifp = jp >> hpx->order;         // in {0,4}
+      int64_t ifp = jp >> hpx->order;        // in {0,4}
       int64_t ifm = jm >> hpx->order;
 
       int face_num = (ifp == ifm) ? (ifp | 4) : ((ifp < ifm) ? ifp : (ifm + 8));
@@ -307,8 +307,8 @@ int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth,
   }
 }
 
-void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi, double *sth,
-             bool *have_sth) {
+void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi,
+             double *sth, bool *have_sth) {
   *have_sth = false;
   if (hpx->scheme == RING) {
     if (pix < hpx->ncap) // North Polar cap
@@ -382,7 +382,7 @@ void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi, double *sth
     if (tmp < 0)
       tmp += 8 * nr;
     *phi = (nr == hpx->nside) ? 0.75 * M_PI_2 * tmp * hpx->fact1
-                             : (0.5 * M_PI_2 * tmp) / nr;
+                              : (0.5 * M_PI_2 * tmp) / nr;
   }
 }
 
@@ -419,7 +419,7 @@ void ring2xyf(healpix_info *hpx, int64_t pix, int *ix, int *iy, int *face_num) {
   int64_t iring, iphi, kshift, nr;
   int64_t nl2 = 2 * hpx->nside;
 
-  if (pix < hpx->ncap) {                    // North Polar cap
+  if (pix < hpx->ncap) {                   // North Polar cap
     iring = (1 + isqrt(1 + 2 * pix)) >> 1; // counted from North pole
     iphi = (pix + 1) - 2 * iring * (iring - 1);
     kshift = 0;
@@ -743,12 +743,12 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi,
 
         if (fct > 1) {
           while ((ip_lo <= ip_hi) &&
-                 check_pixel_ring(hpx, &hpx2, ip_lo, nr, ipix1, fct, z0, ptg_phi,
-                                  cosrsmall, cpix))
+                 check_pixel_ring(hpx, &hpx2, ip_lo, nr, ipix1, fct, z0,
+                                  ptg_phi, cosrsmall, cpix))
             ++ip_lo;
           while ((ip_hi > ip_lo) &&
-                 check_pixel_ring(hpx, &hpx2, ip_hi, nr, ipix1, fct, z0, ptg_phi,
-                                  cosrsmall, cpix))
+                 check_pixel_ring(hpx, &hpx2, ip_hi, nr, ipix1, fct, z0,
+                                  ptg_phi, cosrsmall, cpix))
             --ip_hi;
         }
 
@@ -930,94 +930,97 @@ void boundaries(healpix_info *hpx, int64_t pix, size_t step, ptgarr *out,
   }
 }
 
-const int nb_xoffset[] = { -1,-1, 0, 1, 1, 1, 0,-1 };
-const int nb_yoffset[] = {  0, 1, 1, 1, 0,-1,-1,-1 };
-const int nb_facearray[][12] =
-  { {  8, 9,10,11,-1,-1,-1,-1,10,11, 8, 9 },   // S
-    {  5, 6, 7, 4, 8, 9,10,11, 9,10,11, 8 },   // SE
-    { -1,-1,-1,-1, 5, 6, 7, 4,-1,-1,-1,-1 },   // E
-    {  4, 5, 6, 7,11, 8, 9,10,11, 8, 9,10 },   // SW
-    {  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11 },   // center
-    {  1, 2, 3, 0, 0, 1, 2, 3, 5, 6, 7, 4 },   // NE
-    { -1,-1,-1,-1, 7, 4, 5, 6,-1,-1,-1,-1 },   // W
-    {  3, 0, 1, 2, 3, 0, 1, 2, 4, 5, 6, 7 },   // NW
-    {  2, 3, 0, 1,-1,-1,-1,-1, 0, 1, 2, 3 } }; // N
-const int nb_swaparray[][3] =
-  { { 0,0,3 },   // S
-    { 0,0,6 },   // SE
-    { 0,0,0 },   // E
-    { 0,0,5 },   // SW
-    { 0,0,0 },   // center
-    { 5,0,0 },   // NE
-    { 0,0,0 },   // W
-    { 6,0,0 },   // NW
-    { 3,0,0 } }; // N
+const int nb_xoffset[] = {-1, -1, 0, 1, 1, 1, 0, -1};
+const int nb_yoffset[] = {0, 1, 1, 1, 0, -1, -1, -1};
+const int nb_facearray[][12] = {
+    {8, 9, 10, 11, -1, -1, -1, -1, 10, 11, 8, 9}, // S
+    {5, 6, 7, 4, 8, 9, 10, 11, 9, 10, 11, 8},     // SE
+    {-1, -1, -1, -1, 5, 6, 7, 4, -1, -1, -1, -1}, // E
+    {4, 5, 6, 7, 11, 8, 9, 10, 11, 8, 9, 10},     // SW
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},       // center
+    {1, 2, 3, 0, 0, 1, 2, 3, 5, 6, 7, 4},         // NE
+    {-1, -1, -1, -1, 7, 4, 5, 6, -1, -1, -1, -1}, // W
+    {3, 0, 1, 2, 3, 0, 1, 2, 4, 5, 6, 7},         // NW
+    {2, 3, 0, 1, -1, -1, -1, -1, 0, 1, 2, 3}};    // N
+const int nb_swaparray[][3] = {{0, 0, 3},         // S
+                               {0, 0, 6},         // SE
+                               {0, 0, 0},         // E
+                               {0, 0, 5},         // SW
+                               {0, 0, 0},         // center
+                               {5, 0, 0},         // NE
+                               {0, 0, 0},         // W
+                               {6, 0, 0},         // NW
+                               {3, 0, 0}};        // N
 
-void neighbors(healpix_info *hpx, int64_t pix, i64stack *result, int *status, char *err) {
-    *status = 1;
-    if (result->size < 8) {
-        snprintf(err, ERR_SIZE, "result stack of insufficient size.");
-        *status = 0;
-        return;
-    }
+void neighbors(healpix_info *hpx, int64_t pix, i64stack *result, int *status,
+               char *err) {
+  *status = 1;
+  if (result->size < 8) {
+    snprintf(err, ERR_SIZE, "result stack of insufficient size.");
+    *status = 0;
+    return;
+  }
 
-    int ix, iy, face_num;
-    pix2xyf(hpx, pix, &ix, &iy, &face_num);
+  int ix, iy, face_num;
+  pix2xyf(hpx, pix, &ix, &iy, &face_num);
 
-    const int64_t nsm1 = hpx->nside - 1;
-    if ((ix>0)&&(ix<nsm1)&&(iy>0)&&(iy<nsm1)) {
-        if (hpx->scheme == RING) {
-            for (int m=0; m<8; m++) {
-                result->data[m] = xyf2ring(hpx, ix+nb_xoffset[m], iy+nb_yoffset[m], face_num);
-            }
-        } else {
-            int64_t fpix = (int64_t) face_num << (2*hpx->order);
-            int64_t px0 = spread_bits64(ix), py0 = spread_bits64(iy)<<1;
-            int64_t pxp = spread_bits64(ix+1), pyp=spread_bits64(iy+1)<<1;
-            int64_t pxm = spread_bits64(ix-1), pym=spread_bits64(iy-1)<<1;
-
-            result->data[0] = fpix+pxm+py0;
-            result->data[1] = fpix+pxm+pyp;
-            result->data[2] = fpix+px0+pyp;
-            result->data[3] = fpix+pxp+pyp;
-            result->data[4] = fpix+pxp+py0;
-            result->data[5] = fpix+pxp+pym;
-            result->data[6] = fpix+px0+pym;
-            result->data[7] = fpix+pxm+pym;
-        }
+  const int64_t nsm1 = hpx->nside - 1;
+  if ((ix > 0) && (ix < nsm1) && (iy > 0) && (iy < nsm1)) {
+    if (hpx->scheme == RING) {
+      for (int m = 0; m < 8; m++) {
+        result->data[m] =
+            xyf2ring(hpx, ix + nb_xoffset[m], iy + nb_yoffset[m], face_num);
+      }
     } else {
-        for (int i=0; i<8; i++) {
-            int x = ix+nb_xoffset[i], y=iy+nb_yoffset[i];
-            int nbnum = 4;
-            if (x<0) {
-                x+=hpx->nside;
-                nbnum--;
-            } else if (x>=hpx->nside) {
-                x-=hpx->nside;
-                nbnum++;
-            }
-            if (y<0) {
-                y+=hpx->nside;
-                nbnum-=3;
-            } else if (y>=hpx->nside) {
-                y-=hpx->nside;
-                nbnum+=3;
-            }
+      int64_t fpix = (int64_t)face_num << (2 * hpx->order);
+      int64_t px0 = spread_bits64(ix), py0 = spread_bits64(iy) << 1;
+      int64_t pxp = spread_bits64(ix + 1), pyp = spread_bits64(iy + 1) << 1;
+      int64_t pxm = spread_bits64(ix - 1), pym = spread_bits64(iy - 1) << 1;
 
-            int f = nb_facearray[nbnum][face_num];
-            if (f>=0) {
-                int bits = nb_swaparray[nbnum][face_num >> 2];
-                if (bits&1) x=hpx->nside-x-1;
-                if (bits&2) y = hpx->nside-y-1;
-                if (bits&4) {
-                    int64_t temp = x;
-                    x = y;
-                    y = temp;
-                }
-                result->data[i] = xyf2pix(hpx, x, y, f);
-            } else {
-                result->data[i] = -1;
-            }
-        }
+      result->data[0] = fpix + pxm + py0;
+      result->data[1] = fpix + pxm + pyp;
+      result->data[2] = fpix + px0 + pyp;
+      result->data[3] = fpix + pxp + pyp;
+      result->data[4] = fpix + pxp + py0;
+      result->data[5] = fpix + pxp + pym;
+      result->data[6] = fpix + px0 + pym;
+      result->data[7] = fpix + pxm + pym;
     }
+  } else {
+    for (int i = 0; i < 8; i++) {
+      int x = ix + nb_xoffset[i], y = iy + nb_yoffset[i];
+      int nbnum = 4;
+      if (x < 0) {
+        x += hpx->nside;
+        nbnum--;
+      } else if (x >= hpx->nside) {
+        x -= hpx->nside;
+        nbnum++;
+      }
+      if (y < 0) {
+        y += hpx->nside;
+        nbnum -= 3;
+      } else if (y >= hpx->nside) {
+        y -= hpx->nside;
+        nbnum += 3;
+      }
+
+      int f = nb_facearray[nbnum][face_num];
+      if (f >= 0) {
+        int bits = nb_swaparray[nbnum][face_num >> 2];
+        if (bits & 1)
+          x = hpx->nside - x - 1;
+        if (bits & 2)
+          y = hpx->nside - y - 1;
+        if (bits & 4) {
+          int64_t temp = x;
+          x = y;
+          y = temp;
+        }
+        result->data[i] = xyf2pix(hpx, x, y, f);
+      } else {
+        result->data[i] = -1;
+      }
+    }
+  }
 }
