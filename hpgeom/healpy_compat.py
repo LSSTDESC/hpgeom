@@ -1,6 +1,14 @@
 import warnings
 
-from ._hpgeom import angle_to_pixel, pixel_to_angle, nest_to_ring, ring_to_nest
+from ._hpgeom import (
+    angle_to_pixel,
+    pixel_to_angle,
+    nest_to_ring,
+    ring_to_nest,
+    neighbors,
+    vector_to_pixel,
+    pixel_to_vector,
+)
 from .hpgeom import (
     query_circle_vec,
     nside_to_npixel,
@@ -11,8 +19,7 @@ from .hpgeom import (
     order_to_nside,
     angle_to_vector,
     vector_to_angle,
-    vector_to_pixel,
-    pixel_to_vector,
+    thetaphi_to_lonlat
 )
 
 from .hpgeom import boundaries as hpgeom_boundaries
@@ -34,6 +41,7 @@ __all__ = [
     'pix2vec',
     'vec2pix',
     'boundaries',
+    'get_all_neighbours',
 ]
 
 
@@ -400,3 +408,38 @@ def vec2pix(nside, x, y, z, nest=False):
         Pixel number(s).
     """
     return vector_to_pixel(nside, x, y, z, nest=nest)
+
+
+def get_all_neighbours(nside, theta, phi=None, nest=False, lonlat=False):
+    """Return the 8 nearest neighbor pixels.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside. Must be power of 2 for nest ordering.
+    theta : `np.ndarray` (N,) or `float` or `int`
+        If phi is None, this is interpreted as integer pixel numbers.
+        If phi is not None, then this is interpreted as angular coordinate
+        theta (if lonlat=False) or longitude (if lonlat=True).
+    phi : `np.ndarray` (N,) or `float`, optional
+        Angular coordinate phi (if lonlat=False) or latitude (if lonlat=True).
+    nest : `bool`, optional
+        Use nest ordering scheme?
+    lonlat : `bool`, optional
+        Use longitude/latitude (degrees) instead of co-latitude/longitude (radians)
+
+    Returns
+    -------
+    pixels : `np.ndarray` (8,) or (8, N)
+        Neighboring pixel numbers of the SW, W, NW, N, NE, E, SE, and S neighbors.
+        If a neighbor does not exist (as can be the case for W, N, E, and S), the
+        corresponding pixel number will be -1.
+    """
+    if phi is not None:
+        _pix = angle_to_pixel(nside, theta, phi, nest=nest, lonlat=lonlat, degrees=True)
+    else:
+        _pix = theta
+
+    neigh = neighbors(nside, _pix, nest=nest)
+
+    return neigh.transpose()

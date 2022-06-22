@@ -39,10 +39,6 @@ __all__ = [
 
 # To add:
 #  query_polygon (with lonlat option as default!)
-#  vector_to_pixel
-#  pixel_to_vector
-#  neighbors (with an o)
-#  update array memory allocation
 
 UNSEEN = -1.6375e+30
 max_nside = 1 << 29

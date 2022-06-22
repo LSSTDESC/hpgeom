@@ -272,6 +272,7 @@ def test_pix2vec():
     np.testing.assert_array_almost_equal(z_hpgeom, z_healpy)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_boundaries():
     """Test hpgeom.healpy_compat.boundaries."""
     # Test single pixel.
@@ -306,3 +307,49 @@ def test_boundaries():
     vec_healpy = hp.boundaries(1024, [1000, 1200], nest=False)
 
     np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_get_all_neighbours():
+    """Test hpgeom.healpy_compat.get_all_neighbours."""
+    # Test single pixel
+    neighbors_hpgeom = hpc.get_all_neighbours(1024, 100)
+    neighbors_healpy = hp.get_all_neighbours(1024, 100)
+
+    np.testing.assert_array_equal(neighbors_hpgeom, neighbors_healpy)
+
+    # Test multiple pixels
+    neighbors_hpgeom = hpc.get_all_neighbours(1024, [100, 200])
+    neighbors_healpy = hp.get_all_neighbours(1024, [100, 200])
+
+    np.testing.assert_array_equal(neighbors_hpgeom, neighbors_healpy)
+
+    # Test single theta/phi
+    neighbors_hpgeom = hpc.get_all_neighbours(1024, 0.5, phi=0.5)
+    neighbors_healpy = hp.get_all_neighbours(1024, 0.5, phi=0.5)
+
+    np.testing.assert_array_equal(neighbors_hpgeom, neighbors_healpy)
+
+    # Test multiple theta/phi
+    neighbors_hpgeom = hpc.get_all_neighbours(1024, [0.5, 0.6], phi=[0.5, 0.6])
+    neighbors_healpy = hp.get_all_neighbours(1024, [0.5, 0.6], phi=[0.5, 0.6])
+
+    np.testing.assert_array_equal(neighbors_hpgeom, neighbors_healpy)
+
+    # Test single lon/lat
+    neighbors_hpgeom = hpc.get_all_neighbours(1024, 0.5, phi=0.5, lonlat=True)
+    neighbors_healpy = hp.get_all_neighbours(1024, 0.5, phi=0.5, lonlat=True)
+
+    np.testing.assert_array_equal(neighbors_hpgeom, neighbors_healpy)
+
+    # Test multiple lon/lat
+    neighbors_hpgeom = hpc.get_all_neighbours(1024, [0.5, 0.6], phi=[0.5, 0.6], lonlat=True)
+    neighbors_healpy = hp.get_all_neighbours(1024, [0.5, 0.6], phi=[0.5, 0.6], lonlat=True)
+
+    np.testing.assert_array_equal(neighbors_hpgeom, neighbors_healpy)
+
+    # Test multiple lon/lat, nest=True
+    neighbors_hpgeom = hpc.get_all_neighbours(1024, [0.5, 0.6], phi=[0.5, 0.6], lonlat=True, nest=True)
+    neighbors_healpy = hp.get_all_neighbours(1024, [0.5, 0.6], phi=[0.5, 0.6], lonlat=True, nest=True)
+
+    np.testing.assert_array_equal(neighbors_hpgeom, neighbors_healpy)
