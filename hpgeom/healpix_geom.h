@@ -100,5 +100,6 @@ void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
 void locToVec3(double z, double phi, double sth, bool have_sth, vec3 *vec);
 void boundaries(healpix_info *hpx, int64_t pix, size_t step, ptgarr *out,
                 int *status);
+void neighbors(healpix_info *hpx, int64_t pix, i64stack *result, int *status, char *err);
 
 #endif

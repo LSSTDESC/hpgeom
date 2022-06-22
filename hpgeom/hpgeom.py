@@ -9,6 +9,7 @@ from ._hpgeom import (
     vector_to_pixel,
     pixel_to_vector,
     boundaries,
+    neighbors,
 )
 
 __all__ = [
@@ -32,6 +33,7 @@ __all__ = [
     'vector_to_pixel',
     'pixel_to_vector',
     'boundaries',
+    'neighbors',
     'UNSEEN',
 ]
 

@@ -35,6 +35,7 @@
 
 #include "healpix_geom.h"
 #include "hpgeom_stack.h"
+#include "hpgeom_utils.h"
 
 static const uint16_t utab[] = {
 #define Z(a) 0x##a##0, 0x##a##1, 0x##a##4, 0x##a##5
@@ -927,4 +928,96 @@ void boundaries(healpix_info *hpx, int64_t pix, size_t step, ptgarr *out,
     xyf2loc(xc + dc, yc - dc + i * d, face, &z, &phi, &sth, &have_sth);
     locToPtg(z, phi, sth, have_sth, &out->data[i + 3 * step]);
   }
+}
+
+const int nb_xoffset[] = { -1,-1, 0, 1, 1, 1, 0,-1 };
+const int nb_yoffset[] = {  0, 1, 1, 1, 0,-1,-1,-1 };
+const int nb_facearray[][12] =
+  { {  8, 9,10,11,-1,-1,-1,-1,10,11, 8, 9 },   // S
+    {  5, 6, 7, 4, 8, 9,10,11, 9,10,11, 8 },   // SE
+    { -1,-1,-1,-1, 5, 6, 7, 4,-1,-1,-1,-1 },   // E
+    {  4, 5, 6, 7,11, 8, 9,10,11, 8, 9,10 },   // SW
+    {  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11 },   // center
+    {  1, 2, 3, 0, 0, 1, 2, 3, 5, 6, 7, 4 },   // NE
+    { -1,-1,-1,-1, 7, 4, 5, 6,-1,-1,-1,-1 },   // W
+    {  3, 0, 1, 2, 3, 0, 1, 2, 4, 5, 6, 7 },   // NW
+    {  2, 3, 0, 1,-1,-1,-1,-1, 0, 1, 2, 3 } }; // N
+const int nb_swaparray[][3] =
+  { { 0,0,3 },   // S
+    { 0,0,6 },   // SE
+    { 0,0,0 },   // E
+    { 0,0,5 },   // SW
+    { 0,0,0 },   // center
+    { 5,0,0 },   // NE
+    { 0,0,0 },   // W
+    { 6,0,0 },   // NW
+    { 3,0,0 } }; // N
+
+void neighbors(healpix_info *hpx, int64_t pix, i64stack *result, int *status, char *err) {
+    *status = 1;
+    if (result->size < 8) {
+        snprintf(err, ERR_SIZE, "result stack of insufficient size.");
+        *status = 0;
+        return;
+    }
+
+    int ix, iy, face_num;
+    pix2xyf(hpx, pix, &ix, &iy, &face_num);
+
+    const int64_t nsm1 = hpx->nside - 1;
+    if ((ix>0)&&(ix<nsm1)&&(iy>0)&&(iy<nsm1)) {
+        if (hpx->scheme == RING) {
+            for (int m=0; m<8; m++) {
+                result->data[m] = xyf2ring(hpx, ix+nb_xoffset[m], iy+nb_yoffset[m], face_num);
+            }
+        } else {
+            int64_t fpix = (int64_t) face_num << (2*hpx->order);
+            int64_t px0 = spread_bits64(ix), py0 = spread_bits64(iy)<<1;
+            int64_t pxp = spread_bits64(ix+1), pyp=spread_bits64(iy+1)<<1;
+            int64_t pxm = spread_bits64(ix-1), pym=spread_bits64(iy-1)<<1;
+
+            result->data[0] = fpix+pxm+py0;
+            result->data[1] = fpix+pxm+pyp;
+            result->data[2] = fpix+px0+pyp;
+            result->data[3] = fpix+pxp+pyp;
+            result->data[4] = fpix+pxp+py0;
+            result->data[5] = fpix+pxp+pym;
+            result->data[6] = fpix+px0+pym;
+            result->data[7] = fpix+pxm+pym;
+        }
+    } else {
+        for (int i=0; i<8; i++) {
+            int x = ix+nb_xoffset[i], y=iy+nb_yoffset[i];
+            int nbnum = 4;
+            if (x<0) {
+                x+=hpx->nside;
+                nbnum--;
+            } else if (x>=hpx->nside) {
+                x-=hpx->nside;
+                nbnum++;
+            }
+            if (y<0) {
+                y+=hpx->nside;
+                nbnum-=3;
+            } else if (y>=hpx->nside) {
+                y-=hpx->nside;
+                nbnum+=3;
+            }
+
+            int f = nb_facearray[nbnum][face_num];
+            if (f>=0) {
+                int bits = nb_swaparray[nbnum][face_num >> 2];
+                if (bits&1) x=hpx->nside-x-1;
+                if (bits&2) y = hpx->nside-y-1;
+                if (bits&4) {
+                    int64_t temp = x;
+                    x = y;
+                    y = temp;
+                }
+                result->data[i] = xyf2pix(hpx, x, y, f);
+            } else {
+                result->data[i] = -1;
+            }
+        }
+    }
 }
