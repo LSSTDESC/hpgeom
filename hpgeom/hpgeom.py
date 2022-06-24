@@ -49,19 +49,15 @@ def lonlat_to_thetaphi(lon, lat, degrees=True):
 
     Parameters
     ----------
-    lon : `np.ndarray` (N,) or `float`
-        Longitude array or scalar.
-    lat : `np.ndarray` (N,) or `float`
-        Latitude array or scalar.
+    lon, lat : `float` or `np.ndarray` (N,)
+        Longitude/latitude.
     degrees : `bool`, optional
         If True, longitude and latitude will be in degrees.
 
     Returns
     -------
-    theta : `np.ndarray` (N,) or `float`
-        Theta (co-latitude), in radians, array or scalar.
-    phi : `np.ndarray` (N,) or `float`
-        Phi (longitude), in radians, array or scalar.
+    theta, phi : `float` or `np.ndarray` (N,)
+        Co-latitude (theta) and longitude (phi) in radians.
     """
     if degrees:
         lon_ = np.deg2rad(lon % 360.)
@@ -84,19 +80,15 @@ def thetaphi_to_lonlat(theta, phi, degrees=True):
 
     Parameters
     ----------
-    theta : `np.ndarray` (N,) or `float`
-        Theta (co-latitude), in radians, array or scalar.
-    phi : `np.ndarray` (N,) or `float`
-        Phi (longitude), in radians, array or scalar.
+    theta, phi : `float` or `np.ndarray` (N,)
+        Co-latitude (theta) and longitude (phi) in radians.
     degrees : `bool`, optional
         If True, longitude and latitude will be in degrees.
 
     Returns
     -------
-    lon : `np.ndarray` (N,) or `float`
-        Longitude array or scalar.
-    lat : `np.ndarray` (N,) or `float`
-        Latitude array or scalar.
+    lon, lat : `float` or `np.ndarray` (N,)
+        Longitude/latitude.
     """
     lon = phi
     lat = -(theta - np.pi/2.)
@@ -157,7 +149,7 @@ def query_polygon_vec(nside, vertices, inclusive=False, fact=4, nest=True):
         HEALPix nside. Must be power of 2 for nest ordering.
     vertices : `np.ndarray` (N, 3)
         Vertex array containing the vertices of the polygon.
-        inclusive : `bool`, optional
+    inclusive : `bool`, optional
         If False, return the exact set of pixels whose pixel centers lie
         within the polygon; if True, return all pixels that overlap with the polygon,
         and maybe a few more.
@@ -166,7 +158,7 @@ def query_polygon_vec(nside, vertices, inclusive=False, fact=4, nest=True):
         the resolution fact*nside. For NESTED ordering, fact must be a power of 2, less than 2**30,
         else it can be any positive integer.
     nest: `bool`, optional
-        If True, assume NESTED pixel ordering, otherwise, RING pixel ordering
+        Use nest ordering scheme?
     """
     theta, phi = vector_to_angle(vertices, lonlat=False)
 
@@ -179,7 +171,7 @@ def nside_to_npixel(nside):
     Parameters
     ----------
     nside : `int` or `np.ndarray` (N,)
-        HEALPix nside
+        HEALPix nside.
 
     Returns
     -------
@@ -223,7 +215,7 @@ def nside_to_pixel_area(nside, degrees=True):
     nside : `int`
         HEALPix nside parameter.
     degrees : `bool`, optional
-        Return area in square degrees?
+        Return area in square degrees? Otherwise square radians.
 
     Returns
     -------
@@ -281,14 +273,17 @@ def nside_to_order(nside):
 
     Parameters
     ----------
-    nside : `int`
-        HEALPix nside parameter.  Will raise ValueError if nside is not valid
-        (must be a power of 2 and less than 2**30).
+    nside : `int` or `np.ndarray` (N,)
+        HEALPix nside parameter.
 
     Returns
     -------
-    order : `int`
+    order : `int` or `np.ndarray` (N,)
         Order corresponding to given nside, such that nside = 2**order.
+
+    Raises
+    ------
+    ValueError if nside is not valid (must be power of 2 and less than 2**30).
     """
     _nside = np.atleast_1d(nside)
     if np.any((_nside <= 0) | (_nside > max_nside) | ((_nside & (_nside - 1)) != 0)):
@@ -305,13 +300,13 @@ def order_to_nside(order):
 
     Parameters
     ----------
-    order : `int` or `np.ndarray`
+    order : `int` or `np.ndarray` (N,)
         Resolution order.  Will raise ValueError if order is not valid
         (must be 0 to 29 inclusive).
 
     Returns
     -------
-    nside : `int`
+    nside : `int` or `np.ndarray` (N,)
         HEALPix nside corresponding to given order, such that nside = 2**order.
     """
     if np.any((order != np.int64(order)) | (order < 0) | (order > 29)):
@@ -347,12 +342,10 @@ def angle_to_vector(a, b, lonlat=True, degrees=True):
 
     Parameters
     ----------
-    a : `float` or `np.ndarray` (N,)
-        Longitude or theta (radians if lonlat=False, degrees if lonlat=True
-        and degrees=True).
-    b : `float` or `np.ndarray` (N,)
-        Latitude or phi (radians if lonlat=False, degrees if lonlat=True
-        and degrees=True).
+    a, b : `float` or `np.ndarray` (N,)
+        Longitude/latitude (if lonlat=True) or Co-latitude(theta)/longitude(phi)
+        (if lonlat=False). Longitude/latitude will be in degrees if degrees=True
+        and in radians if degrees=False. Theta/phi are always in radians.
     lonlat : `bool`, optional
         Use longitude/latitude instead of co-latitude/longitude (radians).
     degrees : `bool`, optional
@@ -384,19 +377,16 @@ def vector_to_angle(vec, lonlat=True, degrees=True):
     vec : `np.ndarray` (3,) or (N, 3)
         The vectors to convert to angles.
     lonlat : `bool`, optional
-        Use longitude/latitude instead of co-latitude/longitude (radians).
+        Use longitude/latitude for a, b instead of co-latitude/longitude.
     degrees : `bool`, optional
-        If lonlat is True then this sets if the units are degrees or
-        radians.
+        If lonlat=True then this sets if the units are degrees or radians.
 
     Returns
     -------
-    a : `float` or `np.ndarray` (N,)
-        Longitude or theta (radians if lonlat=False, degrees if lonlat=True
-        and degrees=True).
-    b : `float` or `np.ndarray` (N,)
-        Latitude or phi (radians if lonlat=False, degrees if lonlat=True
-        and degrees=True).
+    a, b : `float` or `np.ndarray` (N,)
+        Longitude/latitude (if lonlat=True) or Co-latitude(theta)/longitude(phi)
+        (if lonlat=False). Longitude/latitude will be in degrees if degrees=True
+        and in radians if degrees=False. Theta/phi are always in radians.
     """
     vec = np.atleast_1d(vec).reshape(-1, 3)
     norm = np.sqrt(np.sum(np.square(vec), axis=1))
