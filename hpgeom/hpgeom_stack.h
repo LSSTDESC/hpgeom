@@ -1,4 +1,7 @@
 /*
+ * Copyright 2022 LSST DESC
+ * Author: Erin Sheldon, Eli Rykoff
+ *
  * This code is adapted from https://github.com/esheldon/healpix_util
  *
  * This product includes software developed by the

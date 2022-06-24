@@ -1,32 +1,28 @@
 /*
- *  This file is modified from Healpix_cxx/healpix_base.cc by
- *  Eli Rykoff, Matt Becker, Erin Sheldon.
- *  Copyright (C) 2022 LSST DESC
+ * This file is modified from Healpix_cxx/healpix_base.cc by
+ * Eli Rykoff, Matt Becker, Erin Sheldon.
+ * Copyright (C) 2022 LSST DESC
  *
- *  Healpix_cxx is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * This product includes software developed by the
+ * LSST DESC (https://www.lsstdesc.org/).
  *
- *  Healpix_cxx is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with Healpix_cxx; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- *  For more information about HEALPix, see http://healpix.sourceforge.net
+ * You should have received a copy of the LSST License Statement and
+ * the GNU General Public License along with this program.  If not,
+ * see <http://www.lsstcorp.org/LegalNotices/>.
  */
 
 /*
- *  Healpix_cxx is being developed at the Max-Planck-Institut fuer Astrophysik
- *  and financially supported by the Deutsches Zentrum fuer Luft- und Raumfahrt
- *  (DLR).
- */
-
-/*
+ *  Original healpix_cxx code:
  *  Copyright (C) 2003-2016 Max-Planck-Society
  *  Author: Martin Reinecke
  */
