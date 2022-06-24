@@ -289,7 +289,7 @@ PyDoc_STRVAR(
     "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
     "degrees if lonlat=True and degrees=True, otherwise radians) if\n"
     "inclusive is False, or which overlap with this circle (if inclusive\n"
-    "is True)."
+    "is True).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -315,6 +315,12 @@ PyDoc_STRVAR(
     "    fact may be any positive integer.\n"
     "nest : `bool`, optional\n"
     "    If True, use nest ordering.\n"
+    "lonlat : `bool`, optional\n"
+    "    Output longitude/latitude instead of longitude/co-latitude "
+    "(radians).\n"
+    "degrees : `bool`, optional\n"
+    "    If lonlat is True then this sets if the units are degrees or "
+    "radians.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -340,7 +346,7 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args,
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plppp", kwlist, &nside,
                                    &a, &b, &radius, &inclusive, &fact, &nest,
                                    &lonlat, &degrees))
-    return NULL;
+    goto fail;
 
   double theta, phi;
   if (lonlat) {
@@ -349,7 +355,7 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args,
       goto fail;
     }
     if (degrees) {
-      radius *= D2R;
+      radius *= HPG_D2R;
     }
   } else {
     if (!hpgeom_check_theta_phi(a, b, err)) {
@@ -416,6 +422,184 @@ fail:
     pixset = i64rangeset_delete(pixset);
   }
   return NULL;
+}
+
+PyDoc_STRVAR(
+             query_polygon_doc,
+             "query_polygon(nside, a, b, inclusive=False, fact=4, nest=True, lonlat=True, degrees=True)\n"
+             "--\n\n"
+             "Returns pixels whose centers lie within the convex polygon defined by the points in a, b\n"
+             "([lon, lat] if lonlat=True, otherwise [theta, phi]) if inclusive is False, or which overlap\n"
+             "with this polygon (if inclusive is True.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "nside : `int`\n"
+             "    HEALPix nside. Must be power of 2 for nest ordering.\n"
+             "a : `np.ndarray` (N,)\n"
+             "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
+             "and degrees=True)\n"
+             "b : `np.ndarray` (N,)\n"
+             "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
+             "and degrees=True)\n"
+             "inclusive : `bool`, optional\n"
+             "    If False, return the exact set of pixels whose pixel centers lie\n"
+             "    within the circle. If True, return all pixels that overlap with\n"
+             "    the circle. This is an approximation and may return a few extra\n"
+             "    pixels.\n"
+             "fact : `int`, optional\n"
+             "    Only used when inclusive=True. The overlap test is performed at\n"
+             "    a resolution fact*nside. For nest ordering, fact must be a power\n"
+             "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n"
+             "    fact may be any positive integer.\n"
+             "nest : `bool`, optional\n"
+             "    If True, use nest ordering.\n"
+             "lonlat : `bool`, optional\n"
+             "    Output longitude/latitude instead of longitude/co-latitude "
+             "(radians).\n"
+             "degrees : `bool`, optional\n"
+             "    If lonlat is True then this sets if the units are degrees or "
+             "radians.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "pixels : `np.ndarray` (N,)\n"
+             "    Array of pixels (`np.int64`) which cover the circle.\n");
+
+static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args,
+                              PyObject *kwargs) {
+    int64_t nside;
+    PyObject *a_obj = NULL, *b_obj = NULL;
+    PyObject *a_arr = NULL, *b_arr = NULL;
+    int inclusive = 0;
+    long fact = 4;
+    int nest = 1;
+    int lonlat = 1;
+    int degrees = 1;
+    static char *kwlist[] = {"nside", "a",    "b",      "inclusive",
+                           "fact",  "nest", "lonlat", "degrees", NULL};
+    char err[ERR_SIZE];
+    int status = 1;
+    i64rangeset *pixset = NULL;
+    pointingarr *vertices = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LOO|plppp", kwlist, &nside,
+                                     &a_obj, &b_obj, &inclusive, &fact, &nest,
+                                     &lonlat, &degrees))
+        goto fail;
+
+    a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE,
+                             NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (a_arr == NULL)
+        goto fail;
+    b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE,
+                             NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (b_arr == NULL)
+        goto fail;
+
+    if (PyArray_NDIM((PyArrayObject *)a_arr) != 1) {
+        PyErr_SetString(PyExc_ValueError, "a array must be 1D.");
+        goto fail;
+    }
+    if (PyArray_NDIM((PyArrayObject *)b_arr) != 1) {
+        PyErr_SetString(PyExc_ValueError, "b array must be 1D.");
+        goto fail;
+    }
+
+    npy_intp nvert = PyArray_DIM((PyArrayObject *)a_arr, 0);
+    if (PyArray_DIM((PyArrayObject *)b_arr, 0) != nvert) {
+        PyErr_SetString(PyExc_ValueError, "a and b arrays must be the same length.");
+        goto fail;
+    }
+    if (nvert < 3) {
+        PyErr_SetString(PyExc_RuntimeError, "Polygon must have at least 3 vertices.");
+        goto fail;
+    }
+
+    vertices = pointingarr_new(nvert, &status, err);
+    if (!status) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        goto fail;
+    }
+
+    enum Scheme scheme;
+    if (nest) {
+        scheme = NEST;
+    } else {
+        scheme = RING;
+    }
+    if (!hpgeom_check_nside(nside, scheme, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+    }
+    healpix_info hpx = healpix_info_from_nside(nside, scheme);
+
+    pixset = i64rangeset_new(&status, err);
+    if (!status) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        goto fail;
+    }
+
+    if (!inclusive) {
+        fact = 0;
+    } else {
+        if (!hpgeom_check_fact(&hpx, fact, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+    }
+
+    double *a_data = (double *)PyArray_DATA((PyArrayObject *)a_arr);
+    double *b_data = (double *)PyArray_DATA((PyArrayObject *)b_arr);
+
+    double theta, phi;
+    for (npy_intp i=0; i<nvert; i++) {
+        if (lonlat) {
+            if (!hpgeom_lonlat_to_thetaphi(a_data[i], b_data[i], &theta, &phi, (bool)degrees, err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+        } else {
+            if (!hpgeom_check_theta_phi(a_data[i], b_data[i], err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+            theta = a_data[i];
+            phi = b_data[i];
+        }
+        vertices->data[i].theta = theta;
+        vertices->data[i].phi = phi;
+    }
+
+    query_polygon(&hpx, vertices, fact, pixset, &status, err);
+    if (!status) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        goto fail;
+    }
+
+    size_t npix = i64rangeset_npix(pixset);
+    npy_intp dims[1];
+    dims[0] = (npy_intp)npix;
+
+    PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+
+    i64rangeset_fill_buffer(pixset, npix, pix_data);
+
+    Py_DECREF(a_arr);
+    Py_DECREF(b_arr);
+    i64rangeset_delete(pixset);
+    pointingarr_delete(vertices);
+
+    return PyArray_Return((PyArrayObject *)pix_arr);
+
+ fail:
+    Py_XDECREF(a_arr);
+    Py_XDECREF(b_arr);
+    i64rangeset_delete(pixset);
+    pointingarr_delete(vertices);
+
+    return NULL;
 }
 
 PyDoc_STRVAR(nest_to_ring_doc,
@@ -652,6 +836,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
                            "nest",  "degrees", NULL};
 
   double *as = NULL, *bs = NULL;
+  pointingarr *ptg_arr = NULL;
   healpix_info hpx;
   int status;
   char err[ERR_SIZE];
@@ -713,7 +898,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
     scheme = RING;
   }
 
-  ptgarr *ptg_arr = ptgarr_new(4 * step, &status, err);
+  ptg_arr = pointingarr_new(4 * step, &status, err);
   if (!status) {
     PyErr_SetString(PyExc_RuntimeError, err);
     goto fail;
@@ -769,6 +954,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args,
 
   Py_DECREF(nside_arr);
   Py_DECREF(pix_arr);
+  pointingarr_delete(ptg_arr);
 
   PyObject *retval = PyTuple_New(2);
   PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)a_arr));
@@ -781,6 +967,7 @@ fail:
   Py_XDECREF(pix_arr);
   Py_XDECREF(a_arr);
   Py_XDECREF(b_arr);
+  pointingarr_delete(ptg_arr);
 
   return NULL;
 }
@@ -1185,6 +1372,8 @@ static PyMethodDef hpgeom_methods[] = {
      METH_VARARGS | METH_KEYWORDS, pixel_to_angle_doc},
     {"query_circle", (PyCFunction)(void (*)(void))query_circle,
      METH_VARARGS | METH_KEYWORDS, query_circle_doc},
+    {"query_polygon", (PyCFunction)(void (*)(void))query_polygon_meth,
+     METH_VARARGS | METH_KEYWORDS, query_polygon_doc},
     {"nest_to_ring", (PyCFunction)(void (*)(void))nest_to_ring,
      METH_VARARGS | METH_KEYWORDS, nest_to_ring_doc},
     {"ring_to_nest", (PyCFunction)(void (*)(void))ring_to_nest,

@@ -6,28 +6,20 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef M_PI
-#define M_E 2.7182818284590452354         /* e */
-#define M_LOG2E 1.4426950408889634074     /* log_2 e */
-#define M_LOG10E 0.43429448190325182765   /* log_10 e */
-#define M_LN2 0.69314718055994530942      /* log_e 2 */
-#define M_LN10 2.30258509299404568402     /* log_e 10 */
-#define M_PI 3.14159265358979323846       /* pi */
-#define M_PI_2 1.57079632679489661923     /* pi/2 */
-#define M_PI_4 0.78539816339744830962     /* pi/4 */
-#define M_1_PI 0.31830988618379067154     /* 1/pi */
-#define M_2_PI 0.63661977236758134308     /* 2/pi */
-#define M_2_SQRTPI 1.12837916709551257390 /* 2/sqrt(pi) */
-#define M_SQRT2 1.41421356237309504880    /* sqrt(2) */
-#define M_SQRT1_2 0.70710678118654752440  /* 1/sqrt(2) */
+#define HPG_PI 3.141592653589793238462643383279502884197           /* pi */
+#define HPG_TWO_PI 6.283185307179586476925286766559005768394       /* 2*pi */
+#define HPG_INV_TWOPI 1/HPG_TWO_PI                                 /* 1/(2*pi) */
+#define HPG_FOURPI 12.5663706143591729538505735331180115367        /* 4*pi */
+#define HPG_HALFPI 1.570796326794896619231321691639751442099       /* pi/2 */
+#define HPG_INV_HALFPI 0.6366197723675813430755350534900574        /* 2/pi */
+#define HPG_INV_SQRT4PI 0.2820947917738781434740397257803862929220 /* sqrt(4*pi) */
 
-#endif
+#define HPG_ONETHIRD  1.0/3.0
+#define HPG_TWOTHIRD  2.0/3.0
+#define HPG_FOURTHIRD 4.0/3.0
 
-#define M_TWO_PI 6.28318530717958647693   /* 2*pi */
-#define M_TWOTHIRD 0.66666666666666666666 /* 2/3 */
-
-#define D2R 0.017453292519943295
-#define R2D 57.295779513082323
+#define HPG_D2R HPG_PI/180.0
+#define HPG_R2D 180.0/HPG_PI
 
 #define MAX_ORDER 29
 #define MAX_NSIDE (int64_t)(1) << MAX_ORDER
@@ -98,9 +90,11 @@ void query_disc(healpix_info *hpx, double theta, double phi, double radius,
 void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
              bool *have_sth);
 void locToVec3(double z, double phi, double sth, bool have_sth, vec3 *vec);
-void boundaries(healpix_info *hpx, int64_t pix, size_t step, ptgarr *out,
+void boundaries(healpix_info *hpx, int64_t pix, size_t step, pointingarr *out,
                 int *status);
 void neighbors(healpix_info *hpx, int64_t pix, i64stack *result, int *status,
                char *err);
+void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact, i64rangeset *pixset, int *status, char *err);
+void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset *pixset, int *status, char *err);
 
 #endif

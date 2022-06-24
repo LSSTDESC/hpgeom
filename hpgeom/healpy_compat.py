@@ -11,6 +11,7 @@ from ._hpgeom import (
 )
 from .hpgeom import (
     query_circle_vec,
+    query_polygon_vec,
     nside_to_npixel,
     npixel_to_nside,
     nside_to_pixel_area,
@@ -19,7 +20,6 @@ from .hpgeom import (
     order_to_nside,
     angle_to_vector,
     vector_to_angle,
-    thetaphi_to_lonlat
 )
 
 from .hpgeom import boundaries as hpgeom_boundaries
@@ -28,6 +28,7 @@ __all__ = [
     'ang2pix',
     'pix2ang',
     'query_disc',
+    'query_polygon',
     'ring2nest',
     'nest2ring',
     'nside2npix',
@@ -109,7 +110,7 @@ def query_disc(nside, vec, radius, inclusive=False, fact=4, nest=False, buff=Non
     inclusive : `bool`, optional
         If False, return the exact set of pixels whose pixel centers lie
         within the disk; if True, return all pixels that overlap with the disk,
-        and maybe a few more. Default: False
+        and maybe a few more.
     fact : `int`, optional
         Only used when inclusive=True. The overlapping test will be done at
         the resolution fact*nside. For NESTED ordering, fact must be a power of 2, less than 2**30,
@@ -127,6 +128,46 @@ def query_disc(nside, vec, radius, inclusive=False, fact=4, nest=False, buff=Non
         Array of pixels (`np.int64`) which cover the disk.
     """
     pixels = query_circle_vec(nside, vec, radius, inclusive=inclusive, fact=fact, nest=nest)
+
+    if buff is not None:
+        warnings.warn("In hpgeom, setting buff is less performant than simply returning the pixels.")
+        buff[0: len(pixels)] = pixels
+
+    return pixels
+
+
+def query_polygon(nside, vertices, inclusive=False, fact=4, nest=False, buff=None):
+    """Returns pixels whose centers lie within the polygon defined by
+    *vertices* (if *inclusive* is False), or which overlap with the polygon
+    (if *inclusive* is True).
+
+    Parameters
+    ----------
+    nside : `int`
+        The HEALPix nside parameter.
+    vertices : `np.ndarray` (N, 3)
+        Vertex array containing the vertices of the polygon.
+    inclusive : `bool`, optional
+        If False, return the exact set of pixels whose pixel centers lie
+        within the polygon; if True, return all pixels that overlap with the polygon,
+        and maybe a few more.
+    fact : `int`, optional
+        Only used when inclusive=True. The overlapping test will be done at
+        the resolution fact*nside. For NESTED ordering, fact must be a power of 2, less than 2**30,
+        else it can be any positive integer.
+    nest: `bool`, optional
+        If True, assume NESTED pixel ordering, otherwise, RING pixel ordering
+    buff: `int` array, optional
+        If provided, this numpy array is used to contain the return values and must be
+        at least long enough to do so.  Note that this is provided for compatibility
+        only and is not optimized.
+
+    Returns
+    -------
+    pixels : `np.ndarray` (N,)
+        Array of pixels (`np.int64`) which cover the disk.
+    """
+    pixels = query_polygon_vec(nside, vertices, inclusive=inclusive, fact=fact, nest=nest)
 
     if buff is not None:
         warnings.warn("In hpgeom, setting buff is less performant than simply returning the pixels.")

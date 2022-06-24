@@ -78,8 +78,12 @@ def test_query_disc():
     pix_healpy = hp.query_disc(nside, vec, radius)
     np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
-    pix_hpcompat = hpc.query_disc(nside, vec, radius, nest=False)
-    pix_healpy = hp.query_disc(nside, vec, radius, nest=False)
+    pix_hpcompat = hpc.query_disc(nside, vec, radius, nest=True)
+    pix_healpy = hp.query_disc(nside, vec, radius, nest=True)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
+
+    pix_hpcompat = hpc.query_disc(nside, vec, radius, inclusive=True)
+    pix_healpy = hp.query_disc(nside, vec, radius, inclusive=True)
     np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
 
 
@@ -353,3 +357,27 @@ def test_get_all_neighbours():
     neighbors_healpy = hp.get_all_neighbours(1024, [0.5, 0.6], phi=[0.5, 0.6], lonlat=True, nest=True)
 
     np.testing.assert_array_equal(neighbors_hpgeom, neighbors_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_query_polygon():
+    """Test hpgeom.healpy_compat.query_polygon"""
+    nside = 1024
+    delta = 1.0
+    lon_ref = 180.0
+    lat_ref = 0.0
+    lon = np.array([lon_ref, lon_ref + delta, lon_ref + delta, lon_ref])
+    lat = np.array([lat_ref, lat_ref, lat_ref + delta, lat_ref + delta])
+    vec = hpgeom.angle_to_vector(lon, lat)
+
+    pix_hpcompat = hpc.query_polygon(nside, vec)
+    pix_healpy = hp.query_polygon(nside, vec)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
+
+    pix_hpcompat = hpc.query_polygon(nside, vec, nest=True)
+    pix_healpy = hp.query_polygon(nside, vec, nest=True)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
+
+    pix_hpcompat = hpc.query_polygon(nside, vec, inclusive=True)
+    pix_healpy = hp.query_polygon(nside, vec, inclusive=True)
+    np.testing.assert_array_equal(pix_hpcompat, pix_healpy)

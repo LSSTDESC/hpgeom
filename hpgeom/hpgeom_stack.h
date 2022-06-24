@@ -46,14 +46,14 @@ typedef struct i64rangeset {
   i64stack *stack;
 } i64rangeset;
 
-typedef struct ptg {
+typedef struct pointing {
   double theta, phi;
-} ptg;
+} pointing;
 
-typedef struct ptgarr {
+typedef struct pointingarr {
   size_t size;
-  ptg *data;
-} ptgarr;
+  pointing *data;
+} pointingarr;
 
 typedef struct vec3 {
   double x, y, z;
@@ -64,12 +64,19 @@ typedef struct vec3arr {
   vec3 *data;
 } vec3arr;
 
+typedef struct dblarr {
+    size_t size;
+    double *data;
+} dblarr;
+
 i64stack *i64stack_new(size_t num, int *status, char *err);
 void i64stack_realloc(i64stack *stack, size_t newsize, int *status, char *err);
 void i64stack_resize(i64stack *stack, size_t newsize, int *status, char *err);
 void i64stack_clear(i64stack *stack);
 i64stack *i64stack_delete(i64stack *stack);
 void i64stack_push(i64stack *stack, int64_t val, int *status, char *err);
+void i64stack_insert(struct i64stack *stack, size_t pos, size_t count, int64_t value, int *status, char *err);
+void i64stack_erase(struct i64stack *stack, size_t pos1, size_t pos2, int *status, char *err);
 
 i64rangeset *i64rangeset_new(int *status, char *err);
 void i64rangeset_append(i64rangeset *rangeset, int64_t v1, int64_t v2,
@@ -82,21 +89,26 @@ void i64rangeset_append_i64rangeset(i64rangeset *rangeset, i64rangeset *other,
 i64rangeset *i64rangeset_delete(i64rangeset *rangeset);
 size_t i64rangeset_npix(i64rangeset *rangeset);
 void i64rangeset_fill_buffer(i64rangeset *rangeset, size_t npix, int64_t *buf);
+void i64rangeset_remove(i64rangeset *rangeset, int64_t v1, int64_t v2, int *status, char *err);
+void i64rangeset_intersect(i64rangeset *rangeset, int64_t v1, int64_t v2, int *status, char *err);
 
 void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod);
 double vec3_dotprod(vec3 *v1, vec3 *v2);
 double vec3_length(vec3 *v);
 void vec3_add(vec3 *v1, vec3 *v2, vec3 *sum);
+void vec3_subtract(vec3 *v1, vec3 *v2, vec3 *sum);
 void vec3_normalize(vec3 *v);
 void vec3_flip(vec3 *v);
-// void vec3_from_ptg(ptg *p);
+void vec3_from_pointing(pointing *p, vec3 *v);
+void pointing_from_vec3(vec3 *v, pointing *p);
 
 vec3arr *vec3arr_new(size_t num, int *status, char *err);
 vec3arr *vec3arr_delete(vec3arr *arr);
 
-// void ptg_from_vec3(vec3 *v, ptg *p);
+pointingarr *pointingarr_new(size_t num, int *status, char *err);
+pointingarr *pointingarr_delete(pointingarr *arr);
 
-ptgarr *ptgarr_new(size_t num, int *status, char *err);
-ptgarr *ptgarr_delete(ptgarr *arr);
+dblarr *dblarr_new(size_t num, int *status, char *err);
+dblarr *dblarr_delete(dblarr *arr);
 
 #endif

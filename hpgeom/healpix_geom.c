@@ -32,6 +32,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "healpix_geom.h"
 #include "hpgeom_stack.h"
@@ -95,6 +96,15 @@ static inline int64_t i64max(int64_t v1, int64_t v2) {
   return v1 > v2 ? v1 : v2;
 }
 static inline int64_t i64min(int64_t v1, int64_t v2) {
+  return v1 < v2 ? v1 : v2;
+}
+
+/*
+static inline double dblmax(double v1, double v2) {
+  return v1 > v2 ? v1 : v2;
+}
+*/
+static inline double dblmin(double v1, double v2) {
   return v1 < v2 ? v1 : v2;
 }
 
@@ -229,10 +239,10 @@ int64_t ring2nest(healpix_info *hpx, int64_t pix) {
 int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth,
                 bool have_sth) {
   double za = fabs(z);
-  double tt = fmodulo(phi * M_2_PI, 4.0); // in [0,4)
+  double tt = fmodulo(phi * HPG_INV_HALFPI, 4.0); // in [0,4)
 
   if (hpx->scheme == RING) {
-    if (za <= M_TWOTHIRD) // Equatorial region
+    if (za <= HPG_TWOTHIRD) // Equatorial region
     {
       int64_t nl4 = 4 * hpx->nside;
       double temp1 = hpx->nside * (0.5 + tt);
@@ -270,7 +280,7 @@ int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth,
     }
   } else // is_nest
   {
-    if (za <= M_TWOTHIRD) // Equatorial region
+    if (za <= HPG_TWOTHIRD) // Equatorial region
     {
       double temp1 = hpx->nside * (0.5 + tt);
       double temp2 = hpx->nside * (z * 0.75);
@@ -323,7 +333,7 @@ void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi,
         *sth = sqrt(tmp * (2. - tmp));
         *have_sth = true;
       }
-      *phi = (iphi - 0.5) * M_PI_2 / iring;
+      *phi = (iphi - 0.5) * HPG_HALFPI / iring;
     } else if (pix < (hpx->npix - hpx->ncap)) // Equatorial region
     {
       int64_t nl4 = 4 * hpx->nside;
@@ -334,7 +344,7 @@ void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi,
       double fodd = ((iring + hpx->nside) & 1) ? 1 : 0.5;
 
       *z = (2 * hpx->nside - iring) * hpx->fact1;
-      *phi = (iphi - fodd) * M_PI * 0.75 * hpx->fact1;
+      *phi = (iphi - fodd) * HPG_PI * 0.75 * hpx->fact1;
     } else // South Polar cap
     {
       int64_t ip = hpx->npix - pix;
@@ -348,7 +358,7 @@ void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi,
         *sth = sqrt(tmp * (2. - tmp));
         *have_sth = true;
       }
-      *phi = (iphi - 0.5) * M_PI_2 / iring;
+      *phi = (iphi - 0.5) * HPG_HALFPI / iring;
     }
   } else {
     int face_num, ix, iy;
@@ -381,8 +391,8 @@ void pix2loc(healpix_info *hpx, int64_t pix, double *z, double *phi,
     int64_t tmp = (int64_t)(jpll[face_num]) * nr + ix - iy;
     if (tmp < 0)
       tmp += 8 * nr;
-    *phi = (nr == hpx->nside) ? 0.75 * M_PI_2 * tmp * hpx->fact1
-                              : (0.5 * M_PI_2 * tmp) / nr;
+    *phi = (nr == hpx->nside) ? 0.75 * HPG_HALFPI * tmp * hpx->fact1
+                              : (0.5 * HPG_HALFPI * tmp) / nr;
   }
 }
 
@@ -489,7 +499,7 @@ int compress_bits64(int64_t v) {
 
 double max_pixrad(healpix_info *hpx) {
   double z_a = 2. / 3.;
-  double phi_a = M_PI / (4. * hpx->nside);
+  double phi_a = HPG_PI / (4. * hpx->nside);
   double sintheta = sqrt((1 - z_a) * (1 + z_a));
   double x_a = sintheta * cos(phi_a);
   double y_a = sintheta * sin(phi_a);
@@ -511,7 +521,7 @@ double max_pixrad(healpix_info *hpx) {
 
 int64_t ring_above(healpix_info *hpx, double z) {
   double az = fabs(z);
-  if (az <= M_TWOTHIRD) // equatorial region
+  if (az <= HPG_TWOTHIRD) // equatorial region
     return (int64_t)(hpx->nside * (2 - 1.5 * z));
   int64_t iring = (int64_t)(hpx->nside * sqrt(3 * (1 - az)));
   return (z > 0) ? iring : 4 * hpx->nside - iring - 1;
@@ -679,13 +689,13 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi,
       rsmall = rbig = inclusive ? radius + max_pixrad(hpx) : radius;
     }
 
-    if (rsmall >= M_PI) {
+    if (rsmall >= HPG_PI) {
       i64rangeset_append(pixset, 0, hpx->npix, status, err);
       return;
     }
 
-    if (rbig > M_PI) {
-      rbig = M_PI;
+    if (rbig > HPG_PI) {
+      rbig = HPG_PI;
     }
 
     double cosrsmall = cos(rsmall);
@@ -715,7 +725,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi,
     double zmin = cos(rlat2);
     int64_t irmax = ring_above(hpx, zmin);
 
-    if ((fct > 1) && (rlat2 < M_PI))
+    if ((fct > 1) && (rlat2 < HPG_PI))
       irmax = i64min(4 * hpx->nside - 1, irmax + 1);
 
     for (int64_t iz = irmin; iz <= irmax; ++iz) {
@@ -724,7 +734,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi,
       double ysq = 1 - z * z - x * x;
       double dphi = -1;
       if (ysq <= 0) { // no intersection, ring completely inside or outside
-        dphi = (fct == 1) ? 0 : M_PI - 1e-15;
+        dphi = (fct == 1) ? 0 : HPG_PI - 1e-15;
       } else {
         dphi = atan2(sqrt(ysq), x);
       }
@@ -737,9 +747,9 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi,
         int64_t ipix2 = ipix1 + nr - 1; // highest pixel number in the ring
 
         int64_t ip_lo =
-            (int64_t)floor((nr / M_TWO_PI) * (ptg_phi - dphi) - shift) + 1;
+            (int64_t)floor((nr / HPG_TWO_PI) * (ptg_phi - dphi) - shift) + 1;
         int64_t ip_hi =
-            (int64_t)floor((nr / M_TWO_PI) * (ptg_phi + dphi) - shift);
+            (int64_t)floor((nr / HPG_TWO_PI) * (ptg_phi + dphi) - shift);
 
         if (fct > 1) {
           while ((ip_lo <= ip_hi) &&
@@ -774,7 +784,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi,
         }
       }
     }
-    if ((rlat2 >= M_PI) &&
+    if ((rlat2 >= HPG_PI) &&
         (irmax + 1 < 4 * hpx->nside)) { // south pole in the disk
       int64_t sp, rp;
       bool dummy;
@@ -784,7 +794,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi,
         return;
     }
   } else {                // schema == NEST
-    if (radius >= M_PI) { // disk covers the whole sphere
+    if (radius >= HPG_PI) { // disk covers the whole sphere
       i64rangeset_append(pixset, 0, hpx->npix, status, err);
       return;
     }
@@ -803,7 +813,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi,
     for (int o = 0; o <= omax; o++) {
       base[o] = healpix_info_from_order(o, NEST);
       double dr = max_pixrad(&base[o]); // safety distance
-      crpdr[o] = ((radius + dr) > M_PI) ? -1. : cos(radius + dr);
+      crpdr[o] = ((radius + dr) > HPG_PI) ? -1. : cos(radius + dr);
       crmdr[o] = ((radius - dr) < 0.) ? 1. : cos(radius - dr);
     }
 
@@ -875,7 +885,7 @@ void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
     tmp += 8;
   if (tmp >= 8)
     tmp -= 8;
-  *phi = (nr < 1e-15) ? 0 : (0.5 * M_PI_2 * tmp) / nr;
+  *phi = (nr < 1e-15) ? 0 : (0.5 * HPG_HALFPI * tmp) / nr;
 }
 
 void locToVec3(double z, double phi, double sth, bool have_sth, vec3 *vec) {
@@ -891,7 +901,7 @@ void locToVec3(double z, double phi, double sth, bool have_sth, vec3 *vec) {
   }
 }
 
-void locToPtg(double z, double phi, double sth, bool have_sth, ptg *p) {
+void locToPtg(double z, double phi, double sth, bool have_sth, pointing *p) {
   p->phi = phi;
 
   if (have_sth) {
@@ -901,7 +911,7 @@ void locToPtg(double z, double phi, double sth, bool have_sth, ptg *p) {
   }
 }
 
-void boundaries(healpix_info *hpx, int64_t pix, size_t step, ptgarr *out,
+void boundaries(healpix_info *hpx, int64_t pix, size_t step, pointingarr *out,
                 int *status) {
   *status = 1;
 
@@ -1023,4 +1033,325 @@ void neighbors(healpix_info *hpx, int64_t pix, i64stack *result, int *status,
       }
     }
   }
+}
+
+static void get_circle_q12(vec3arr *point, size_t q1, size_t q2, vec3 *center, double *cosrad) {
+    vec3_add(&point->data[q1], &point->data[q2], center);
+    vec3_normalize(center);
+    *cosrad = vec3_dotprod(&point->data[q1], center);
+    for (size_t i=0; i<q1; i++) {
+        if (vec3_dotprod(&point->data[i], center) < *cosrad) { // point outside the current circle
+            vec3 v1, v2;
+            vec3_subtract(&point->data[q1], &point->data[i], &v1);
+            vec3_subtract(&point->data[q2], &point->data[i], &v2);
+            vec3_crossprod(&v1, &v2, center);
+            vec3_normalize(center);
+            *cosrad = vec3_dotprod(&point->data[i], center);
+            if (*cosrad < 0) {
+                vec3_flip(center);
+                *cosrad = -*cosrad;
+            }
+        }
+    }
+}
+
+static void get_circle_q(vec3arr *point, size_t q, vec3 *center, double *cosrad) {
+    vec3_add(&point->data[0], &point->data[q], center);
+    vec3_normalize(center);
+    *cosrad = vec3_dotprod(&point->data[0], center);
+    for (size_t i=1; i<q; i++) {
+        if (vec3_dotprod(&point->data[i], center) < *cosrad) { // point outside the current circle
+            get_circle_q12(point, i, q, center, cosrad);
+        }
+    }
+}
+
+static void find_enclosing_circle(vec3arr *point, vec3 *center, double *cosrad) {
+    size_t np=point->size;
+    vec3_add(&point->data[0], &point->data[1], center);
+    vec3_normalize(center);
+    *cosrad = vec3_dotprod(&point->data[0], center);
+    for (size_t i=2; i<np; i++) {
+        if (vec3_dotprod(&point->data[i], center) < *cosrad) { // point outside the current circle
+            get_circle_q(point, i, center, cosrad);
+        }
+    }
+}
+
+void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact, i64rangeset *pixset, int *status, char *err) {
+    *status = 1;
+    bool inclusive = (fact!=0);
+    size_t nv = norm->size;
+    // this does not alter the storage
+    pixset->stack->size = 0;
+
+    if (hpx->scheme == RING) {
+        dblarr *z0 = NULL, *xa = NULL, *cosrsmall = NULL, *cosrbig = NULL;
+        pointingarr *ptg = NULL;
+        i64stack *cpix = NULL;
+        i64rangeset *tr = NULL;
+        int64_t fct=1;
+        if (inclusive) {
+            fct = fact;
+        }
+        healpix_info hpx2;
+        double rpsmall, rpbig;
+        if (fct>1) {
+            hpx2 = healpix_info_from_nside(fct*hpx->nside, RING);
+            rpsmall = max_pixrad(&hpx2);
+            rpbig = max_pixrad(hpx);
+        } else {
+            rpsmall = rpbig = inclusive ? max_pixrad(hpx) : 0;
+        }
+
+        tr = i64rangeset_new(status, err);
+        if (!*status) goto cleanup_ring;
+
+        int64_t irmin = 1, irmax=4*hpx->nside-1;
+        z0 = dblarr_new(nv, status, err);
+        if (!*status) goto cleanup_ring;
+        xa = dblarr_new(nv, status, err);
+        if (!*status) goto cleanup_ring;
+        cosrsmall = dblarr_new(nv, status, err);
+        if (!*status) goto cleanup_ring;
+        cosrbig = dblarr_new(nv, status, err);
+        if (!*status) goto cleanup_ring;
+        ptg = pointingarr_new(nv, status, err);
+        if (!*status) goto cleanup_ring;
+        cpix = i64stack_new(nv, status, err);
+        if (!*status) goto cleanup_ring;
+
+        size_t counter = 0;
+        for (size_t i=0; i<nv; i++) {
+            double rsmall = rad[i] + rpsmall;
+            if (rsmall < HPG_PI) {
+                double rbig = dblmin(HPG_PI, rad[i] + rpbig);
+                pointing pnt;
+                pointing_from_vec3(&norm->data[i], &pnt);
+                cosrsmall->data[counter] = cos(rsmall);
+                cosrbig->data[counter] = cos(rbig);
+                double cth = cos(pnt.theta);
+                z0->data[counter] = cth;
+                if (fct > 1) {
+                    cpix->data[counter] = loc2pix(hpx, cth, pnt.phi, 0, false);
+                    if (!*status) goto cleanup_ring;
+                }
+                xa->data[counter] = 1./sqrt((1-cth)*(1+cth));
+                ptg->data[counter].theta = pnt.theta;
+                ptg->data[counter].phi = pnt.phi;
+                counter++;
+
+                double rlat1 = pnt.theta - rsmall;
+                double zmax = cos(rlat1);
+                int64_t irmin_t = (rlat1<=0) ? 1 : ring_above(hpx, zmax)+1;
+
+                if ((fct>1) && (rlat1>0)) irmin_t=i64max((int64_t) 1, irmin_t-1);
+
+                double rlat2 = pnt.theta + rsmall;
+                double zmin = cos(rlat2);
+                int64_t irmax_t = (rlat2>=HPG_PI) ? 4*hpx->nside-1 : ring_above(hpx, zmin);
+
+                if ((fct>1) && (rlat2<HPG_PI)) irmax_t = i64min(4*hpx->nside-1, irmax_t+1);
+
+                if (irmax_t < irmax) irmax=irmax_t;
+                if (irmin_t > irmin) irmin=irmin_t;
+            }
+        }
+
+        for (int64_t iz=irmin; iz<=irmax; iz++) {
+            double z = ring2z(hpx, iz);
+            int64_t ipix1, nr;
+            bool shifted;
+            get_ring_info_small(hpx, iz, &ipix1, &nr, &shifted);
+            double shift = shifted ? 0.5 : 0.;
+            tr->stack->size = 0;
+            i64rangeset_append(tr, ipix1, ipix1+nr, status, err);
+            if (!*status) return;
+            for (size_t j=0; j<counter; j++) {
+                double x = (cosrbig->data[j] - z*z0->data[j])*xa->data[j];
+                double ysq = 1.-z*z-x*x;
+                double dphi = (ysq<=0) ? HPG_PI-1e-15 : atan2(sqrt(ysq), x);
+                int64_t ip_lo = (int64_t)floor((nr*HPG_INV_TWOPI)*(ptg->data[j].phi-dphi) - shift) + 1;
+                int64_t ip_hi = (int64_t)floor((nr*HPG_INV_TWOPI)*(ptg->data[j].phi+dphi) - shift);
+                if (fct>1) {
+                    while ((ip_lo<=ip_hi) &&
+                           check_pixel_ring(hpx, &hpx2, ip_lo,nr,ipix1,fct,z0->data[j],ptg->data[j].phi,cosrsmall->data[j],cpix->data[j]))
+                        ++ip_lo;
+                    while ((ip_hi>ip_lo) &&
+                           check_pixel_ring(hpx, &hpx2, ip_hi,nr,ipix1,fct,z0->data[j],ptg->data[j].phi,cosrsmall->data[j],cpix->data[j]))
+                        --ip_hi;
+                }
+                if (ip_hi>=nr) {
+                    ip_lo -= nr;
+                    ip_hi -= nr;
+                }
+                if (ip_lo < 0) {
+                    i64rangeset_remove(tr, ipix1+ip_hi+1,ipix1+ip_lo+nr, status, err);
+                } else {
+                    i64rangeset_intersect(tr, ipix1+ip_lo, ipix1+ip_hi+1, status, err);
+                }
+                if (!*status) return;
+            }
+            i64rangeset_append_i64rangeset(pixset, tr, status, err);
+            if (!*status) return;
+        }
+
+    cleanup_ring:
+        dblarr_delete(z0);
+        dblarr_delete(xa);
+        dblarr_delete(cosrsmall);
+        dblarr_delete(cosrbig);
+        pointingarr_delete(ptg);
+        i64rangeset_delete(tr);
+
+    } else { // scheme == NEST
+        dblarr *crlimit0[MAX_ORDER + 1];
+        dblarr *crlimit1[MAX_ORDER + 1];
+        dblarr *crlimit2[MAX_ORDER + 1];
+
+        for (int o=0; o<=MAX_ORDER; o++) {
+            crlimit0[o] = NULL;
+            crlimit1[o] = NULL;
+            crlimit2[o] = NULL;
+        }
+
+        int oplus = 0;
+        if (inclusive) {
+            oplus = ilog2(fact);
+        }
+        int omax = hpx->order + oplus; // the order up to which we test
+
+        // TODO: ignore all disks with radius>=pi
+
+        struct healpix_info base[MAX_ORDER + 1];
+        for (int o=0; o<=MAX_ORDER; o++) { // prepare data at the required orders
+            base[o] = healpix_info_from_order(o, NEST);
+            crlimit0[o] = dblarr_new(nv, status, err);
+            if (!*status) goto cleanup_nest;
+            crlimit1[o] = dblarr_new(nv, status, err);
+            if (!*status) goto cleanup_nest;
+            crlimit2[o] = dblarr_new(nv, status, err);
+            if (!*status) goto cleanup_nest;
+
+            double dr = max_pixrad(&base[o]); // safety distance
+
+            for (size_t i=0; i<nv; i++) {
+                crlimit0[o]->data[i] = (rad[i]+dr>HPG_PI) ? -1. : cos(rad[i]+dr);
+                crlimit1[o]->data[i] = (o==0) ? cos(rad[i]) : crlimit1[0]->data[i];
+                crlimit2[o]->data[i] = (rad[i]-dr<0.) ? 1. : cos(rad[i]-dr);
+            }
+        }
+
+        i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+        if (!status) return;
+        for (int i = 0; i < 12; i++) {
+            i64stack_push(stk, (int64_t)(11 - i), status, err);
+            if (!status)
+                return;
+            i64stack_push(stk, 0, status, err);
+            if (!status)
+                return;
+        }
+
+        int stacktop = 0; // a place to save a stack position
+        while (stk->size > 0) {
+            // pop current pixel number and order from the stack
+            int64_t pix = stk->data[stk->size - 2];
+            int o = (int)stk->data[stk->size - 1];
+            i64stack_resize(stk, stk->size - 2, status, err);
+            if (!status)
+                return;
+            vec3 pv = pix2vec(&base[o], pix);
+
+            size_t zone=3;
+            for (size_t i=0; i<nv; i++) {
+                double crad=vec3_dotprod(&pv, &norm->data[i]);
+                double crlim;
+                for (size_t iz=0; iz<zone; iz++) {
+                    if (iz == 0) {
+                        crlim = crlimit0[o]->data[i];
+                    } else if (iz == 1) {
+                        crlim = crlimit1[o]->data[i];
+                    } else {
+                        crlim = crlimit2[o]->data[i];
+                    }
+                    if (crad<crlim)
+                        if ((zone=iz)==0) goto bailout;
+                }
+            }
+            check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive, &stacktop, status, err);
+            if (!*status) return;
+        bailout:;
+        }
+    cleanup_nest:
+        for (int o=0; o<=MAX_ORDER; o++) {
+            dblarr_delete(crlimit0[o]);
+            dblarr_delete(crlimit1[o]);
+            dblarr_delete(crlimit2[o]);
+        }
+    }
+}
+
+void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset *pixset, int *status, char *err) {
+    *status = 1;
+
+    bool inclusive = (fact != 0);
+    size_t nv = vertex->size;
+    size_t ncirc = inclusive ? nv+1 : nv;
+    vec3arr *vv = NULL, *normal = NULL;
+
+    if (nv < 3) {
+        snprintf(err, ERR_SIZE, "Polygon does not have enough vertices.");
+        *status = 0;
+        return;
+    }
+
+    vv = vec3arr_new(nv, status, err);
+    if (!*status) goto cleanup;
+
+    for (size_t i=0; i<nv; i++) {
+        vec3_from_pointing(&vertex->data[i], &vv->data[i]);
+    }
+
+    normal = vec3arr_new(ncirc, status, err);
+    if (!*status) goto cleanup;
+    int flip = 0;
+    for (size_t i=0; i<nv; i++) {
+        vec3_crossprod(&vv->data[i], &vv->data[(i + 1)%nv], &normal->data[i]);
+        vec3_normalize(&normal->data[i]);
+        double hnd = vec3_dotprod(&normal->data[i], &vv->data[(i+2)%nv]);
+        if (fabs(hnd) < 1e-10) {
+            snprintf(err, ERR_SIZE, "Polygon has degenerate corner.");
+            *status = 0;
+            goto cleanup;
+        }
+        if (i==0)
+            flip = (hnd<0.) ? -1 : 1;
+        else if (flip*hnd < 0) {
+            snprintf(err, ERR_SIZE, "Polygon is not convex.");
+            *status = 0;
+            goto cleanup;
+        }
+        normal->data[i].x *= flip;
+        normal->data[i].y *= flip;
+        normal->data[i].z *= flip;
+    }
+    double *rad = (double *)calloc(ncirc, sizeof(double));
+    if (rad == NULL) {
+        snprintf(err, ERR_SIZE, "Could not allocate array memory.");
+        *status = 0;
+        goto cleanup;
+    }
+    for (size_t i=0; i<ncirc; i++)
+        rad[i] = HPG_HALFPI;
+    if (inclusive) {
+        double cosrad;
+        find_enclosing_circle(vv, &normal->data[nv], &cosrad);
+        rad[nv]=acos(cosrad);
+    }
+    query_multidisc(hpx, normal, rad, fact, pixset, status, err);
+
+ cleanup:
+    vec3arr_delete(vv);
+    vec3arr_delete(normal);
 }

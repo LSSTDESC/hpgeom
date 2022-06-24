@@ -4,6 +4,7 @@ from ._hpgeom import (
     angle_to_pixel,
     pixel_to_angle,
     query_circle,
+    query_polygon,
     nest_to_ring,
     ring_to_nest,
     vector_to_pixel,
@@ -19,6 +20,8 @@ __all__ = [
     'pixel_to_angle',
     'query_circle',
     'query_circle_vec',
+    'query_polygon',
+    'query_polygon_vec',
     'lonlat_to_thetaphi',
     'nest_to_ring',
     'ring_to_nest',
@@ -36,9 +39,6 @@ __all__ = [
     'neighbors',
     'UNSEEN',
 ]
-
-# To add:
-#  query_polygon (with lonlat option as default!)
 
 UNSEEN = -1.6375e+30
 max_nside = 1 << 29
@@ -141,12 +141,36 @@ def query_circle_vec(nside, vec, radius, inclusive=False, fact=4, nest=True):
     if len(vec) != 3:
         raise ValueError("vec must be 3 elements.")
 
-    norm = np.sqrt(np.sum(np.square(vec)))
-    theta = np.arccos(vec[2] / norm)
-    phi = np.arctan2(vec[1], vec[0])
-    phi %= (2*np.pi)
+    theta, phi = vector_to_angle(vec, lonlat=False)
 
     return query_circle(nside, theta, phi, radius, inclusive=inclusive, fact=fact, nest=nest, lonlat=False)
+
+
+def query_polygon_vec(nside, vertices, inclusive=False, fact=4, nest=True):
+    """Returns pixels whose centers lie within the convex polygon defined
+    by vertices (if inclusive is False), or which overlap with the polygon
+    (if inclusive is True).
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside. Must be power of 2 for nest ordering.
+    vertices : `np.ndarray` (N, 3)
+        Vertex array containing the vertices of the polygon.
+        inclusive : `bool`, optional
+        If False, return the exact set of pixels whose pixel centers lie
+        within the polygon; if True, return all pixels that overlap with the polygon,
+        and maybe a few more.
+    fact : `int`, optional
+        Only used when inclusive=True. The overlapping test will be done at
+        the resolution fact*nside. For NESTED ordering, fact must be a power of 2, less than 2**30,
+        else it can be any positive integer.
+    nest: `bool`, optional
+        If True, assume NESTED pixel ordering, otherwise, RING pixel ordering
+    """
+    theta, phi = vector_to_angle(vertices, lonlat=False)
+
+    return query_polygon(nside, theta, phi, inclusive=inclusive, fact=fact, nest=nest, lonlat=False)
 
 
 def nside_to_npixel(nside):
@@ -374,7 +398,7 @@ def vector_to_angle(vec, lonlat=True, degrees=True):
         Latitude or phi (radians if lonlat=False, degrees if lonlat=True
         and degrees=True).
     """
-    vec = vec.reshape(-1, 3)
+    vec = np.atleast_1d(vec).reshape(-1, 3)
     norm = np.sqrt(np.sum(np.square(vec), axis=1))
     theta = np.arccos(vec[:, 2]/norm)
     phi = np.arctan2(vec[:, 1], vec[:, 0]) % (2.*np.pi)
