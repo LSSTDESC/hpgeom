@@ -35,7 +35,7 @@ jobs:
       run: |
         export PATH="$CONDA/bin:$PATH"
         # Require healpy for testing
-        mamba create -q -n testenv python=${{ matrix.python-version }} numpy setuptools_scm setuptools_scm_git_archive c-compiler flake8 pytest pytest-flake8 healpy -c conda-forge
+        conda create -q -n testenv python=${{ matrix.python-version }} numpy setuptools_scm setuptools_scm_git_archive c-compiler flake8 pytest pytest-flake8 healpy -c conda-forge
         source activate testenv
         pip install --no-deps .
     - name: Test with pytest
