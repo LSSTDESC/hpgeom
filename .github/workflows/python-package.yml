@@ -39,7 +39,7 @@ jobs:
         source activate testenv
         pip install --no-deps .
         # Install additional test dependencies
-        conda install flake8 pytest pytest-flake8 healpy
+        conda install flake8 pytest pytest-flake8 healpy -c conda-forge
 
     - name: Test with pytest
       run: |
