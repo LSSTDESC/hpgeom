@@ -31,13 +31,16 @@ jobs:
         conda install -q -n base mamba -c conda-forge
         conda info -a
         conda init bash
-    - name: Install dependencies
+    - name: Install dependencies and build
       run: |
         export PATH="$CONDA/bin:$PATH"
-        # Require healpy for testing
-        conda create -q -n testenv python=${{ matrix.python-version }} numpy setuptools_scm setuptools_scm_git_archive c-compiler flake8 pytest pytest-flake8 healpy -c conda-forge
+        # Create env for build
+        conda create -q -n testenv python=${{ matrix.python-version }} numpy setuptools_scm setuptools_scm_git_archive c-compiler -c conda-forge
         source activate testenv
         pip install --no-deps .
+        # Install additional test dependencies
+        conda install flake8 pytest pytest-flake8 healpy
+
     - name: Test with pytest
       run: |
         export PATH="$CONDA/bin:$PATH"
