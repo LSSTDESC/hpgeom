@@ -9,33 +9,45 @@
 #include "hpgeom_stack.h"
 #include "hpgeom_utils.h"
 
+#define NSIDE_DOC_PAR                      \
+    "nside : `int` or `np.ndarray` (N,)\n" \
+    "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
+#define AB_DOC_DESCR                                                                 \
+    "    Longitude/latitude (if lonlat=True) or Co-latitude(theta)/longitude(phi)\n" \
+    "    (if lonlat=False). Longitude/latitude will be in degrees if degrees=True\n" \
+    "    and in radians if degrees=False. Theta/phi are always in radians.\n"
+
+#define AB_DOC_PAR "a, b : `float` or `np.ndarray` (N,)\n" AB_DOC_DESCR
+#define NEST_DOC_PAR            \
+    "nest : `bool`, optional\n" \
+    "    Use nest ordering scheme?\n"
+#define LONLAT_DOC_PAR            \
+    "lonlat : `bool`, optional\n" \
+    "    Use longitude/latitude for a, b instead of co-latitude/longitude.\n"
+#define DEGREES_DOC_PAR            \
+    "degrees : `bool`, optional\n" \
+    "    If lonlat=True then this sets if the units are degrees or radians.\n"
+#define PIX_DOC_PAR                         \
+    "pixels : `int` or `np.ndarray` (N,)\n" \
+    "    HEALPix pixel numbers.\n"
+#define FACT_DOC_PAR                                                         \
+    "fact : `int`, optional\n"                                               \
+    "    Only used when inclusive=True. The overlap test is performed at\n"  \
+    "    a resolution fact*nside. For nest ordering, fact must be a power\n" \
+    "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n" \
+    "    fact may be any positive integer.\n"
+
 PyDoc_STRVAR(angle_to_pixel_doc,
              "angle_to_pixel(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
              "--\n\n"
              "Convert angles to pixels.\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-             "a : `np.ndarray` (N,)\n"
-             "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "b : `np.ndarray` (N,)\n"
-             "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?\n"
-             "lonlat : `bool`, optional\n"
-             "    Use longitude/latitude instead of longitude/co-latitude (radians).\n"
-             "degrees : `bool`, optional\n"
-             "    If lonlat is True then this sets if the units are degrees or "
-             "radians.\n"
+             "----------\n" NSIDE_DOC_PAR AB_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
+                 DEGREES_DOC_PAR
              "\n"
              "Returns\n"
-             "-------\n"
-             "pix : `np.ndarray` (N,)\n"
-             "    HEALPix pixel numbers.\n");
+             "-------\n" PIX_DOC_PAR);
 
 static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
@@ -140,27 +152,11 @@ PyDoc_STRVAR(pixel_to_angle_doc,
              "Convert pixels to angles.\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-             "pix : `np.ndarray` (N,)\n"
-             "    Pixel numbers\n"
-             "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?\n"
-             "lonlat : `bool`, optional\n"
-             "    Output longitude/latitude instead of longitude/co-latitude "
-             "(radians).\n"
-             "degrees : `bool`, optional\n"
-             "    If lonlat is True then this sets if the units are degrees or "
-             "radians.\n"
+             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
+                 DEGREES_DOC_PAR
              "\n"
              "Returns\n"
-             "-------\n"
-             "a : `np.ndarray` (N,)\n"
-             "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "b : `np.ndarray` (N,)\n"
-             "    Latitude or phi\n");
+             "-------\n" AB_DOC_PAR);
 
 static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *pix_obj = NULL;
@@ -277,35 +273,14 @@ PyDoc_STRVAR(query_circle_doc,
              "is True).\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside. Must be power of 2 for nest ordering.\n"
-             "a : `float`\n"
-             "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "b : `float`\n"
-             "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
+             "----------\n" NSIDE_DOC_PAR "a, b : `float`\n" AB_DOC_DESCR
              "radius : `float`\n"
-             "    The radius (in radians) of the circle.\n"
+             "    The radius of the circle. Degrees if degrees=True otherwise radians.\n"
              "inclusive : `bool`, optional\n"
              "    If False, return the exact set of pixels whose pixel centers lie\n"
              "    within the circle. If True, return all pixels that overlap with\n"
              "    the circle. This is an approximation and may return a few extra\n"
-             "    pixels.\n"
-             "fact : `int`, optional\n"
-             "    Only used when inclusive=True. The overlap test is performed at\n"
-             "    a resolution fact*nside. For nest ordering, fact must be a power\n"
-             "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n"
-             "    fact may be any positive integer.\n"
-             "nest : `bool`, optional\n"
-             "    If True, use nest ordering.\n"
-             "lonlat : `bool`, optional\n"
-             "    Output longitude/latitude instead of longitude/co-latitude "
-             "(radians).\n"
-             "degrees : `bool`, optional\n"
-             "    If lonlat is True then this sets if the units are degrees or "
-             "radians.\n"
+             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -418,38 +393,17 @@ PyDoc_STRVAR(query_polygon_doc,
              "with this polygon (if inclusive is True.\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside. Must be power of 2 for nest ordering.\n"
-             "a : `np.ndarray` (N,)\n"
-             "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "b : `np.ndarray` (N,)\n"
-             "    Latitude or phi (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
+             "----------\n" NSIDE_DOC_PAR "a, b : `np.ndarray` (N,)\n" AB_DOC_DESCR
              "inclusive : `bool`, optional\n"
              "    If False, return the exact set of pixels whose pixel centers lie\n"
-             "    within the circle. If True, return all pixels that overlap with\n"
-             "    the circle. This is an approximation and may return a few extra\n"
-             "    pixels.\n"
-             "fact : `int`, optional\n"
-             "    Only used when inclusive=True. The overlap test is performed at\n"
-             "    a resolution fact*nside. For nest ordering, fact must be a power\n"
-             "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n"
-             "    fact may be any positive integer.\n"
-             "nest : `bool`, optional\n"
-             "    If True, use nest ordering.\n"
-             "lonlat : `bool`, optional\n"
-             "    Output longitude/latitude instead of longitude/co-latitude "
-             "(radians).\n"
-             "degrees : `bool`, optional\n"
-             "    If lonlat is True then this sets if the units are degrees or "
-             "radians.\n"
+             "    within the polygon. If True, return all pixels that overlap with\n"
+             "    the polygon. This is an approximation and may return a few extra\n"
+             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
              "\n"
              "Returns\n"
              "-------\n"
              "pixels : `np.ndarray` (N,)\n"
-             "    Array of pixels (`np.int64`) which cover the circle.\n");
+             "    Array of pixels (`np.int64`) which cover the polygon.\n");
 
 static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     int64_t nside;
@@ -588,9 +542,7 @@ PyDoc_STRVAR(nest_to_ring_doc,
              "Convert pixel number from nest to ring ordering.\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`, scalar\n"
-             "    The healpix nside parameter.  Must be power of 2.\n"
+             "----------\n" NSIDE_DOC_PAR
              "pix : `int` or `np.ndarray` (N,)\n"
              "    The pixel numbers in nest scheme.\n"
              "\n"
@@ -677,9 +629,7 @@ PyDoc_STRVAR(ring_to_nest_doc,
              "Convert pixel number from ring to nest ordering.\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`, scalar\n"
-             "    The healpix nside parameter.  Must be power of 2.\n"
+             "----------\n" NSIDE_DOC_PAR
              "pix : `int` or `np.ndarray` (N,)\n"
              "    The pixel numbers in ring scheme.\n"
              "\n"
@@ -770,29 +720,14 @@ PyDoc_STRVAR(boundaries_doc,
              "In order to get coordinates for just the corners, specify step=1.\n"
              "\n"
              "Parameters"
-             "----------"
-             "nside : `int` or `np.ndarray` (N,)\n"
-             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-             "pix : `int` or `np.ndarray` (N,)\n"
-             "    Pixel number(s).\n"
+             "----------" NSIDE_DOC_PAR PIX_DOC_PAR
              "step : `int`, optional\n"
-             "    Number of steps for each side of the pixel.\n"
-             "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?\n"
-             "lonlat : `bool`, optional\n"
-             "    Output longitude/latitude instead of longitude/co-latitude "
-             "(radians).\n"
-             "degrees : `bool`, optional\n"
-             "    If lonlat is True then this sets if the units are degrees or "
-             "radians.\n"
+             "    Number of steps for each side of the pixel.\n" NEST_DOC_PAR LONLAT_DOC_PAR
+                 DEGREES_DOC_PAR
              "\n"
              "Returns\n"
              "-------\n"
-             "a : `np.ndarray` (4*step,) or (N,4*step,)\n"
-             "    Longitude or theta (radians if lonlat=False, degrees if lonlat=True "
-             "and degrees=True)\n"
-             "b : `np.ndarray` (step,) or (N,4*step,)\n"
-             "    Latitude or phi\n");
+             "a, b : `np.ndarray` (4*step,) or (N,4*step,)\n" AB_DOC_DESCR);
 
 static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *pix_obj = NULL;
@@ -942,22 +877,16 @@ PyDoc_STRVAR(vector_to_pixel_doc,
              "Convert vectors to pixels.\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-             "x : `np.ndarray` or `float`\n"
+             "----------\n" NSIDE_DOC_PAR
+             "x : `float` or `np.ndarray` (N,)\n"
              "    x coordinates for vectors.\n"
-             "y : `np.ndarray` or `float`\n"
+             "y : `float` or `np.ndarray` (N,)\n"
              "    y coordinates for vectors.\n"
-             "z : `np.ndarray` or `float`\n"
-             "    z coordinates for vectors.\n"
-             "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?\n"
+             "z : `float` or `np.ndarray` (N,)\n"
+             "    z coordinates for vectors.\n" NEST_DOC_PAR
              "\n"
              "Returns\n"
-             "-------\n"
-             "pix : `np.ndarray` (N,)\n"
-             "    HEALPix pixel numbers.\n");
+             "-------\n" PIX_DOC_PAR);
 
 static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *x_obj = NULL, *y_obj = NULL, *z_obj = NULL;
@@ -1055,21 +984,15 @@ PyDoc_STRVAR(pixel_to_vector_doc,
              "Convert pixels to vectors.\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-             "pix : `np.ndarray` (N,) or `int`\n"
-             "    Pixel numbers to convert.\n"
-             "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?\n"
+             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR
              "\n"
              "Returns\n"
              "-------\n"
-             "x : `np.ndarray` or `float`\n"
+             "x : `float` or `np.ndarray` (N,)\n"
              "    x coordinates for vectors.\n"
-             "y : `np.ndarray` or `float`\n"
+             "y : `float` or `np.ndarray` (N,)\n"
              "    y coordinates for vectors.\n"
-             "z : `np.ndarray` or `float`\n"
+             "z : `float` or `np.ndarray` (N,)\n"
              "    z coordinates for vectors.\n");
 
 static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwargs) {
@@ -1181,17 +1104,11 @@ PyDoc_STRVAR(neighbors_doc,
              "Return 8 nearest neighbors for given pixels.\n"
              "\n"
              "Parameters\n"
-             "----------\n"
-             "nside : `int`\n"
-             "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
-             "pix : `np.ndarray` (N,) or `int`\n"
-             "    Pixel numbers to find neighbors.\n"
-             "nest : `bool`, optional\n"
-             "    Use nest ordering scheme?\n"
+             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR
              "\n"
              "Returns\n"
              "-------\n"
-             "neighbor_pixels : `np.ndarray` (N, 8) or (8,)\n"
+             "neighbor_pixels : `np.ndarray` (8,) or (N, 8)\n"
              "    Pixel numbers of the SW, W, NW, N, NE, E, SE, and S neighbors.\n"
              "    If a neighbor does not exist (as can be the case for W, N, E, and S)\n"
              "    the corresponding pixel number will be -1.\n");
