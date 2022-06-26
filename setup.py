@@ -15,7 +15,6 @@ ext = Extension(
 setup(
     name="hpgeom",
     packages=find_packages(),
-    version="0.0.1",
     ext_modules=[ext],
     include_dirs=numpy.get_include(),
 )
