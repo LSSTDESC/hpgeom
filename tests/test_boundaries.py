@@ -108,11 +108,11 @@ def test_boundaries_multiple(nside, pixfrac, step, scheme, npix):
 def test_boundaries_bad_inputs():
     """Test boundaries with bad inputs."""
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.boundaries(-1, 0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
         hpgeom.boundaries(2**10, -1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be power of 2"):
         hpgeom.boundaries(2**10 - 2, -1, nest=True)

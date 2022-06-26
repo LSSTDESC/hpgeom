@@ -155,46 +155,46 @@ def test_query_circle_vec():
 
 def test_query_circle_badinputs():
     """Test query circle with bad inputs."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Latitude out of range
         hpgeom.query_circle(2048, 0.0, 100.0, 1.0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Latitude out of range
         hpgeom.query_circle(2048, 0.0, -100.0, 1.0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
         hpgeom.query_circle(2048, -0.1, 0.0, 0.1, lonlat=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
         hpgeom.query_circle(2048, np.pi + 0.1, 0.0, 0.1, lonlat=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
         hpgeom.query_circle(2048, 0.0, -0.1, 0.1, lonlat=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
         hpgeom.query_circle(2048, 0.0, 2*np.pi + 0.1, 0.1, lonlat=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Radius must be positive"):
         # Radius out of range
         hpgeom.query_circle(2048, 0.0, 0.0, 0.0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Inclusive factor .* must be positive"):
         # Illegal fact (must be positive)
         hpgeom.query_circle(2048, 0.0, 0.0, 1.0, inclusive=True, fact=0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Inclusive factor \* nside must be \<\="):
         # Illegal fact (too large)
         hpgeom.query_circle(2**28, 0.0, 0.0, 0.0001, inclusive=True, fact=4)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Inclusive factor .* must be power of 2 for nest"):
         # Illegal fact (must be power of 2 for nest)
         hpgeom.query_circle(2048, 0.0, 0.0, 1.0, inclusive=True, fact=3)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=r"cannot be interpreted as an integer"):
         # Illegal fact (must be integer)
         hpgeom.query_circle(2048, 0.0, 0.0, 1.0, inclusive=True, nest=False, fact=3.5)

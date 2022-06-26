@@ -205,29 +205,29 @@ def test_query_polygon_badinputs():
 
     _lat = lat.copy()
     _lat[0] = 100.0
-    with pytest.raises(ValueError, match="out of range"):
+    with pytest.raises(ValueError, match=r"lat .* out of range"):
         hpgeom.query_polygon(nside, lon, _lat)
 
     _lat = lat.copy()
     _lat[0] = -100.0
-    with pytest.raises(ValueError, match="out of range"):
+    with pytest.raises(ValueError, match=r"lat .* out of range"):
         hpgeom.query_polygon(nside, lon, _lat)
 
     _theta, _phi = hpgeom.lonlat_to_thetaphi(lon, lat)
     _theta[0] = -0.1
-    with pytest.raises(ValueError, match="out of range"):
+    with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         hpgeom.query_polygon(nside, _theta, _phi, lonlat=False)
 
     _lon = np.append(lon, lon_ref + delta/2.)
     _lat = np.append(lat, lat_ref + delta/2.)
-    with pytest.raises(RuntimeError, match="not convex"):
+    with pytest.raises(RuntimeError, match="Polygon is not convex"):
         hpgeom.query_polygon(nside, _lon, _lat)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Inclusive factor .* must be positive"):
         hpgeom.query_polygon(nside, lon, lat, inclusive=True, fact=0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Inclusive factor \* nside must be \<\="):
         hpgeom.query_polygon(2**28, lon, lat, inclusive=True, fact=4)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Inclusive factor .* must be power of 2 for nest"):
         hpgeom.query_polygon(nside, lon, lat, inclusive=True, fact=3)

@@ -132,10 +132,7 @@ def test_npix2nside():
 
     assert(nside_hpcompat == nside_healpy)
 
-    with pytest.raises(ValueError):
-        hpc.npix2nside(100)
-
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal npixel"):
         hpc.npix2nside(100)
 
 

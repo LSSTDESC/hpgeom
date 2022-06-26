@@ -103,10 +103,10 @@ def test_pixel_to_angle_scalar(nside):
 def test_pixel_to_angle_bad_pix(nside):
     """Test pixel_to_angle errors when given bad pixel"""
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
         hpgeom.pixel_to_angle(nside, -1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
         hpgeom.pixel_to_angle(nside, 12*nside*nside)
 
 
@@ -116,14 +116,14 @@ def test_pixel_to_angle_bad_nside():
 
     pix = np.random.randint(low=0, high=12*2048*2048-1, size=100, dtype=np.int64)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.pixel_to_angle(-10, pix, nest=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.pixel_to_angle(-10, pix, nest=True)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be power of 2"):
         hpgeom.pixel_to_angle(2040, pix, nest=True)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must not be greater"):
         hpgeom.pixel_to_angle(2**30, pix, nest=True)

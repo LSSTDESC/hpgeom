@@ -32,8 +32,8 @@ def test_neighbors(nside, scheme):
 
 def test_neighbors_bad_input():
     """Test neighbors, bad input."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
         hpgeom.neighbors(1024, -1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.neighbors(-1, 100)
