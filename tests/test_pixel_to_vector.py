@@ -22,7 +22,7 @@ def test_pixel_to_vector(nside, scheme):
     else:
         nest = False
 
-    pix = np.random.randint(low=0, high=hpgeom.nside_to_npixel(nside) - 1, size=1_000_000)
+    pix = np.random.randint(low=0, high=hpgeom.nside_to_npixel(nside) - 1, size=1_000_000, dtype=np.int64)
 
     x_hpgeom, y_hpgeom, z_hpgeom = hpgeom.pixel_to_vector(nside, pix, nest=nest)
     x_healpy, y_healpy, z_healpy = hp.pix2vec(nside, pix, nest=nest)
@@ -47,7 +47,7 @@ def test_pixel_to_vector_bad_nside():
     """Test pixel_to_angle errors when given a bad nside."""
     np.random.seed(12345)
 
-    pix = np.random.randint(low=0, high=12*2048*2048-1, size=100)
+    pix = np.random.randint(low=0, high=12*2048*2048-1, size=100, dtype=np.int64)
 
     with pytest.raises(ValueError):
         hpgeom.pixel_to_vector(-10, pix, nest=False)

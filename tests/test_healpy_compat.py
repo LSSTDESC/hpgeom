@@ -42,7 +42,7 @@ def test_pix2ang():
 
     nside = 2048
 
-    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000)
+    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000, dtype=np.int64)
 
     theta_hpcompat, phi_hpcompat = hpc.pix2ang(nside, pix)
     theta_healpy, phi_healpy = hp.pix2ang(nside, pix)
@@ -259,7 +259,7 @@ def test_pix2vec():
 
     nside = 2048
 
-    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1000)
+    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1000, dtype=np.int64)
 
     x_hpgeom, y_hpgeom, z_hpgeom = hpc.pix2vec(nside, pix)
     x_healpy, y_healpy, z_healpy = hp.pix2vec(nside, pix)
