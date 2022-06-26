@@ -195,6 +195,7 @@ def test_query_circle_badinputs():
         # Illegal fact (must be power of 2 for nest)
         hpgeom.query_circle(2048, 0.0, 0.0, 1.0, inclusive=True, fact=3)
 
-    with pytest.raises(TypeError, match=r"cannot be interpreted as an integer"):
+    # Different platforms have different strings here, but they all say ``integer``.
+    with pytest.raises(TypeError, match=r"integer"):
         # Illegal fact (must be integer)
         hpgeom.query_circle(2048, 0.0, 0.0, 1.0, inclusive=True, nest=False, fact=3.5)
