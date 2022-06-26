@@ -28,7 +28,7 @@ def test_nest_to_ring_samplepix(nside):
     """Test nest_to_ring for sampled pixels."""
     np.random.seed(12345)
 
-    ring_pix = np.random.randint(low=0, high=12*nside*nside - 1, size=1_000_000)
+    ring_pix = np.random.randint(low=0, high=12*nside*nside - 1, size=1_000_000, dtype=np.int64)
 
     nest_pix_hpgeom = hpgeom.nest_to_ring(nside, ring_pix)
     nest_pix_healpy = hp.nest2ring(nside, ring_pix)

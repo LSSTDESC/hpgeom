@@ -22,7 +22,7 @@ def test_neighbors(nside, scheme):
     else:
         nest = False
 
-    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000)
+    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000, dtype=np.int64)
 
     neighbors_hpgeom = hpgeom.neighbors(nside, pix, nest=nest)
     neighbors_healpy = hp.get_all_neighbours(nside, pix, nest=nest).T

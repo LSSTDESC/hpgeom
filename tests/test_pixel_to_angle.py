@@ -16,7 +16,7 @@ def test_pixel_to_angle_ring(nside):
     """Test pixel_to_angle for ring scheme."""
     np.random.seed(12345)
 
-    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000)
+    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000, dtype=np.int64)
 
     lon_hpgeom, lat_hpgeom = hpgeom.pixel_to_angle(nside, pix, nest=False, lonlat=True, degrees=True)
     lon_healpy, lat_healpy = hp.pix2ang(nside, pix, nest=False, lonlat=True)
@@ -48,7 +48,7 @@ def test_pixel_to_angle_nest(nside):
     """Test pixel_to_angle for nest scheme."""
     np.random.seed(12345)
 
-    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000)
+    pix = np.random.randint(low=0, high=12*nside*nside-1, size=1_000_000, dtype=np.int64)
 
     lon_hpgeom, lat_hpgeom = hpgeom.pixel_to_angle(nside, pix, nest=True, lonlat=True, degrees=True)
     lon_healpy, lat_healpy = hp.pix2ang(nside, pix, nest=True, lonlat=True)
@@ -79,7 +79,7 @@ def test_pixel_to_angle_scalar(nside):
     """Test pixel_to_angle for scalars."""
     np.random.seed(12345)
 
-    pix = np.random.randint(low=0, high=12*nside*nside-1, size=100)
+    pix = np.random.randint(low=0, high=12*nside*nside-1, size=100, dtype=np.int64)
 
     lon_arr, lat_arr = hpgeom.pixel_to_angle(nside, pix, nest=True, lonlat=True, degrees=True)
     lon_scalar1, lat_scalar1 = hpgeom.pixel_to_angle(nside, pix[0], nest=True, lonlat=True, degrees=True)
@@ -114,7 +114,7 @@ def test_pixel_to_angle_bad_nside():
     """Test pixel_to_angle errors when given a bad nside."""
     np.random.seed(12345)
 
-    pix = np.random.randint(low=0, high=12*2048*2048-1, size=100)
+    pix = np.random.randint(low=0, high=12*2048*2048-1, size=100, dtype=np.int64)
 
     with pytest.raises(ValueError):
         hpgeom.pixel_to_angle(-10, pix, nest=False)
