@@ -18,31 +18,28 @@ jobs:
         os: [ubuntu-latest, macOS-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v2
-
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: actions/checkout@v3
       with:
-        channels: conda-forge
-        auto-update-conda: true
+        # Need to clone everything to determine version from git.
+        fetch-depth: 0
 
-    - name: Install dependencis and build
-      shell: bash -l {0}
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: "pip"
+        cache-dependency-path: "setup.cfg"
+
+    - name: Build and install
       run: |
-        # Create env for build
-        conda update -n base -c defaults conda -y
-        conda create -q -n testenv python=${{ matrix.python-version }} numpy setuptools_scm setuptools_scm_git_archive c-compiler -c conda-forge
-        conda activate testenv
-        pip install --no-deps .
-        # Install additional test dependencies
+        python -m pip install --upgrade pip setuptools
         if [ "$RUNNER_OS" == "Windows" ]; then
-            # healpy isn't available on windows so test coverage is reduced
-            conda install flake8 pytest pytest-flake8 -c conda-forge
+            # healpy is not available on windows.
+            python -m pip install .[test]
         else
-            conda install flake8 pytest pytest-flake8 healpy -c conda-forge
+            python -m pip install .[test,test_with_healpy]
         fi
-    - name: Test with pytest
-      shell: bash -l {0}
+    - name: Run tests
       run: |
-        conda activate testenv
         cd tests
         pytest
