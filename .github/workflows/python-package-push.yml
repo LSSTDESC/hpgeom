@@ -20,9 +20,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-        with:
-          # Need to clone everything to determine version from git.
-          fetch-depth: 0
+      with:
+        # Need to clone everything to determine version from git.
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v3
