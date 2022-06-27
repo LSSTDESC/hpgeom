@@ -78,6 +78,9 @@ void i64stack_resize(i64stack *stack, size_t newsize, int *status, char *err);
 void i64stack_clear(i64stack *stack);
 i64stack *i64stack_delete(i64stack *stack);
 void i64stack_push(i64stack *stack, int64_t val, int *status, char *err);
+int64_t i64stack_pop(i64stack *stack, int *status, char *err);
+void i64stack_pop_pair(i64stack *stack, int64_t *first, int64_t *second, int *status,
+                       char *err);
 void i64stack_insert(struct i64stack *stack, size_t pos, size_t count, int64_t value,
                      int *status, char *err);
 void i64stack_erase(struct i64stack *stack, size_t pos1, size_t pos2, int *status, char *err);
