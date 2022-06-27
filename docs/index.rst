@@ -11,8 +11,8 @@ The `HPGeom` package addresses multiple issues in the default healpy_ routines.
 2. `HPGeom` only depends on python, numpy_ and a working C compiler.
 
 The code is hosted in GitHub_.
-Please use the `issue tracker <https://github.com/erykoff/hpgeom/issues>`_ to let us know about any problems or questions with the code.
-The list of released versions of this package can be found `here <https://github.com/erykoff/skyproj/releases>`_, with the main branch including the most recent (non-released) development.
+Please use the `issue tracker <https://github.com/lsstdesc/hpgeom/issues>`_ to let us know about any problems or questions with the code.
+The list of released versions of this package can be found `here <https://github.com/lsstdesc/hpgeom/releases>`_, with the main branch including the most recent (non-released) development.
 
 The `HPGeom` code was written by Eli Rykoff based on HEALPix_ c++ code as well as work by Matt Becker and Erin Sheldon.
 This software was developed under the Rubin Observatory Legacy Survey of Space and Time (LSST) Dark Energy Science Collaboration (DESC) using LSST DESC resources.
@@ -24,7 +24,7 @@ This work was performed in part under DOE Contract DE-AC02-76SF00515.
 .. _HEALPix: https://healpix.jpl.nasa.gov/
 .. _DESC: https://lsst-desc.org/
 .. _healpy: https://healpy.readthedocs.io/en/latest/
-.. _GitHub: https://github.com/erykoff/hpgeom
+.. _GitHub: https://github.com/lsstdesc/hpgeom
 .. _matplotlib: https://matplotlib.org/
 .. _numpy: https://numpy.org/
 .. _cfitsio: https://heasarc.gsfc.nasa.gov/fitsio/
