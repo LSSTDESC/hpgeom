@@ -17,7 +17,6 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-
 #include <Python.h>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
@@ -523,6 +522,14 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
         }
         vertices->data[i].theta = theta;
         vertices->data[i].phi = phi;
+    }
+
+    // Check for a closed polygon with a small double-precision delta.
+    double delta_theta = fabs(vertices->data[nvert - 1].theta - vertices->data[0].theta);
+    double delta_phi = fabs(vertices->data[nvert - 1].phi - vertices->data[0].phi);
+    if ((delta_theta < 1e-14) && (delta_phi < 1e-14)) {
+        // Skip last coord
+        vertices->size--;
     }
 
     query_polygon(&hpx, vertices, fact, pixset, &status, err);
