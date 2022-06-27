@@ -24,7 +24,7 @@ This work was performed in part under DOE Contract DE-AC02-76SF00515.
 .. _HEALPix: https://healpix.jpl.nasa.gov/
 .. _DESC: https://lsst-desc.org/
 .. _healpy: https://healpy.readthedocs.io/en/latest/
-.. _GitHub: https://github.com/LSSTDESC/skyproj
+.. _GitHub: https://github.com/erykoff/hpgeom
 .. _matplotlib: https://matplotlib.org/
 .. _numpy: https://numpy.org/
 .. _cfitsio: https://heasarc.gsfc.nasa.gov/fitsio/
