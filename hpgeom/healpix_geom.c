@@ -543,55 +543,55 @@ void check_pixel_nest(int o, int order_, int omax, int zone, i64rangeset *pixset
             int sdist = 2 * (order_ - o);  // the "bit-shift distance" between map orders
             i64rangeset_append(pixset, pix << sdist, (pix + 1) << sdist, status,
                                err);  // output all subpixels
-            if (!status) return;
+            if (!*status) return;
         } else {  // (1<=zone<=2)
             for (int i = 0; i < 4; i++) {
                 // output all subpixels, a pair of pixel and order
                 i64stack_push(stk, 4 * pix + 3 - i, status, err);
-                if (!status) return;
+                if (!*status) return;
                 i64stack_push(stk, o + 1, status, err);
-                if (!status) return;
+                if (!*status) return;
             }
         }
     } else if (o > order_) {  // this implies that inclusive=true
         if (zone >= 2) {      // pixel center in shape
             i64rangeset_append_single(pixset, pix >> (2 * (o - order_)), status,
                                       err);  // output the parent pixel at order_
-            if (!status) return;
+            if (!*status) return;
             i64stack_resize(stk, *stacktop, status, err);  // unwind the stack
-            if (!status) return;
+            if (!*status) return;
         } else {                               // (zone==1): pixel center in safety range
             if (o < omax) {                    // check sublevels
                 for (int i = 0; i < 4; i++) {  // add children in reverse order
                     i64stack_push(stk, 4 * pix + 3 - i, status, err);
-                    if (!status) return;
+                    if (!*status) return;
                     i64stack_push(stk, o + 1, status, err);
-                    if (!status) return;
+                    if (!*status) return;
                 }
             } else {  // at resolution limit
                 i64rangeset_append_single(pixset, pix >> (2 * (o - order_)), status,
                                           err);  // output the parent pixel at order_
-                if (!status) return;
+                if (!*status) return;
                 i64stack_resize(stk, *stacktop, status, err);  // unwind the stack
-                if (!status) return;
+                if (!*status) return;
             }
         }
     } else {  // o==order_
         if (zone >= 2) {
             i64rangeset_append_single(pixset, pix, status, err);
-            if (!status) return;
+            if (!*status) return;
         } else if (inclusive) {                // and (zone>=1)
             if (order_ < omax) {               // check sublevels
                 *stacktop = stk->size;         // remember current stack position
                 for (int i = 0; i < 4; i++) {  // add children in reverse order
                     i64stack_push(stk, 4 * pix + 3 - i, status, err);
-                    if (!status) return;
+                    if (!*status) return;
                     i64stack_push(stk, o + 1, status, err);
-                    if (!status) return;
+                    if (!*status) return;
                 }
             } else {                                                  // at resolution limit
                 i64rangeset_append_single(pixset, pix, status, err);  // output the pixel
-                if (!status) return;
+                if (!*status) return;
             }
         }
     }
@@ -672,7 +672,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
             bool dummy;
             get_ring_info_small(hpx, irmin - 1, &sp, &rp, &dummy);
             i64rangeset_append(pixset, 0, sp + rp, status, err);
-            if (!status) return;
+            if (!*status) return;
         }
         if ((fct > 1) && (rlat1 > 0)) irmin = i64max((int64_t)1, irmin - 1);
 
@@ -722,13 +722,13 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
                     }
                     if (ip_lo < 0) {
                         i64rangeset_append(pixset, ipix1, ipix1 + ip_hi + 1, status, err);
-                        if (!status) return;
+                        if (!*status) return;
                         i64rangeset_append(pixset, ipix1 + ip_lo + nr, ipix2 + 1, status, err);
-                        if (!status) return;
+                        if (!*status) return;
                     } else {
                         i64rangeset_append(pixset, ipix1 + ip_lo, ipix1 + ip_hi + 1, status,
                                            err);
-                        if (!status) return;
+                        if (!*status) return;
                     }
                 }
             }
@@ -738,7 +738,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
             bool dummy;
             get_ring_info_small(hpx, irmax + 1, &sp, &rp, &dummy);
             i64rangeset_append(pixset, sp, hpx->npix, status, err);
-            if (!status) return;
+            if (!*status) return;
         }
     } else {                     // schema == NEST
         if (radius >= HPG_PI) {  // disk covers the whole sphere
@@ -765,21 +765,21 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
         }
 
         i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
-        if (!status) return;
+        if (!*status) return;
         for (int i = 0; i < 12; i++) {
             i64stack_push(stk, (int64_t)(11 - i), status, err);
-            if (!status) return;
+            if (!*status) return;
             i64stack_push(stk, 0, status, err);
-            if (!status) return;
+            if (!*status) return;
         }
 
         int stacktop = 0;  // a place to save a stack position
         while (stk->size > 0) {
             // pop current pixel number and order from the stack
-            int64_t pix = stk->data[stk->size - 2];
-            int o = (int)stk->data[stk->size - 1];
-            i64stack_resize(stk, stk->size - 2, status, err);
-            if (!status) return;
+            int64_t pix, temp;
+            i64stack_pop_pair(stk, &pix, &temp, status, err);
+            if (!*status) return;
+            int o = (int)temp;
 
             double pix_z, pix_phi;
             pix2zphi(&base[o], pix, &pix_z, &pix_phi);
@@ -790,7 +790,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
                 int zone = (cangdist < cosrad) ? 1 : ((cangdist <= crmdr[o]) ? 2 : 3);
                 check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive,
                                  &stacktop, status, err);
-                if (!status) return;
+                if (!*status) return;
             }
         }
     }
@@ -1192,21 +1192,21 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
         }
 
         i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
-        if (!status) return;
+        if (!*status) return;
         for (int i = 0; i < 12; i++) {
             i64stack_push(stk, (int64_t)(11 - i), status, err);
-            if (!status) return;
+            if (!*status) return;
             i64stack_push(stk, 0, status, err);
-            if (!status) return;
+            if (!*status) return;
         }
 
         int stacktop = 0;  // a place to save a stack position
         while (stk->size > 0) {
             // pop current pixel number and order from the stack
-            int64_t pix = stk->data[stk->size - 2];
-            int o = (int)stk->data[stk->size - 1];
-            i64stack_resize(stk, stk->size - 2, status, err);
-            if (!status) return;
+            int64_t pix, temp;
+            i64stack_pop_pair(stk, &pix, &temp, status, err);
+            if (!*status) return;
+            int o = (int)temp;
             vec3 pv = pix2vec(&base[o], pix);
 
             size_t zone = 3;

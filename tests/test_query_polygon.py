@@ -53,6 +53,16 @@ def test_query_polygon_nest(nside_delta, shape, lon_ref, lat_ref):
 
     np.testing.assert_array_equal(pixels_hpgeom, pixels_healpy)
 
+    # Test forward, non-inclusive, closed polygon
+    lon2 = np.append(lon, lon[0])
+    lat2 = np.append(lat, lat[0])
+
+    pixels_hpgeom2 = hpgeom.query_polygon(nside, lon2, lat2)
+    # Note healpy does not support closed polygons, so we use the first
+    # run as a comparison.
+
+    np.testing.assert_array_equal(pixels_hpgeom2, pixels_hpgeom)
+
     # Test reversed, non-inclusive
     pixels_hpgeom = hpgeom.query_polygon(nside, lon[::-1], lat[::-1])
     vec = hpgeom.angle_to_vector(lon[::-1], lat[::-1], lonlat=True)

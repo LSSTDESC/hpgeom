@@ -129,6 +129,25 @@ void i64stack_erase(struct i64stack *stack, size_t pos1, size_t pos2, int *statu
     if (!*status) return;
 }
 
+int64_t i64stack_pop(i64stack *stack, int *status, char *err) {
+    *status = 1;
+
+    int64_t retval = stack->data[stack->size - 1];
+    i64stack_resize(stack, stack->size - 1, status, err);
+    if (!*status) return -1;
+    return retval;
+}
+
+void i64stack_pop_pair(i64stack *stack, int64_t *first, int64_t *second, int *status,
+                       char *err) {
+    *status = 1;
+
+    *first = stack->data[stack->size - 2];
+    *second = stack->data[stack->size - 1];
+
+    i64stack_resize(stack, stack->size - 2, status, err);
+}
+
 void i64stack_clear(struct i64stack *stack) {
     stack->size = 0;
     stack->allocated_size = 0;
