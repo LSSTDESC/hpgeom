@@ -197,6 +197,8 @@ def npixel_to_nside(npixel):
     nside : `int` or `np.ndarray` (N,)
         HEALPix nside associated with that number of pixels.
     """
+    if (np.any(npixel <= 0)):
+        raise ValueError("Illegal npixel (must be positive)")
     nside = np.sqrt(np.atleast_1d(npixel)/12.0)
     if np.any(nside != np.floor(nside)):
         raise ValueError("Illegal npixel (it must be 12*nside*nside)")
