@@ -64,8 +64,8 @@ def test_vector_to_angle():
 def test_angle_to_vector_badinput():
     """Test angle_to_vector."""
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Latitude out of range"):
         hpgeom.angle_to_vector(0.0, 100.0, lonlat=True)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Co-latitude \(theta\) out of range"):
         hpgeom.angle_to_vector(2*np.pi, 0.0, lonlat=False)

@@ -120,32 +120,32 @@ def test_order_to_nside(order):
 def test_bad_nsides():
     """Test raising when bad nsides given."""
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal nside value"):
         hpgeom.nside_to_npixel(-1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal nside value"):
         hpgeom.nside_to_npixel(2**30)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal nside value"):
         hpgeom.nside_to_npixel(np.array([1024, -1]))
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal npixel"):
         hpgeom.npixel_to_nside(-1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal npixel"):
         hpgeom.npixel_to_nside(10000)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal npixel"):
         hpgeom.npixel_to_nside(np.array([-1, 12*1024*1024]))
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal nside value"):
         hpgeom.nside_to_pixel_area(2**30)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal nside value"):
         hpgeom.nside_to_pixel_area(np.array([-1, 1024]))
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal nside value"):
         hpgeom.nside_to_resolution(2**30)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Illegal nside value"):
         hpgeom.nside_to_resolution(np.array([-1, 1024]))

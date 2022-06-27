@@ -110,22 +110,22 @@ def test_angle_to_pixel_mismatched_dims():
     lon = np.random.uniform(low=0.0, high=360.0, size=100)
     lat = np.random.uniform(low=-90.0, high=90.0, size=100)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
         hpgeom.angle_to_pixel([2048, 4096], lon[0], lat)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
         hpgeom.angle_to_pixel([2048, 4096], lon, lat[0])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
         hpgeom.angle_to_pixel(2048, lon[0: 5], lat)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
         hpgeom.angle_to_pixel(2048, lon, lat[0: 5])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
         hpgeom.angle_to_pixel(2048, lon.reshape((10, 10)), lat)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
         hpgeom.angle_to_pixel(2048, lon, lat.reshape((10, 10)))
 
 
@@ -136,41 +136,41 @@ def test_angle_to_pixel_bad_nside():
     lon = np.random.uniform(low=0.0, high=360.0, size=100)
     lat = np.random.uniform(low=-90.0, high=90.0, size=100)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.angle_to_pixel(-10, lon, lat, nest=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.angle_to_pixel(-10, lon, lat, nest=True)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be power of 2"):
         hpgeom.angle_to_pixel(2040, lon, lat, nest=True)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must not be greater"):
         hpgeom.angle_to_pixel(2**30, lon, lat, nest=True)
 
 
 def test_angle_to_pixel_bad_coords():
     """Test angle_to_pixel errors when given bad coords."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Dec out of range
         hpgeom.angle_to_pixel(2048, 0.0, 100.0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Dec out of range
         hpgeom.angle_to_pixel(2048, 0.0, -100.0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
         hpgeom.angle_to_pixel(2048, -0.1, 0.0, lonlat=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
         hpgeom.angle_to_pixel(2048, np.pi + 0.1, 0.0, lonlat=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
         hpgeom.angle_to_pixel(2048, 0.0, -0.1, lonlat=False)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
         hpgeom.angle_to_pixel(2048, 0.0, 2*np.pi + 0.1, lonlat=False)

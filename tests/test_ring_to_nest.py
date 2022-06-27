@@ -40,18 +40,18 @@ def test_ring_to_nest_samplepix(nside):
 def test_ring_to_nest_bad_pix(nside):
     """Test ring_to_nest errors when given bad pixel"""
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
         hpgeom.ring_to_nest(nside, -1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
         hpgeom.ring_to_nest(nside, 12*nside*nside)
 
 
 def test_ring_to_nest_bad_nside():
     """test ring_to_nest errors when given a bad nside."""
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.ring_to_nest(-10, 100)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"nside .* must be power of 2"):
         hpgeom.ring_to_nest(1020, 100)

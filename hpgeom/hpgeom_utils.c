@@ -72,7 +72,7 @@ int hpgeom_check_fact(healpix_info *hpx, long fact, char *err) {
     err[0] = '\0';
 
     if (fact <= 0) {
-        snprintf(err, ERR_SIZE, "Inclusive factor %ld must be >= 0.", fact);
+        snprintf(err, ERR_SIZE, "Inclusive factor %ld must be positive.", fact);
         return 0;
     } else if (fact * hpx->nside > MAX_NSIDE) {
         snprintf(err, ERR_SIZE, "Inclusive factor * nside must be <= %lld", MAX_NSIDE);
