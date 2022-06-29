@@ -253,11 +253,10 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
         }
         pix2ang(&hpx, *pix, &theta, &phi);
         if (lonlat) {
-            if (!hpgeom_thetaphi_to_lonlat(theta, phi, &as[itr->index], &bs[itr->index],
-                                           (bool)degrees, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
-            }
+            // We can skip error checking since theta/phi will always be
+            // within range on output.
+            hpgeom_thetaphi_to_lonlat(theta, phi, &as[itr->index], &bs[itr->index],
+                                      (bool)degrees, false, err);
         } else {
             as[itr->index] = theta;
             bs[itr->index] = phi;
@@ -872,11 +871,10 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         for (size_t i = 0; i < ptg_arr->size; i++) {
             index = ptg_arr->size * itr->index + i;
             if (lonlat) {
-                if (!hpgeom_thetaphi_to_lonlat(ptg_arr->data[i].theta, ptg_arr->data[i].phi,
-                                               &as[index], &bs[index], (bool)degrees, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
-                }
+                // We can skip error checking since theta/phi will always be
+                // within range on output.
+                hpgeom_thetaphi_to_lonlat(ptg_arr->data[i].theta, ptg_arr->data[i].phi,
+                                          &as[index], &bs[index], (bool)degrees, false, err);
             } else {
                 as[index] = ptg_arr->data[i].theta;
                 bs[index] = ptg_arr->data[i].phi;
