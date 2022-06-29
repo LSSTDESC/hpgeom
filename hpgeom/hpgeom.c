@@ -72,6 +72,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
     PyObject *nside_arr = NULL, *a_arr = NULL, *b_arr = NULL;
     PyObject *pix_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
     int lonlat = 1;
     int nest = 1;
     int degrees = 1;
@@ -94,8 +95,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (b_arr == NULL) goto fail;
 
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(3, nside_arr, a_arr, b_arr);
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(3, nside_arr, a_arr, b_arr);
     if (itr == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, a, b arrays could not be broadcast together.");
@@ -153,6 +153,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     Py_DECREF(nside_arr);
     Py_DECREF(a_arr);
     Py_DECREF(b_arr);
+    Py_DECREF(itr);
 
     return PyArray_Return((PyArrayObject *)pix_arr);
 
@@ -161,6 +162,7 @@ fail:
     Py_XDECREF(a_arr);
     Py_XDECREF(b_arr);
     Py_XDECREF(pix_arr);
+    Py_XDECREF(itr);
 
     return NULL;
 }
@@ -181,6 +183,7 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
     PyObject *nside_obj = NULL, *pix_obj = NULL;
     PyObject *nside_arr = NULL, *pix_arr = NULL;
     PyObject *a_arr = NULL, *b_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
     int lonlat = 1;
     int nest = 1;
     int degrees = 1;
@@ -201,8 +204,7 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
     pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (pix_arr == NULL) goto fail;
 
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
     if (itr == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -265,6 +267,7 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
+    Py_DECREF(itr);
 
     PyObject *retval = PyTuple_New(2);
     PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)a_arr));
@@ -277,6 +280,7 @@ fail:
     Py_XDECREF(pix_arr);
     Py_XDECREF(a_arr);
     Py_XDECREF(b_arr);
+    Py_XDECREF(itr);
 
     return NULL;
 }
@@ -582,6 +586,7 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
     PyObject *nside_obj = NULL, *nest_pix_obj = NULL;
     PyObject *nside_arr = NULL, *nest_pix_arr = NULL;
     PyObject *ring_pix_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
     static char *kwlist[] = {"nside", "pix", NULL};
 
     int64_t *ring_pix_data = NULL;
@@ -598,8 +603,7 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
         PyArray_FROM_OTF(nest_pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (nest_pix_arr == NULL) goto fail;
 
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, nest_pix_arr);
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, nest_pix_arr);
     if (itr == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -639,6 +643,7 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
 
     Py_DECREF(nside_arr);
     Py_DECREF(nest_pix_arr);
+    Py_DECREF(itr);
 
     return PyArray_Return((PyArrayObject *)ring_pix_arr);
 
@@ -646,6 +651,7 @@ fail:
     Py_XDECREF(nside_arr);
     Py_XDECREF(nest_pix_arr);
     Py_XDECREF(ring_pix_arr);
+    Py_XDECREF(itr);
 
     return NULL;
 }
@@ -669,6 +675,7 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
     PyObject *nside_obj = NULL, *ring_pix_obj = NULL;
     PyObject *nside_arr = NULL, *ring_pix_arr = NULL;
     PyObject *nest_pix_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
     static char *kwlist[] = {"nside", "pix", NULL};
 
     int64_t *nest_pix_data = NULL;
@@ -685,8 +692,7 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
         PyArray_FROM_OTF(ring_pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (ring_pix_arr == NULL) goto fail;
 
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, ring_pix_arr);
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, ring_pix_arr);
     if (itr == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -726,6 +732,7 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
 
     Py_DECREF(nside_arr);
     Py_DECREF(ring_pix_arr);
+    Py_DECREF(itr);
 
     return PyArray_Return((PyArrayObject *)nest_pix_arr);
 
@@ -733,6 +740,7 @@ fail:
     Py_XDECREF(nside_arr);
     Py_XDECREF(ring_pix_arr);
     Py_XDECREF(nest_pix_arr);
+    Py_XDECREF(itr);
 
     return NULL;
 }
@@ -760,6 +768,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
     PyObject *nside_obj = NULL, *pix_obj = NULL;
     PyObject *nside_arr = NULL, *pix_arr = NULL;
     PyObject *a_arr = NULL, *b_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
     int lonlat = 1;
     int nest = 1;
     int degrees = 1;
@@ -791,8 +800,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         goto fail;
     }
 
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
     if (itr == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -880,6 +888,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
+    Py_DECREF(itr);
     pointingarr_delete(ptg_arr);
 
     PyObject *retval = PyTuple_New(2);
@@ -893,6 +902,7 @@ fail:
     Py_XDECREF(pix_arr);
     Py_XDECREF(a_arr);
     Py_XDECREF(b_arr);
+    Py_XDECREF(itr);
     pointingarr_delete(ptg_arr);
 
     return NULL;
@@ -919,6 +929,7 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     PyObject *nside_obj = NULL, *x_obj = NULL, *y_obj = NULL, *z_obj = NULL;
     PyObject *nside_arr = NULL, *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
     PyObject *pix_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
     int nest = 1;
     static char *kwlist[] = {"nside", "x", "y", "z", "nest", NULL};
 
@@ -940,8 +951,7 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     z_arr = PyArray_FROM_OTF(z_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (z_arr == NULL) goto fail;
 
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(4, nside_arr, x_arr, y_arr, z_arr);
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(4, nside_arr, x_arr, y_arr, z_arr);
     if (itr == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, x, y, z arrays could not be broadcast together.");
@@ -992,6 +1002,7 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     Py_DECREF(x_arr);
     Py_DECREF(y_arr);
     Py_DECREF(z_arr);
+    Py_DECREF(itr);
 
     return PyArray_Return((PyArrayObject *)pix_arr);
 
@@ -1001,6 +1012,7 @@ fail:
     Py_XDECREF(y_arr);
     Py_XDECREF(z_arr);
     Py_XDECREF(pix_arr);
+    Py_XDECREF(itr);
 
     return NULL;
 }
@@ -1026,6 +1038,7 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
     PyObject *nside_obj = NULL, *pix_obj = NULL;
     PyObject *nside_arr = NULL, *pix_arr = NULL;
     PyObject *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
     int nest = 1;
     static char *kwlist[] = {"nside", "pix", "nest", NULL};
 
@@ -1043,8 +1056,7 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
     pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (pix_arr == NULL) goto fail;
 
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
     if (itr == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -1107,6 +1119,7 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
+    Py_DECREF(itr);
 
     PyObject *retval = PyTuple_New(3);
     PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)x_arr));
@@ -1121,6 +1134,7 @@ fail:
     Py_XDECREF(y_arr);
     Py_XDECREF(z_arr);
     Py_XDECREF(pix_arr);
+    Py_XDECREF(itr);
 
     return NULL;
 }
@@ -1144,6 +1158,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     PyObject *nside_obj = NULL, *pix_obj = NULL;
     PyObject *nside_arr = NULL, *pix_arr = NULL;
     PyObject *neighbor_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
     int nest = 1;
     static char *kwlist[] = {"nside", "pix", "nest", NULL};
 
@@ -1167,8 +1182,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         goto fail;
     }
 
-    PyArrayMultiIterObject *itr =
-        (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
     if (itr == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -1244,6 +1258,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
+    Py_DECREF(itr);
 
     return PyArray_Return((PyArrayObject *)neighbor_arr);
 
@@ -1251,6 +1266,7 @@ fail:
     Py_XDECREF(nside_arr);
     Py_XDECREF(pix_arr);
     Py_XDECREF(neighbor_arr);
+    Py_XDECREF(itr);
 
     return NULL;
 }
