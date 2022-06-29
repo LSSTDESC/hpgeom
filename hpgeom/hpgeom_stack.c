@@ -132,6 +132,12 @@ void i64stack_erase(struct i64stack *stack, size_t pos1, size_t pos2, int *statu
 int64_t i64stack_pop(i64stack *stack, int *status, char *err) {
     *status = 1;
 
+    if (stack->size < 1) {
+        snprintf(err, ERR_SIZE, "Cannot pop from empty stack.");
+        *status = 0;
+        return -1;
+    }
+
     int64_t retval = stack->data[stack->size - 1];
     i64stack_resize(stack, stack->size - 1, status, err);
     if (!*status) return -1;
@@ -141,6 +147,12 @@ int64_t i64stack_pop(i64stack *stack, int *status, char *err) {
 void i64stack_pop_pair(i64stack *stack, int64_t *first, int64_t *second, int *status,
                        char *err) {
     *status = 1;
+
+    if (stack->size < 2) {
+        snprintf(err, ERR_SIZE, "Cannot pop pair from stack with <2 elements.");
+        *status = 0;
+        return;
+    }
 
     *first = stack->data[stack->size - 2];
     *second = stack->data[stack->size - 1];
