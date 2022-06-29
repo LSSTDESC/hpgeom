@@ -122,8 +122,15 @@ int hpgeom_lonlat_to_thetaphi(double lon, double lat, double *theta, double *phi
 }
 
 int hpgeom_thetaphi_to_lonlat(double theta, double phi, double *lon, double *lat, bool degrees,
-                              char *err) {
+                              bool check_range, char *err) {
+    int status = 1;
     err[0] = '\0';
+
+    if (check_range) {
+        status = hpgeom_check_theta_phi(theta, phi, err);
+    }
+
+    if (!status) return status;
 
     *lon = phi;
     *lat = -(theta - HPG_HALFPI);
@@ -133,5 +140,5 @@ int hpgeom_thetaphi_to_lonlat(double theta, double phi, double *lon, double *lat
         *lat *= HPG_R2D;
     }
 
-    return 1;
+    return status;
 }
