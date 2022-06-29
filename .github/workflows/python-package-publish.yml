@@ -2,10 +2,10 @@ name: Build, Test, and Publish
 
 on:
   push:
-    branches:
+    # branches:
        # - main
        # Test process with pypi branch
-       - pypi
+    #    - pypi
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
 
