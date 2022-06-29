@@ -21,23 +21,25 @@
  */
 
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "healpix_geom.h"
 #include "hpgeom_utils.h"
 
 int hpgeom_check_nside(int64_t nside, Scheme scheme, char *err) {
     if (nside <= 0) {
-        snprintf(err, ERR_SIZE, "nside %lld must be positive.", nside);
+        snprintf(err, ERR_SIZE, "nside %" PRId64 " must be positive.", nside);
         return 0;
     }
 
     if (scheme == NEST && (nside & (nside - 1))) {
-        snprintf(err, ERR_SIZE, "nside %lld must be power of 2 for NEST pixels", nside);
+        snprintf(err, ERR_SIZE, "nside %" PRId64 " must be power of 2 for NEST pixels", nside);
         return 0;
     }
 
     if (nside > MAX_NSIDE) {
-        snprintf(err, ERR_SIZE, "nside %lld must not be greater than 2**%d", nside, MAX_ORDER);
+        snprintf(err, ERR_SIZE, "nside %" PRId64 " must not be greater than 2**%d", nside,
+                 MAX_ORDER);
         return 0;
     }
     return 1;
@@ -61,7 +63,7 @@ int hpgeom_check_pixel(healpix_info *hpx, int64_t pix, char *err) {
     err[0] = '\0';
 
     if (pix < 0 || pix >= hpx->npix) {
-        snprintf(err, ERR_SIZE, "Pixel value %lld out of range for nside %lld", pix,
+        snprintf(err, ERR_SIZE, "Pixel value %" PRId64 " out of range for nside %" PRId64, pix,
                  hpx->nside);
         return 0;
     }
@@ -75,7 +77,7 @@ int hpgeom_check_fact(healpix_info *hpx, long fact, char *err) {
         snprintf(err, ERR_SIZE, "Inclusive factor %ld must be positive.", fact);
         return 0;
     } else if (fact * hpx->nside > MAX_NSIDE) {
-        snprintf(err, ERR_SIZE, "Inclusive factor * nside must be <= %lld", MAX_NSIDE);
+        snprintf(err, ERR_SIZE, "Inclusive factor * nside must be <= %" PRId64, MAX_NSIDE);
         return 0;
     } else if ((hpx->scheme == NEST) & ((fact & (fact - 1)) > 0)) {
         snprintf(err, ERR_SIZE, "Inclusive factor %ld must be power of 2 for nest.", fact);

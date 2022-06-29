@@ -65,9 +65,6 @@ healpix_info healpix_info_from_nside(int64_t nside, enum Scheme scheme);
 int64_t isqrt(int64_t i);
 int ilog2(int64_t arg);
 int64_t imodulo(int64_t v1, int64_t v2);
-static inline int64_t i64max(int64_t v1, int64_t v2);
-static inline int64_t i64min(int64_t v1, int64_t v2);
-static inline int64_t special_div(int64_t a, int64_t b);
 
 int64_t ang2pix(healpix_info *hpx, double theta, double phi);
 int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth, bool hav_sth);
