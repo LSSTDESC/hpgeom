@@ -85,7 +85,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|ppp", kwlist, &nside_obj, &a_obj,
                                      &b_obj, &lonlat, &nest, &degrees))
-        return NULL;
+        goto fail;
 
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
@@ -103,10 +103,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     }
 
     pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
-    if (pix_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output pix array.");
-        goto fail;
-    }
+    if (pix_arr == NULL) goto fail;
     pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
 
     enum Scheme scheme;
@@ -196,11 +193,11 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|ppp", kwlist, &nside_obj, &pix_obj,
                                      &lonlat, &nest, &degrees))
-        return NULL;
+        goto fail;
 
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL) return NULL;
+    if (nside_arr == NULL) goto fail;
     pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (pix_arr == NULL) goto fail;
 
@@ -212,16 +209,11 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
     }
 
     a_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (a_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output a array.");
-        goto fail;
-    }
+    if (a_arr == NULL) goto fail;
     as = (double *)PyArray_DATA((PyArrayObject *)a_arr);
+
     b_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (b_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output b array.");
-        goto fail;
-    }
+    if (b_arr == NULL) goto fail;
     bs = (double *)PyArray_DATA((PyArrayObject *)b_arr);
 
     enum Scheme scheme;
@@ -398,9 +390,8 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
     return PyArray_Return((PyArrayObject *)pix_arr);
 
 fail:
-    if (pixset != NULL) {
-        pixset = i64rangeset_delete(pixset);
-    }
+    i64rangeset_delete(pixset);
+
     return NULL;
 }
 
@@ -546,6 +537,7 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
     dims[0] = (npy_intp)npix;
 
     PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+    if (pix_arr == NULL) goto fail;
     int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
 
     i64rangeset_fill_buffer(pixset, npix, pix_data);
@@ -593,11 +585,11 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
     char err[ERR_SIZE];
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &nside_obj, &nest_pix_obj))
-        return NULL;
+        goto fail;
 
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL) return NULL;
+    if (nside_arr == NULL) goto fail;
     nest_pix_arr =
         PyArray_FROM_OTF(nest_pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (nest_pix_arr == NULL) goto fail;
@@ -610,10 +602,7 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
     }
 
     ring_pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
-    if (ring_pix_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output pix array.");
-        goto fail;
-    }
+    if (ring_pix_arr == NULL) goto fail;
     ring_pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)ring_pix_arr);
 
     int64_t *nside;
@@ -682,11 +671,11 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
     char err[ERR_SIZE];
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &nside_obj, &ring_pix_obj))
-        return NULL;
+        goto fail;
 
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL) return NULL;
+    if (nside_arr == NULL) goto fail;
     ring_pix_arr =
         PyArray_FROM_OTF(ring_pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (ring_pix_arr == NULL) goto fail;
@@ -699,10 +688,7 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
     }
 
     nest_pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
-    if (nest_pix_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output pix array.");
-        goto fail;
-    }
+    if (nest_pix_arr == NULL) goto fail;
     nest_pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)nest_pix_arr);
 
     int64_t *nside;
@@ -783,6 +769,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Lppp", kwlist, &nside_obj, &pix_obj,
                                      &step, &lonlat, &nest, &degrees))
         goto fail;
+
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (nside_arr == NULL) goto fail;
@@ -811,17 +798,17 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         npy_intp dims[1];
         dims[0] = 4 * step;
         a_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
+        if (a_arr == NULL) goto fail;
         b_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
+        if (b_arr == NULL) goto fail;
     } else {
         npy_intp dims[2];
         dims[0] = PyArray_DIM((PyArrayObject *)pix_arr, 0);
         dims[1] = 4 * step;
         a_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
+        if (a_arr == NULL) goto fail;
         b_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
-    }
-    if ((a_arr == NULL) || (b_arr == NULL)) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output a, b arrays.");
-        goto fail;
+        if (b_arr == NULL) goto fail;
     }
     as = (double *)PyArray_DATA((PyArrayObject *)a_arr);
     bs = (double *)PyArray_DATA((PyArrayObject *)b_arr);
@@ -937,11 +924,11 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO|p", kwlist, &nside_obj, &x_obj,
                                      &y_obj, &z_obj, &nest))
-        return NULL;
+        goto fail;
 
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL) return NULL;
+    if (nside_arr == NULL) goto fail;
     x_arr = PyArray_FROM_OTF(x_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (x_arr == NULL) goto fail;
     y_arr = PyArray_FROM_OTF(y_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
@@ -957,10 +944,7 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     }
 
     pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
-    if (pix_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output pix array.");
-        goto fail;
-    }
+    if (pix_arr == NULL) goto fail;
     pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
 
     enum Scheme scheme;
@@ -1046,11 +1030,11 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj, &pix_obj,
                                      &nest))
-        return NULL;
+        goto fail;
 
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL) return NULL;
+    if (nside_arr == NULL) goto fail;
     pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (pix_arr == NULL) goto fail;
 
@@ -1062,22 +1046,15 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
     }
 
     x_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (x_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output x array.");
-        goto fail;
-    }
+    if (x_arr == NULL) goto fail;
     xs = (double *)PyArray_DATA((PyArrayObject *)x_arr);
+
     y_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (y_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output y array.");
-        goto fail;
-    }
+    if (y_arr == NULL) goto fail;
     ys = (double *)PyArray_DATA((PyArrayObject *)y_arr);
+
     z_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (z_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output z array.");
-        goto fail;
-    }
+    if (z_arr == NULL) goto fail;
     zs = (double *)PyArray_DATA((PyArrayObject *)z_arr);
 
     enum Scheme scheme;
@@ -1167,11 +1144,11 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj, &pix_obj,
                                      &nest))
-        return NULL;
+        goto fail;
 
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL) return NULL;
+    if (nside_arr == NULL) goto fail;
     pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (pix_arr == NULL) goto fail;
 
@@ -1198,10 +1175,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         dims[1] = 8;
         neighbor_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
     }
-    if (neighbor_arr == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not create output neighbor array.");
-        goto fail;
-    }
+    if (neighbor_arr == NULL) goto fail;
     neighbor_pixels = (int64_t *)PyArray_DATA((PyArrayObject *)neighbor_arr);
 
     enum Scheme scheme;
