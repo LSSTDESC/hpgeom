@@ -66,7 +66,13 @@ PyDoc_STRVAR(angle_to_pixel_doc,
                  DEGREES_DOC_PAR
              "\n"
              "Returns\n"
-             "-------\n" PIX_DOC_PAR);
+             "-------\n" PIX_DOC_PAR
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    If angles are out of range, or arrays cannot be broadcast"
+             "    together.\n");
 
 static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
@@ -174,7 +180,13 @@ PyDoc_STRVAR(pixel_to_angle_doc,
                  DEGREES_DOC_PAR
              "\n"
              "Returns\n"
-             "-------\n" AB_DOC_PAR);
+             "-------\n" AB_DOC_PAR
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    If pixel values are out of range, or arrays cannot be broadcast"
+             "    together.\n");
 
 static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *pix_obj = NULL;
@@ -299,7 +311,14 @@ PyDoc_STRVAR(query_circle_doc,
              "Returns\n"
              "-------\n"
              "pixels : `np.ndarray` (N,)\n"
-             "    Array of pixels (`np.int64`) which cover the circle.\n");
+             "    Array of pixels (`np.int64`) which cover the circle.\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    If position or radius are out of range, or fact is not allowed.\n"
+             "RuntimeError\n"
+             "    If query_circle has an internal error.\n");
 
 static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     int64_t nside;
@@ -416,7 +435,15 @@ PyDoc_STRVAR(query_polygon_doc,
              "Returns\n"
              "-------\n"
              "pixels : `np.ndarray` (N,)\n"
-             "    Array of pixels (`np.int64`) which cover the polygon.\n");
+             "    Array of pixels (`np.int64`) which cover the polygon.\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    If vertices are out of range.\n"
+             "RuntimeError\n"
+             "    If polygon does not have at least 3 vertices, or polygon is not convex,\n"
+             "    or polygon has degenerate corners, or there is an internal error.\n");
 
 static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     int64_t nside;
@@ -571,7 +598,12 @@ PyDoc_STRVAR(nest_to_ring_doc,
              "Returns\n"
              "-------\n"
              "pix : `int` or `np.ndarray` (N,)\n"
-             "    The pixel numbers in ring scheme.\n");
+             "    The pixel numbers in ring scheme.\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    Pixel or nside values are out of range.\n");
 
 static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *nest_pix_obj = NULL;
@@ -657,7 +689,12 @@ PyDoc_STRVAR(ring_to_nest_doc,
              "Returns\n"
              "-------\n"
              "pix : `int` or `np.ndarray` (N,)\n"
-             "    The pixel numbers in nest scheme.\n");
+             "    The pixel numbers in nest scheme.\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    Pixel or nside values are out of range.\n");
 
 static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *ring_pix_obj = NULL;
@@ -747,7 +784,13 @@ PyDoc_STRVAR(boundaries_doc,
              "\n"
              "Returns\n"
              "-------\n"
-             "a, b : `np.ndarray` (4*step,) or (N,4*step,)\n" AB_DOC_DESCR);
+             "a, b : `np.ndarray` (4*step,) or (N,4*step,)\n" AB_DOC_DESCR
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    If pixel values are out of range, or nside, pix arrays are not\n"
+             "    compatible, or step is not positive.\n");
 
 static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *pix_obj = NULL;
@@ -1014,7 +1057,13 @@ PyDoc_STRVAR(pixel_to_vector_doc,
              "y : `float` or `np.ndarray` (N,)\n"
              "    y coordinates for vectors.\n"
              "z : `float` or `np.ndarray` (N,)\n"
-             "    z coordinates for vectors.\n");
+             "    z coordinates for vectors.\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    If pixel values are out of range, or nside and pix arrays are not\n"
+             "    compatible.\n");
 
 static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *pix_obj = NULL;
@@ -1127,7 +1176,12 @@ PyDoc_STRVAR(neighbors_doc,
              "neighbor_pixels : `np.ndarray` (8,) or (N, 8)\n"
              "    Pixel numbers of the SW, W, NW, N, NE, E, SE, and S neighbors.\n"
              "    If a neighbor does not exist (as can be the case for W, N, E, and S)\n"
-             "    the corresponding pixel number will be -1.\n");
+             "    the corresponding pixel number will be -1.\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    If pixel is out of range, or nside, pix arrays are not compatible.\n");
 
 static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *pix_obj = NULL;
