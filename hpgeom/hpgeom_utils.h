@@ -37,5 +37,6 @@ int hpgeom_thetaphi_to_lonlat(double theta, double phi, double *lon, double *lat
                               bool check_status, char *err);
 int hpgeom_check_fact(healpix_info *hpx, long fact, char *err);
 int hpgeom_check_radius(double radius, char *err);
+int hpgeom_check_semi(double semi_major, double semi_minor, char *err);
 
 #endif

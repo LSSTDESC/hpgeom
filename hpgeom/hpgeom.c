@@ -585,6 +585,154 @@ fail:
     return NULL;
 }
 
+PyDoc_STRVAR(query_ellipse_doc,
+             "query_ellipse(nside, a, b, semi_major, semi_minor, alpha, inclusive=False, "
+             "fact=4, nest=True, lonlat=True, degrees=True)\n"
+             "--\n\n"
+             "Returns pixels whose centers lie within an ellipse if inclusive is False,\n"
+             "or which overlap with this ellipse if inclusive is True. The ellipse is\n"
+             "defined by a center a, b ([lon, lat] if lonlat=True otherwise [theta, phi]\n"
+             "and semi-major and semi-minor axes (in degrees if lonlat=True and\n"
+             "degrees=True, otherwise radians). The inclination angle alpha is defined\n"
+             "East of North, and is in degrees if lonlat=True and degrees=True,\n"
+             "otherwise radians. The shape of the ellipse is defined by\n"
+             "the set of points where the sum of the great circle distances from two\n"
+             "foci is less than twice the semi-major axis.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n" NSIDE_DOC_PAR "a, b : `float`\n" AB_DOC_DESCR
+             "semi_major, semi_minor : `float`\n"
+             "    The semi-major and semi-minor axes of the ellipse. Degrees if degrees=True\n"
+             "    and lonlat=True, otherwise radians. The semi-major axis must be >= the\n"
+             "    semi-minor axis.\n"
+             "alpha : `float`\n"
+             "    Inclination angle, counterclockwise with respect to North. Degrees if\n"
+             "    degrees=True and lonlat=True, otherwise radians.\n"
+             "inclusive : `bool`, optional\n"
+             "    If False, return the exact set of pixels whose pixel centers lie\n"
+             "    within the ellipse. If True, return all pixels that overlap with\n"
+             "    the ellipse. This is an approximation and may return a few extra\n"
+             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "pixels : `np.ndarray` (N,)\n"
+             "    Array of pixels (`np.int64`) which cover the ellipse.\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "ValueError\n"
+             "    If position or semi-major/minor axes are out of range, or fact is \n"
+             "    not allowed.\n"
+             "RuntimeError\n"
+             "    If query_ellipse has an internal error.\n");
+
+static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
+    int64_t nside;
+    double a, b, semi_major, semi_minor, alpha;
+    int inclusive = 0;
+    long fact = 4;
+    int nest = 1;
+    int lonlat = 1;
+    int degrees = 1;
+    static char *kwlist[] = {"nside",     "a",    "b",    "semi_major", "semi_minor", "alpha",
+                             "inclusive", "fact", "nest", "lonlat",     "degrees",    NULL};
+
+    char err[ERR_SIZE];
+    int status = 1;
+    i64rangeset *pixset = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddddd|plppp", kwlist, &nside, &a, &b,
+                                     &semi_major, &semi_minor, &alpha, &inclusive, &fact,
+                                     &nest, &lonlat, &degrees))
+        goto fail;
+
+    double theta, phi;
+    if (lonlat) {
+        if (!hpgeom_lonlat_to_thetaphi(a, b, &theta, &phi, (bool)degrees, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+        if (degrees) {
+            semi_major *= HPG_D2R;
+            semi_minor *= HPG_D2R;
+            alpha *= HPG_D2R;
+        }
+    } else {
+        if (!hpgeom_check_theta_phi(a, b, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+        theta = a;
+        phi = b;
+    }
+
+    if (!hpgeom_check_semi(semi_major, semi_minor, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+    }
+
+    if (!nest) {
+        PyErr_WarnEx(PyExc_ResourceWarning,
+                     "query_ellipse natively supports nest ordering.  Result will be "
+                     "converted from nest->ring and sourced",
+                     0);
+    }
+
+    if (!hpgeom_check_nside(nside, NEST, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+    }
+    healpix_info hpx = healpix_info_from_nside(nside, NEST);
+
+    pixset = i64rangeset_new(&status, err);
+    if (!status) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        goto fail;
+    }
+
+    if (!inclusive) {
+        fact = 0;
+    } else {
+        if (!hpgeom_check_fact(&hpx, fact, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+    }
+    query_ellipse(&hpx, theta, phi, semi_major, semi_minor, alpha, fact, pixset, &status, err);
+
+    if (!status) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        goto fail;
+    }
+
+    size_t npix = i64rangeset_npix(pixset);
+    npy_intp dims[1];
+    dims[0] = (npy_intp)npix;
+
+    PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+
+    i64rangeset_fill_buffer(pixset, npix, pix_data);
+
+    i64rangeset_delete(pixset);
+
+    if (!nest) {
+        // Convert from nest to ring
+        for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(&hpx, pix_data[i]);
+
+        // And sort the pixels, as is expected.
+        PyArray_Sort((PyArrayObject *)pix_arr, 0, NPY_QUICKSORT);
+    }
+
+    return PyArray_Return((PyArrayObject *)pix_arr);
+
+fail:
+    i64rangeset_delete(pixset);
+
+    return NULL;
+}
+
 PyDoc_STRVAR(nest_to_ring_doc,
              "nest_to_ring(nside, pix)\n"
              "--\n\n"
@@ -1306,6 +1454,8 @@ static PyMethodDef hpgeom_methods[] = {
      query_circle_doc},
     {"query_polygon", (PyCFunction)(void (*)(void))query_polygon_meth,
      METH_VARARGS | METH_KEYWORDS, query_polygon_doc},
+    {"query_ellipse", (PyCFunction)(void (*)(void))query_ellipse_meth,
+     METH_VARARGS | METH_KEYWORDS, query_ellipse_doc},
     {"nest_to_ring", (PyCFunction)(void (*)(void))nest_to_ring, METH_VARARGS | METH_KEYWORDS,
      nest_to_ring_doc},
     {"ring_to_nest", (PyCFunction)(void (*)(void))ring_to_nest, METH_VARARGS | METH_KEYWORDS,

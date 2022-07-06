@@ -101,8 +101,11 @@ void check_pixel_nest(int o, int order_, int omax, int zone, struct i64rangeset 
                       int64_t pix, struct i64stack *stk, bool inclusive, int *stacktop,
                       int *status, char *err);
 
-void query_disc(healpix_info *hpx, double theta, double phi, double radius, int fact,
+void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radius, int fact,
                 struct i64rangeset *pixset, int *status, char *err);
+void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double semi_major,
+                   double semi_minor, double alpha, int fact, struct i64rangeset *pixset,
+                   int *status, char *err);
 
 void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
              bool *have_sth);

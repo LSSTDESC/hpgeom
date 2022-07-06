@@ -97,6 +97,25 @@ int hpgeom_check_radius(double radius, char *err) {
     return 1;
 }
 
+int hpgeom_check_semi(double semi_major, double semi_minor, char *err) {
+    err[0] = '\0';
+
+    if (semi_major <= 0) {
+        snprintf(err, ERR_SIZE, "Semi-major axis must be positive.");
+        return 0;
+    }
+    if (semi_minor <= 0) {
+        snprintf(err, ERR_SIZE, "Semi-minor axis must be positive.");
+        return 0;
+    }
+    if (semi_major < semi_minor) {
+        snprintf(err, ERR_SIZE, "Semi-major axis must be >= semi-minor axis.");
+        return 0;
+    }
+
+    return 1;
+}
+
 int hpgeom_lonlat_to_thetaphi(double lon, double lat, double *theta, double *phi, bool degrees,
                               char *err) {
     err[0] = '\0';

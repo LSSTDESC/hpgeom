@@ -1302,3 +1302,108 @@ cleanup:
     vec3arr_delete(vv);
     vec3arr_delete(normal);
 }
+
+void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double semi_major,
+                   double semi_minor, double alpha, int fact, struct i64rangeset *pixset,
+                   int *status, char *err) {
+    if (hpx->scheme == RING) {
+        snprintf(err, ERR_SIZE, "query_ellipse only supports nest ordering.");
+        *status = 0;
+        return;
+    }
+
+    bool inclusive = (fact != 0);
+    // this does not alter the storage
+    pixset->stack->size = 0;
+
+    /*
+      The following math is adapted from
+      https://math.stackexchange.com/questions/3747965/points-within-an-ellipse-on-the-globe
+
+      This foci of the ellipse are pre-computed from the center, semi-major and semi-minor
+      axes, and the rotation angle (alpha).  This is a lot of trig, but it only has to
+      be done once per query and not per pixel.
+
+      The metric is then for pixels that the sum of the distance between the two foci
+      is less than 2*semi_major.
+    */
+    vec3 f1vec, f2vec;
+    pointing f1ptg, f2ptg;
+
+    double cos_alpha = cos(alpha);
+    double sin_alpha = sin(alpha);
+    double gamma = sqrt(semi_major * semi_major - semi_minor * semi_minor);
+    double sin_gamma = sin(gamma);
+    double cos_gamma = cos(gamma);
+    double cos_phi = cos(ptg_phi);
+    double cos_theta = cos(ptg_theta);
+    double sin_phi = sin(ptg_phi);
+    double sin_theta = sin(ptg_theta);
+
+    f1vec.x = cos_alpha * sin_gamma * cos_phi * cos_theta + sin_alpha * sin_gamma * sin_phi +
+              cos_gamma * cos_phi * sin_theta;
+    f2vec.x = -cos_alpha * sin_gamma * cos_phi * cos_theta - sin_alpha * sin_gamma * sin_phi +
+              cos_gamma * cos_phi * sin_theta;
+    f1vec.y = cos_alpha * sin_gamma * sin_phi * cos_theta + sin_alpha * sin_gamma * cos_phi +
+              cos_gamma * sin_phi * sin_theta;
+    f2vec.y = -cos_alpha * sin_gamma * sin_phi * cos_theta - sin_alpha * sin_gamma * cos_phi +
+              cos_gamma * sin_phi * sin_theta;
+    f1vec.z = cos_gamma * cos_theta - cos_alpha * sin_gamma * sin_theta;
+    f2vec.z = cos_gamma * cos_theta + cos_alpha * sin_gamma * sin_theta;
+
+    pointing_from_vec3(&f1vec, &f1ptg);
+    pointing_from_vec3(&f2vec, &f2ptg);
+
+    if (semi_minor >= HPG_PI) {  // disk covers the whole sphere
+        i64rangeset_append(pixset, 0, hpx->npix, status, err);
+        return;
+    }
+
+    int oplus = 0;
+    if (inclusive) {
+        oplus = ilog2(fact);
+    }
+    int omax = hpx->order + oplus;  // the order up to which we test
+
+    // Statically define the array of bases because it's not large.
+    struct healpix_info base[MAX_ORDER + 1];
+
+    double dr[MAX_ORDER + 1];
+    double dmdr[MAX_ORDER + 1];
+    double dpdr[MAX_ORDER + 1];
+    for (int o = 0; o <= omax; o++) {
+        base[o] = healpix_info_from_order(o, NEST);
+        dr[o] = max_pixrad(&base[o]);  // safety distance
+        dmdr[o] = 2 * semi_major - 2 * dr[o];
+        dpdr[o] = 2 * semi_major + 2 * dr[o];
+    }
+
+    i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+    if (!*status) return;
+    for (int i = 0; i < 12; i++) {
+        i64stack_push(stk, (int64_t)(11 - i), status, err);
+        if (!*status) return;
+        i64stack_push(stk, 0, status, err);
+        if (!*status) return;
+    }
+
+    int stacktop = 0;  // a place to save a stack position
+    while (stk->size > 0) {
+        // pop current pixel number and order from the stack
+        int64_t pix, temp;
+        i64stack_pop_pair(stk, &pix, &temp, status, err);
+        if (!*status) return;
+        int o = (int)temp;
+
+        double pix_z, pix_phi;
+        pix2zphi(&base[o], pix, &pix_z, &pix_phi);
+        double d = acos(cosdist_zphi(f1vec.z, f1ptg.phi, pix_z, pix_phi)) +
+                   acos(cosdist_zphi(f2vec.z, f2ptg.phi, pix_z, pix_phi));
+        if (d <= dpdr[o]) {
+            int zone = (d >= 2 * semi_major) ? 1 : ((d > dmdr[o]) ? 2 : 3);
+            check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive, &stacktop,
+                             status, err);
+            if (!*status) return;
+        }
+    }
+}
