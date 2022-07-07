@@ -318,7 +318,14 @@ PyDoc_STRVAR(query_circle_doc,
              "ValueError\n"
              "    If position or radius are out of range, or fact is not allowed.\n"
              "RuntimeError\n"
-             "    If query_circle has an internal error.\n");
+             "    If query_circle has an internal error.\n"
+             "\n"
+             "Notes\n"
+             "-----\n"
+             "This method is more efficient with ring ordering.\n"
+             "For inclusive=True, the algorithm may return some pixels which do not overlap\n"
+             "with the circle. Higher fact values result in fewer false positives at the\n"
+             "expense of increased run time.\n");
 
 static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     int64_t nside;
@@ -443,7 +450,14 @@ PyDoc_STRVAR(query_polygon_doc,
              "    If vertices are out of range.\n"
              "RuntimeError\n"
              "    If polygon does not have at least 3 vertices, or polygon is not convex,\n"
-             "    or polygon has degenerate corners, or there is an internal error.\n");
+             "    or polygon has degenerate corners, or there is an internal error.\n"
+             "\n"
+             "Notes\n"
+             "-----\n"
+             "This method is more efficient with nest ordering.\n"
+             "For inclusive=True, the algorithm may return some pixels which do not overlap\n"
+             "with the polygon. Higher fact values result in fewer false positives at the\n"
+             "expense of increased run time.\n");
 
 static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     int64_t nside;
@@ -595,9 +609,9 @@ PyDoc_STRVAR(query_ellipse_doc,
              "and semi-major and semi-minor axes (in degrees if lonlat=True and\n"
              "degrees=True, otherwise radians). The inclination angle alpha is defined\n"
              "East of North, and is in degrees if lonlat=True and degrees=True,\n"
-             "otherwise radians. The shape of the ellipse is defined by\n"
-             "the set of points where the sum of the great circle distances from two\n"
-             "foci is less than twice the semi-major axis.\n"
+             "otherwise radians. The shape of the ellipse is defined by the set\n"
+             "of points where the sum of the distances from a point to each of the\n"
+             "foci add up to less than twice the semi-major axis.\n"
              "\n"
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR "a, b : `float`\n" AB_DOC_DESCR
@@ -625,7 +639,16 @@ PyDoc_STRVAR(query_ellipse_doc,
              "    If position or semi-major/minor axes are out of range, or fact is \n"
              "    not allowed.\n"
              "RuntimeError\n"
-             "    If query_ellipse has an internal error.\n");
+             "    If query_ellipse has an internal error.\n"
+             "\n"
+             "Notes\n"
+             "-----\n"
+             "This method runs natively only with nest ordering. If called with ring\n"
+             "ordering then a ResourceWarning is emitted and the pixel numbers will be\n"
+             "converted to ring and sorted before output.\n"
+             "For inclusive=True, the algorithm may return some pixels which do not overlap\n"
+             "with the ellipse. Higher fact values result in fewer false positives at the\n"
+             "expense of increased run time.\n");
 
 static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     int64_t nside;
