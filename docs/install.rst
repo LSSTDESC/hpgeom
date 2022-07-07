@@ -5,10 +5,27 @@ Install
 
 * `numpy <https://github.com/numpy/numpy>`_
 
-Building `HPGeom` also depends on a working C compiler.
-
-To install from source, you can run from the root directory:
+`HPGeom` is available at `pypi <https://pypi.org/project/hpgeom>`_ and `conda-forge <https://anaconda.org/conda-forge/hpgeom>`_.
+The most convenient way of installing the latest released version is simply:
 
 .. code-block:: python
 
-  pip install --no-deps .
+  conda install -c conda-forge hpgeom
+
+or
+
+.. code-block:: python
+
+  pip install hpgeom
+
+To install from source, you can run from the root directory (provided you have a working C compiler):
+
+.. code-block:: python
+
+  pip install .
+
+In order to additionally install the requirements for running tests, use:
+
+.. code-block:: python
+
+  pip install .[test,test_with_healpy]

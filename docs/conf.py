@@ -58,11 +58,7 @@ html_static_path = []
 import inspect
 from os.path import relpath, dirname
 
-print('WAT')
-
 import hpgeom # for the relpath below
-
-print('HEY')
 
 def linkcode_resolve(domain, info):
     """

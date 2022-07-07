@@ -12,7 +12,7 @@ import hpgeom
 
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10])
 def test_query_circle_fullsky_nest(nside):
-    """Test query_curcle over the full sky, nest ordering."""
+    """Test query_circle over the full sky, nest ordering."""
     pixels = hpgeom.query_circle(nside, 0.0, 0.0, 190.0)
 
     np.testing.assert_array_equal(pixels, np.arange(12*nside*nside))
@@ -30,7 +30,7 @@ def test_query_circle_fullsky_ring(nside):
 @pytest.mark.parametrize("nside_radius", [(2**5, 2.0),
                                           (2**10, 1.0),
                                           (2**20, 0.01)])
-@pytest.mark.parametrize("lon", [0.0, 90.0, 180.0, 270.0, 0.0, 180.0])
+@pytest.mark.parametrize("lon", [0.0, 90.0, 180.0, 270.0])
 @pytest.mark.parametrize("lat", [-45.0, 0.0, 45.0, 90.0, -90.0])
 def test_query_circle_nest(nside_radius, lon, lat):
     """Test query_circle, nest ordering."""
@@ -59,7 +59,7 @@ def test_query_circle_nest(nside_radius, lon, lat):
                                           (2**10, 1.0),
                                           (2**20, 0.01),
                                           (2**10 - 2, 0.5)])
-@pytest.mark.parametrize("lon", [0.0, 90.0, 180.0, 270.0, 0.0, 180.0])
+@pytest.mark.parametrize("lon", [0.0, 90.0, 180.0, 270.0])
 @pytest.mark.parametrize("lat", [-45.0, 0.0, 45.0, 90.0, -90.0])
 def test_query_circle_ring(nside_radius, lon, lat):
     """Test query_circle, ring ordering."""
