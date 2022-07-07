@@ -14,9 +14,14 @@ The full suite of tests require [healpy](https://healpy.readthedocs.io/en/latest
 
 ## Install:
 
-To install the package from source go to the parent directory of the package and run `pip install . [options]`.
+The easiest way to install `HPGeom` is from pypi (`pip install hpgeom`) or from conda-forge (`conda install hpgeom -c conda-forge`).
+
+To install the package from source go to the parent directory of the package and run `pip install .`.
+To include all test requirements, install optional dependencies with `pip install .[test,test_with_healpy]`.
 
 ## Documentation:
+
+Documentation is available at https://hpgeom.readthedocs.io/en/latest .
 
 ## Acknowledgements:
 
@@ -24,6 +29,5 @@ The `HPGeom` code was written by Eli Rykoff based on [HEALPix](https://healpix.j
 
 This software was developed under the Rubin Observatory Legacy Survey of Space and Time (LSST) Dark Energy Science Collaboration (DESC) using LSST DESC resources.
 The DESC acknowledges ongoing support from the Institut National de Physique Nucléaire et de Physique des Particules in France; the Science & Technology Facilities Council in the United Kingdom; and the Department of Energy, the National Science Foundation, and the LSST Corporation in the United States.
-DESC uses resources of the IN2P3 Computing Center (CC-IN2P3--Lyon/Villeurbanne - France) funded by the Centre National de la Recherche Scientifique; the National Energy Research Scientific Computing Center, a DOE Office of Science User Facility supported by the Office of Science of the U.S. Department of Energy under Contract No. DE-AC02-05CH11231; STFC DiRAC HPC Facilities, funded by UK BIS National E-infrastructure capital grants; and the UK particle physics grid, supported by the GridPP Collaboration.
+DESC uses resources of the IN2P3 Computing Center (CC-IN2P3--Lyon/Villeurbanne - France) funded by the Centre National de la Recherche Scientifique; the National Energy Research Scientific Computing Center, a DOE Office of Science User Facility supported by the Office of Science of the U.S. Department of Energy under Contract No. DE-AC02-05CH11231; STFC DiRAC HPC Facilities, funded by UK BEIS National E-infrastructure capital grants; and the UK particle physics grid, supported by the GridPP Collaboration.
 This work was performed in part under DOE Contract DE-AC02-76SF00515.
-
