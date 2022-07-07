@@ -72,6 +72,9 @@ def _pos_in_ellipse(lon, lat, lon_0, lat_0, major, minor, alpha_deg):
     Following
     https://math.stackexchange.com/questions/3747965/points-within-an-ellipse-on-the-globe
 
+    The sign of alpha has been reversed from the equations posted there so that it is
+    defined as the angle East (clockwise) of North.
+
     Parameters
     ----------
     lon, lat : `np.ndarray`
@@ -100,10 +103,10 @@ def _pos_in_ellipse(lon, lat, lon_0, lat_0, major, minor, alpha_deg):
             - np.sin(alpha)*np.sin(gamma)*np.sin(phi_0)
             + np.cos(gamma)*np.cos(phi_0)*np.sin(theta_0))
     F1_y = (np.cos(alpha)*np.sin(gamma)*np.sin(phi_0)*np.cos(theta_0)
-            + np.sin(alpha)*np.sin(gamma)*np.cos(phi_0)
+            - np.sin(alpha)*np.sin(gamma)*np.cos(phi_0)
             + np.cos(gamma)*np.sin(phi_0)*np.sin(theta_0))
     F2_y = (-np.cos(alpha)*np.sin(gamma)*np.sin(phi_0)*np.cos(theta_0)
-            - np.sin(alpha)*np.sin(gamma)*np.cos(phi_0)
+            + np.sin(alpha)*np.sin(gamma)*np.cos(phi_0)
             + np.cos(gamma)*np.sin(phi_0)*np.sin(theta_0))
     F1_z = np.cos(gamma)*np.cos(theta_0) - np.cos(alpha)*np.sin(gamma)*np.sin(theta_0)
     F2_z = np.cos(gamma)*np.cos(theta_0) + np.cos(alpha)*np.sin(gamma)*np.sin(theta_0)

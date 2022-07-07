@@ -1320,12 +1320,15 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
       The following math is adapted from
       https://math.stackexchange.com/questions/3747965/points-within-an-ellipse-on-the-globe
 
+      The sign of alpha has been reversed from the equations posted there so that it is
+      defined as the angle East (clockwise) of North.
+
       This foci of the ellipse are pre-computed from the center, semi-major and semi-minor
       axes, and the rotation angle (alpha).  This is a lot of trig, but it only has to
       be done once per query and not per pixel.
 
-      The metric is then for pixels that the sum of the distance between the two foci
-      is less than 2*semi_major.
+      The criterion is then that the sum of the distances from a pixel to each of the foci
+      add up to less than 2*semi_major.
     */
     vec3 f1vec, f2vec;
     pointing f1ptg, f2ptg;
@@ -1344,9 +1347,9 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
               cos_gamma * cos_phi * sin_theta;
     f2vec.x = -cos_alpha * sin_gamma * cos_phi * cos_theta - sin_alpha * sin_gamma * sin_phi +
               cos_gamma * cos_phi * sin_theta;
-    f1vec.y = cos_alpha * sin_gamma * sin_phi * cos_theta + sin_alpha * sin_gamma * cos_phi +
+    f1vec.y = cos_alpha * sin_gamma * sin_phi * cos_theta - sin_alpha * sin_gamma * cos_phi +
               cos_gamma * sin_phi * sin_theta;
-    f2vec.y = -cos_alpha * sin_gamma * sin_phi * cos_theta - sin_alpha * sin_gamma * cos_phi +
+    f2vec.y = -cos_alpha * sin_gamma * sin_phi * cos_theta + sin_alpha * sin_gamma * cos_phi +
               cos_gamma * sin_phi * sin_theta;
     f1vec.z = cos_gamma * cos_theta - cos_alpha * sin_gamma * sin_theta;
     f2vec.z = cos_gamma * cos_theta + cos_alpha * sin_gamma * sin_theta;
