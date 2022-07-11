@@ -698,7 +698,7 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
     if (!nest) {
         PyErr_WarnEx(PyExc_ResourceWarning,
                      "query_ellipse natively supports nest ordering.  Result will be "
-                     "converted from nest->ring and sourced",
+                     "converted from nest->ring and sorted",
                      0);
     }
 
@@ -723,6 +723,167 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
         }
     }
     query_ellipse(&hpx, theta, phi, semi_major, semi_minor, alpha, fact, pixset, &status, err);
+
+    if (!status) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        goto fail;
+    }
+
+    size_t npix = i64rangeset_npix(pixset);
+    npy_intp dims[1];
+    dims[0] = (npy_intp)npix;
+
+    PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+
+    i64rangeset_fill_buffer(pixset, npix, pix_data);
+
+    i64rangeset_delete(pixset);
+
+    if (!nest) {
+        // Convert from nest to ring
+        for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(&hpx, pix_data[i]);
+
+        // And sort the pixels, as is expected.
+        PyArray_Sort((PyArrayObject *)pix_arr, 0, NPY_QUICKSORT);
+    }
+
+    return PyArray_Return((PyArrayObject *)pix_arr);
+
+fail:
+    i64rangeset_delete(pixset);
+
+    return NULL;
+}
+
+PyDoc_STRVAR(
+    query_box_doc,
+    "query_box(nside, a0, a1, b0, b1, inclusive=False, fact=4, nest=True, lonlat=True, "
+    "degrees=True)\n"
+    "--\n\n"
+    "Returns pixels whose centers lie within a box if inclusive is False,\n"
+    "or which overlap with this box if inclusive is True, The box is defined\n"
+    "by all the points within [a0, a1] and [b0, b1] ([lon, lat] if lonlat=True\n"
+    "otherwise [theta, phi] (in degrees if lonlat=True and degrees=True, otherwise\n"
+    "radians). The box will have boundaries in constant longitude/latitude, rather\n"
+    "than great circle boundaries as with query_polygon. If a0 > a1 then the box will\n"
+    "wrap around 360 degrees. If a0 == 0.0 and a1 == 360.0 then the box will contain\n"
+    "points at all longitudes. If b0 == 90.0 or -90.0 then the box will be an arc\n"
+    "of a circle with the center at the north/south pole.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n" NSIDE_DOC_PAR "a0, a1, b0, b1 : `float`\n" AB_DOC_DESCR
+    "inclusive : `bool`, optional\n"
+    "    If False, return the exact set of pixels whose pixel centers lie\n"
+    "    within the box. If True, return all pixels that overlap with\n"
+    "    the box. This is an approximation and may return a few extra\n"
+    "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "pixels : `np.ndarray` (N,)\n"
+    "    Array of pixels (`np.int64`) which cover the box.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If positions are out of range, or fact is not allowed.\n"
+    "RuntimeError\n"
+    "    If query_box has an internal error.\n"
+    "\n"
+    "Notes\n"
+    "-----\n"
+    "This method runs natively only with nest ordering. If called with ring\n"
+    "ordering then a ResourceWarning is emitted and the pixel numbers will be\n"
+    "converted to ring and sorted before output.\n"
+    "For inclusive=True, the algorithm may return some pixels which do not overlap\n"
+    "with the box. Higher fact values result in fewer false positives at the\n"
+    "expense of increased run time.\n");
+
+static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
+    int64_t nside;
+    double a0, a1, b0, b1;
+    int inclusive = 0;
+    long fact = 4;
+    int nest = 1;
+    int lonlat = 1;
+    int degrees = 1;
+    static char *kwlist[] = {"nside", "a0",   "a1",     "b0",      "b1", "inclusive",
+                             "fact",  "nest", "lonlat", "degrees", NULL};
+
+    char err[ERR_SIZE];
+    int status = 1;
+    i64rangeset *pixset = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Ldddd|plppp", kwlist, &nside, &a0, &a1,
+                                     &b0, &b1, &inclusive, &fact, &nest, &lonlat, &degrees))
+        goto fail;
+
+    double theta0, theta1, phi0, phi1;
+    bool full_lon = false;
+    if (lonlat) {
+        if (a0 == 0.0 && a1 == 360.0) full_lon = true;
+        if (b0 > b1) {
+            PyErr_SetString(PyExc_ValueError, "b1/lat1 must be >= b0/lat0.");
+            goto fail;
+        }
+        // Swap theta ordering.
+        if (!hpgeom_lonlat_to_thetaphi(a0, b0, &theta1, &phi0, (bool)degrees, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+        if (!hpgeom_lonlat_to_thetaphi(a1, b1, &theta0, &phi1, (bool)degrees, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+    } else {
+        if (b0 == 0.0 && b1 == HPG_TWO_PI) full_lon = true;
+        if (a0 > a1) {
+            PyErr_SetString(PyExc_ValueError, "a1/colatitude1 must be <= a0/colatitude0.");
+            goto fail;
+        }
+        if (!hpgeom_check_theta_phi(a0, b0, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+        theta0 = a0;
+        phi0 = b0;
+        if (!hpgeom_check_theta_phi(a1, b1, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+        theta1 = a1;
+        phi1 = b1;
+    }
+
+    if (!nest) {
+        PyErr_WarnEx(PyExc_ResourceWarning,
+                     "query_box natively supports nest ordering.  Result will be "
+                     "converted from nest->ring and sorted",
+                     0);
+    }
+
+    if (!hpgeom_check_nside(nside, NEST, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+    }
+    healpix_info hpx = healpix_info_from_nside(nside, NEST);
+
+    pixset = i64rangeset_new(&status, err);
+    if (!status) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        goto fail;
+    }
+
+    if (!inclusive) {
+        fact = 0;
+    } else {
+        if (!hpgeom_check_fact(&hpx, fact, err)) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+    }
+    query_box(&hpx, theta0, theta1, phi0, phi1, full_lon, fact, pixset, &status, err);
 
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
@@ -1479,6 +1640,8 @@ static PyMethodDef hpgeom_methods[] = {
      METH_VARARGS | METH_KEYWORDS, query_polygon_doc},
     {"query_ellipse", (PyCFunction)(void (*)(void))query_ellipse_meth,
      METH_VARARGS | METH_KEYWORDS, query_ellipse_doc},
+    {"query_box", (PyCFunction)(void (*)(void))query_box_meth, METH_VARARGS | METH_KEYWORDS,
+     query_box_doc},
     {"nest_to_ring", (PyCFunction)(void (*)(void))nest_to_ring, METH_VARARGS | METH_KEYWORDS,
      nest_to_ring_doc},
     {"ring_to_nest", (PyCFunction)(void (*)(void))ring_to_nest, METH_VARARGS | METH_KEYWORDS,

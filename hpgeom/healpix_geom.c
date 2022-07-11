@@ -90,6 +90,7 @@ int64_t imodulo(int64_t v1, int64_t v2) {
 
 static inline int64_t i64max(int64_t v1, int64_t v2) { return v1 > v2 ? v1 : v2; }
 static inline int64_t i64min(int64_t v1, int64_t v2) { return v1 < v2 ? v1 : v2; }
+static inline int intmin(int v1, int v2) { return v1 < v2 ? v1 : v2; }
 
 /*
 static inline double dblmax(double v1, double v2) {
@@ -108,7 +109,7 @@ static inline double safe_atan2(double y, double x) {
     return ((x == 0.) && (y == 0.)) ? 0.0 : atan2(y, x);
 }
 
-static inline double fmodulo(double v1, double v2) {
+double fmodulo(double v1, double v2) {
     if (v1 >= 0) return (v1 < v2) ? v1 : fmod(v1, v2);
     double tmp = fmod(v1, v2) + v2;
     return (tmp == v2) ? 0. : tmp;
@@ -1404,6 +1405,127 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
                    acos(cosdist_zphi(f2vec.z, f2ptg.phi, pix_z, pix_phi));
         if (d <= dpdr[o]) {
             int zone = (d >= 2 * semi_major) ? 1 : ((d > dmdr[o]) ? 2 : 3);
+            check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive, &stacktop,
+                             status, err);
+            if (!*status) return;
+        }
+    }
+}
+
+void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double ptg_phi0,
+               double ptg_phi1, bool full_lon, int fact, struct i64rangeset *pixset,
+               int *status, char *err) {
+    if (hpx->scheme == RING) {
+        snprintf(err, ERR_SIZE, "query_ellipse only supports nest ordering.");
+        *status = 0;
+        return;
+    }
+
+    bool inclusive = (fact != 0);
+    // this does not alter the storage
+    pixset->stack->size = 0;
+
+    // First check if we have an empty box
+    if (ptg_theta0 == ptg_theta1) return;
+    if (ptg_phi0 == ptg_phi1 && !full_lon) return;
+
+    if (inclusive && !full_lon) {
+        // This ensures that pixels which wrap around the edge are included
+        if (ptg_phi0 == 0.0) ptg_phi0 = HPG_TWO_PI;
+    }
+
+    int oplus = 0;
+    if (inclusive) {
+        oplus = ilog2(fact);
+    }
+    int omax = hpx->order + oplus;  // the order up to which we test
+
+    // Statically define the array of bases because it's not large.
+    struct healpix_info base[MAX_ORDER + 1];
+    double dr[MAX_ORDER + 1];
+    for (int o = 0; o <= omax; o++) {
+        base[o] = healpix_info_from_order(o, NEST);
+        dr[o] = max_pixrad(&base[o]);  // safety distance
+    }
+
+    i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+    if (!*status) return;
+    for (int i = 0; i < 12; i++) {
+        i64stack_push(stk, (int64_t)(11 - i), status, err);
+        if (!*status) return;
+        i64stack_push(stk, 0, status, err);
+        if (!*status) return;
+    }
+
+    int stacktop = 0;  // a place to save a stack position
+    while (stk->size > 0) {
+        // pop current pixel number and order from the stack
+        int64_t pix, temp;
+        i64stack_pop_pair(stk, &pix, &temp, status, err);
+        if (!*status) return;
+        int o = (int)temp;
+
+        /* Short note on the "zone":
+           zone = 0: pixel lies completely outside the queried shape
+           1: pixel may overlap with the shape, pixel center is outside
+           2: pixel center is inside the shape, but maybe not the complete pixel
+           3: pixel lies completely inside the shape */
+
+        double pix_theta, pix_phi;
+        pix2ang(&base[o], pix, &pix_theta, &pix_phi);
+
+        int zone_theta = 0, zone_phi = 0;
+
+        /* Check in the colatitude (theta) direction */
+        double tmdr = pix_theta - dr[o], tpdr = pix_theta + dr[o];
+        if (tpdr >= (ptg_theta0 - HPG_EPSILON) && tmdr < ptg_theta1) {
+            // Check if completely inside
+            if (tmdr >= (ptg_theta0 - HPG_EPSILON) && tpdr < ptg_theta1) {
+                zone_theta = 3;
+            } else if (pix_theta >= (ptg_theta0 - HPG_EPSILON) && pix_theta < ptg_theta1) {
+                zone_theta = 2;
+            } else {
+                zone_theta = 1;
+            }
+        }
+
+        /* Check in the longitude (phi) direction */
+        if (full_lon) {  // This has the full longitude range, always zone 3.
+            zone_phi = 3;
+        } else if (zone_theta > 0) {
+            double stheta = sin(pix_theta);
+            double pmdr = pix_phi - dr[o] / stheta;
+            double ppdr = pix_phi + dr[o] / stheta;
+
+            if (ptg_phi0 < ptg_phi1) {
+                // Regular orientation
+                if (ppdr >= (ptg_phi0 - HPG_EPSILON) && pmdr < ptg_phi1) {
+                    // Check if completely inside
+                    if (pmdr >= (ptg_phi0 - HPG_EPSILON) && ppdr < ptg_phi1) {
+                        zone_phi = 3;
+                    } else if (pix_phi >= (ptg_phi0 - HPG_EPSILON) && pix_phi < ptg_phi1) {
+                        zone_phi = 2;
+                    } else {
+                        zone_phi = 1;
+                    }
+                }
+            } else {
+                // Reverse orientation
+                if (pmdr < ptg_phi1 || ppdr >= (ptg_phi0 - HPG_EPSILON)) {
+                    // Check if completely inside
+                    if (ppdr < ptg_phi1 || pmdr >= (ptg_phi0 - HPG_EPSILON)) {
+                        zone_phi = 3;
+                    } else if (pix_phi < ptg_phi1 || pix_phi >= (ptg_phi0 - HPG_EPSILON)) {
+                        zone_phi = 2;
+                    } else {
+                        zone_phi = 1;
+                    }
+                }
+            }
+        }
+
+        int zone = intmin(zone_theta, zone_phi);
+        if (zone > 0) {
             check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive, &stacktop,
                              status, err);
             if (!*status) return;
