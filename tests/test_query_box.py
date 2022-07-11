@@ -303,7 +303,7 @@ def test_query_box_thetaphi():
     box = [lon - radius, lon + radius, lat - radius, lat + radius]
 
     pixels_deg = hpgeom.query_box(nside, *box)
-    theta, phi = hpgeom.lonlat_to_thetaphi(np.array(box[0: 2]), np.array(box[2: ]))
+    theta, phi = hpgeom.lonlat_to_thetaphi(np.array(box[0: 2]), np.array(box[2:]))
     box_thetaphi = [theta[1], theta[0], phi[0], phi[1]]
     pixels_thetaphi = hpgeom.query_box(nside, *box_thetaphi, lonlat=False)
 
