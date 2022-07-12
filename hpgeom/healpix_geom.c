@@ -1416,7 +1416,7 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
                double ptg_phi1, bool full_lon, int fact, struct i64rangeset *pixset,
                int *status, char *err) {
     if (hpx->scheme == RING) {
-        snprintf(err, ERR_SIZE, "query_ellipse only supports nest ordering.");
+        snprintf(err, ERR_SIZE, "query_box only supports nest ordering.");
         *status = 0;
         return;
     }
