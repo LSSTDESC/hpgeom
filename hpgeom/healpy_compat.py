@@ -20,6 +20,7 @@ from .hpgeom import (
     order_to_nside,
     angle_to_vector,
     vector_to_angle,
+    UNSEEN,
 )
 
 from .hpgeom import boundaries as hpgeom_boundaries
@@ -43,6 +44,7 @@ __all__ = [
     'vec2pix',
     'boundaries',
     'get_all_neighbours',
+    'UNSEEN',
 ]
 
 

@@ -4,6 +4,8 @@ import warnings
 
 import hpgeom
 
+from utils import match_arrays
+
 
 @pytest.mark.parametrize("nside_radius", [(2**5, 2.0),
                                           (2**10, 1.0),
@@ -134,7 +136,6 @@ def test_query_ellipse_nest_exclusive(nside_major_minor, alpha, lon, lat):
     # First, non-inclusive
     pixels_ellipse = hpgeom.query_ellipse(nside, lon, lat, major, minor, alpha)
     pixels_circle = hpgeom.query_circle(nside, lon, lat, major*1.05)
-    # pixels_circle_ellipse = _cut_pixels_to_ellipse(nside, pixels_circle, lon, lat, major, minor, alpha)
     lon_pix, lat_pix = hpgeom.pixel_to_angle(nside, pixels_circle)
     cut = _pos_in_ellipse(lon_pix, lat_pix, lon, lat, major, minor, alpha)
     pixels_circle_ellipse = pixels_circle[cut]
@@ -154,7 +155,12 @@ def test_query_ellipse_nest_inclusive(nside_major_minor, alpha, lon, lat):
     major = nside_major_minor[1]
     minor = nside_major_minor[2]
 
+    pixels = hpgeom.query_ellipse(nside, lon, lat, major, minor, alpha)
     pixels_ellipse = hpgeom.query_ellipse(nside, lon, lat, major, minor, alpha, inclusive=True)
+
+    # Ensure all the inner pixels are in the inclusive pixels
+    sub1, sub2 = match_arrays(pixels_ellipse, pixels)
+    assert(sub2.size == pixels.size)
 
     # Look at the boundaries of the pixels, check if any are included.
     pixels_circle = hpgeom.query_circle(nside, lon, lat, major*1.1)
@@ -163,15 +169,9 @@ def test_query_ellipse_nest_inclusive(nside_major_minor, alpha, lon, lat):
     test = cut.reshape(boundaries_lon.shape).sum(axis=1)
     pixels_circle_ellipse = pixels_circle[test > 0]
 
-    # We don't get 100% overlap, unfortunately, so we have to look above a threshold
-    sub1 = np.searchsorted(pixels_ellipse, pixels_circle_ellipse)
-    bad, = (sub1 == pixels_ellipse.size).nonzero()
-    sub1[bad] = pixels_ellipse.size - 1
-    sub2, = (pixels_ellipse[sub1] == pixels_circle_ellipse).nonzero()
-    sub1 = sub1[sub2]
-
-    assert(sub1.size >= int(0.97*pixels_ellipse.size))
-    assert(sub1.size >= int(0.97*pixels_circle_ellipse.size))
+    # Ensure all these pixels are in the inclusive list
+    sub1, sub2 = match_arrays(pixels_circle_ellipse, pixels_ellipse)
+    assert(sub1.size == pixels_circle_ellipse.size)
 
 
 def test_query_ellipse_radians():
@@ -305,3 +305,7 @@ def test_query_ellipse_badinputs():
     with pytest.raises(TypeError, match=r"integer"):
         # Illegal fact (must be integer)
         hpgeom.query_ellipse(2048, 0.0, 0.0, 1.0, 0.5, 0.0, inclusive=True, nest=False, fact=3.5)
+
+    # Check resource warning
+    with pytest.warns(ResourceWarning, match=r"natively supports nest ordering"):
+        hpgeom.query_ellipse(1024, 0.0, 1.0, 0.5, 0.5, 0.0, nest=False)

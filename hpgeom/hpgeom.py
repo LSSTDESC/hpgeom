@@ -6,6 +6,7 @@ from ._hpgeom import (
     query_circle,
     query_polygon,
     query_ellipse,
+    query_box,
     nest_to_ring,
     ring_to_nest,
     vector_to_pixel,
@@ -24,6 +25,7 @@ __all__ = [
     'query_polygon',
     'query_polygon_vec',
     'query_ellipse',
+    'query_box',
     'lonlat_to_thetaphi',
     'nest_to_ring',
     'ring_to_nest',
@@ -39,6 +41,7 @@ __all__ = [
     'pixel_to_vector',
     'boundaries',
     'neighbors',
+    'reorder',
     'UNSEEN',
 ]
 
@@ -400,3 +403,43 @@ def vector_to_angle(vec, lonlat=True, degrees=True):
         return thetaphi_to_lonlat(theta, phi, degrees=degrees)
     else:
         return theta, phi
+
+
+def reorder(map_in, ring_to_nest=True):
+    """Reorder the pixels in a map from ring to nest or nest to ring ordering.
+
+    Parameters
+    ----------
+    map_in : `np.ndarray`
+        Input map to reorder.
+    ring_to_nest : `bool`, optional
+        If True, convert ring ordering to nest ordering. If False, convert nest
+        ordering to ring ordering.
+
+    Returns
+    -------
+    map_out : `np.ndarray`
+        Reordered map.
+    """
+    from ._hpgeom import ring_to_nest as convert_ring_to_nest
+    from ._hpgeom import nest_to_ring as convert_nest_to_ring
+
+    # Find the nside
+    npix = map_in.size
+    nside = npixel_to_nside(npix)
+    # Confirm that the nside is legal for nest ordering
+    _ = nside_to_order(nside)
+    if (nside > 128):
+        groupsize = npix // 24
+    else:
+        groupsize = npix
+
+    map_out = np.zeros_like(map_in)
+    for group in range(npix // groupsize):
+        pixels = np.arange(group*groupsize, (group + 1)*groupsize)
+        if ring_to_nest:
+            map_out[convert_ring_to_nest(nside, pixels)] = map_in[pixels]
+        else:
+            map_out[convert_nest_to_ring(nside, pixels)] = map_in[pixels]
+
+    return map_out

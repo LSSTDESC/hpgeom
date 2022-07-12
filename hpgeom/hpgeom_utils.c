@@ -121,10 +121,10 @@ int hpgeom_lonlat_to_thetaphi(double lon, double lat, double *theta, double *phi
     err[0] = '\0';
 
     if (degrees) {
-        lon = fmod(lon * HPG_D2R, HPG_TWO_PI);
+        lon = fmodulo(lon * HPG_D2R, HPG_TWO_PI);
         lat = lat * HPG_D2R;
     } else {
-        lon = fmod(lon, HPG_TWO_PI);
+        lon = fmodulo(lon, HPG_TWO_PI);
     }
 
     if (lat < -HPG_HALFPI || lat > HPG_HALFPI) {

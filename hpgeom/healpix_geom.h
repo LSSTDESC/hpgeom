@@ -43,6 +43,8 @@
 #define HPG_D2R HPG_PI / 180.0
 #define HPG_R2D 180.0 / HPG_PI
 
+#define HPG_EPSILON 2.220446049250313e-16
+
 #define MAX_ORDER 29
 #define MAX_NSIDE (int64_t)(1) << MAX_ORDER
 
@@ -65,6 +67,7 @@ healpix_info healpix_info_from_nside(int64_t nside, enum Scheme scheme);
 int64_t isqrt(int64_t i);
 int ilog2(int64_t arg);
 int64_t imodulo(int64_t v1, int64_t v2);
+double fmodulo(double v1, double v2);
 
 int64_t ang2pix(healpix_info *hpx, double theta, double phi);
 int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth, bool hav_sth);
@@ -106,6 +109,9 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
 void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double semi_major,
                    double semi_minor, double alpha, int fact, struct i64rangeset *pixset,
                    int *status, char *err);
+void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double ptg_phi0,
+               double ptg_phi1, bool full_lon, int fact, struct i64rangeset *pixset,
+               int *status, char *err);
 
 void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
              bool *have_sth);
