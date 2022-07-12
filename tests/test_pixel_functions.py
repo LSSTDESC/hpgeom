@@ -117,6 +117,24 @@ def test_order_to_nside(order):
     np.testing.assert_array_equal(nside_hpgeom_arr, nside_hpgeom)
 
 
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+@pytest.mark.parametrize("nside", [2**5, 2**10])
+@pytest.mark.parametrize("ring_to_nest", [False, True])
+def test_reorder(nside, ring_to_nest):
+    """Test reorder."""
+    npix = hpgeom.nside_to_npixel(nside)
+    map_in = np.arange(npix)
+
+    map_out_hpgeom = hpgeom.reorder(map_in, ring_to_nest=ring_to_nest)
+
+    if (ring_to_nest):
+        map_out_healpy = hp.reorder(map_in, r2n=True)
+    else:
+        map_out_healpy = hp.reorder(map_in, n2r=True)
+
+    np.testing.assert_array_equal(map_out_hpgeom, map_out_healpy)
+
+
 def test_bad_nsides():
     """Test raising when bad nsides given."""
 
