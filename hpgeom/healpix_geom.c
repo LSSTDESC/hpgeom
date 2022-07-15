@@ -477,25 +477,27 @@ int compress_bits64(int64_t v) {
 }
 
 double max_pixrad(healpix_info *hpx) {
-    double z_a = 2. / 3.;
+    vec3 va, vb;
+
+    va.z = 2. / 3.;
     double phi_a = HPG_PI / (4. * hpx->nside);
-    double sintheta = sqrt((1 - z_a) * (1 + z_a));
-    double x_a = sintheta * cos(phi_a);
-    double y_a = sintheta * sin(phi_a);
+    double sintheta = sqrt((1.0 - va.z) * (1.0 + va.z));
+    va.x = sintheta * cos(phi_a);
+    va.y = sintheta * sin(phi_a);
 
     double t1 = 1. - 1. / hpx->nside;
     t1 *= t1;
 
-    double z_b = 1. - t1 / 3.;
-    double phi_b = 0.0;
-    sintheta = sqrt((1 - z_b) * (1 + z_b));
-    double x_b = sintheta * cos(phi_b);
-    double y_b = sintheta * sin(phi_b);
+    vb.z = 1. - t1 / 3.;
+    sintheta = sqrt((1.0 - vb.z) * (1.0 + vb.z));
+    // we set phi_b = 0.0, so cos(phi_b) = 1.0 and sin(phi_b) = 0.0
+    vb.x = sintheta;
+    vb.y = 0.0;
 
-    double angle =
-        acos((x_a * x_b + y_a * y_b + z_a * z_b) / (sqrt(x_a * x_a + y_a * y_a + z_a * z_a) *
-                                                    sqrt(x_b * x_b + y_b * y_b + z_b * z_b)));
-    return angle;
+    vec3 vcross;
+    vec3_crossprod(&va, &vb, &vcross);
+    double vdot = vec3_dotprod(&va, &vb);
+    return atan2(vec3_length(&vcross), vdot);
 }
 
 int64_t ring_above(healpix_info *hpx, double z) {
