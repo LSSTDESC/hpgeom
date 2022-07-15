@@ -13,6 +13,7 @@ from ._hpgeom import (
     pixel_to_vector,
     boundaries,
     neighbors,
+    max_pixel_radius,
 )
 
 __all__ = [
@@ -41,6 +42,7 @@ __all__ = [
     'pixel_to_vector',
     'boundaries',
     'neighbors',
+    'max_pixel_radius',
     'reorder',
     'UNSEEN',
 ]

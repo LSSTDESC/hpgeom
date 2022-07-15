@@ -95,7 +95,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     nside_arr =
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
-    if (nside_arr == NULL) return NULL;
+    if (nside_arr == NULL) goto fail;
     a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (a_arr == NULL) goto fail;
     b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
@@ -1108,8 +1108,8 @@ PyDoc_STRVAR(boundaries_doc,
              "The returned arrays have the shape (4*step) or (npixel, 4*step).\n"
              "In order to get coordinates for just the corners, specify step=1.\n"
              "\n"
-             "Parameters"
-             "----------" NSIDE_DOC_PAR PIX_DOC_PAR
+             "Parameters\n"
+             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR
              "step : `int`, optional\n"
              "    Number of steps for each side of the pixel.\n" NEST_DOC_PAR LONLAT_DOC_PAR
                  DEGREES_DOC_PAR
@@ -1629,6 +1629,80 @@ fail:
     return NULL;
 }
 
+PyDoc_STRVAR(max_pixel_radius_doc,
+             "max_pixel_radius(nside, degrees=True)\n"
+             "--\n\n"
+             "Compute maximum angular distance between any pixel center and its corners.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n" NSIDE_DOC_PAR
+             "degrees : `bool`, optional\n"
+             "    If True, returns pixel radius in degrees, otherwise radians.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "radii : `np.ndarray` (N, ) or `float`\n"
+             "    Angular distance(s) (in degrees or radians).\n");
+
+static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwargs) {
+    PyObject *nside_obj = NULL;
+    PyObject *nside_arr = NULL;
+    PyObject *pixrad_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
+    int degrees = 1;
+    static char *kwlist[] = {"nside", "degrees", NULL};
+
+    double *pixrads = NULL;
+    healpix_info hpx;
+    char err[ERR_SIZE];
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|p", kwlist, &nside_obj, &degrees))
+        goto fail;
+
+    nside_arr =
+        PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (nside_arr == NULL) goto fail;
+
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(1, nside_arr);
+    if (itr == NULL) goto fail;
+
+    pixrad_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
+    if (pixrad_arr == NULL) goto fail;
+    pixrads = (double *)PyArray_DATA((PyArrayObject *)pixrad_arr);
+
+    int64_t *nside;
+    int64_t last_nside = -1;
+    bool started = false;
+    while (PyArray_MultiIter_NOTDONE(itr)) {
+        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+
+        if ((!started) || (*nside != last_nside)) {
+            if (!hpgeom_check_nside(*nside, RING, err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+            hpx = healpix_info_from_nside(*nside, RING);
+            started = true;
+        }
+        pixrads[itr->index] = max_pixrad(&hpx);
+        if (degrees) pixrads[itr->index] *= HPG_R2D;
+
+        PyArray_MultiIter_NEXT(itr);
+    }
+
+    Py_DECREF(nside_arr);
+    Py_DECREF(itr);
+
+    return PyArray_Return((PyArrayObject *)pixrad_arr);
+
+fail:
+    Py_XDECREF(nside_arr);
+    Py_XDECREF(pixrad_arr);
+    Py_XDECREF(itr);
+
+    return NULL;
+}
+
 static PyMethodDef hpgeom_methods[] = {
     {"angle_to_pixel", (PyCFunction)(void (*)(void))angle_to_pixel,
      METH_VARARGS | METH_KEYWORDS, angle_to_pixel_doc},
@@ -1654,6 +1728,8 @@ static PyMethodDef hpgeom_methods[] = {
      METH_VARARGS | METH_KEYWORDS, pixel_to_vector_doc},
     {"neighbors", (PyCFunction)(void (*)(void))neighbors_meth, METH_VARARGS | METH_KEYWORDS,
      neighbors_doc},
+    {"max_pixel_radius", (PyCFunction)(void (*)(void))max_pixel_radius,
+     METH_VARARGS | METH_KEYWORDS, max_pixel_radius_doc},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef hpgeom_module = {PyModuleDef_HEAD_INIT, "_hpgeom", NULL, -1,
