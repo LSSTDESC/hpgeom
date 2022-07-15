@@ -378,3 +378,21 @@ def test_query_polygon():
     pix_hpcompat = hpc.query_polygon(nside, vec, inclusive=True)
     pix_healpy = hp.query_polygon(nside, vec, inclusive=True)
     np.testing.assert_array_equal(pix_hpcompat, pix_healpy)
+
+
+@pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
+def test_max_pixrad():
+    """Test hpgeom.healpy_compat.max_pixrad"""
+    nsides = [1024, 2048]
+
+    radii_hpcompat = hpc.max_pixrad(nsides)
+    radii_healpy = hp.max_pixrad(nsides)
+    np.testing.assert_array_almost_equal(radii_hpcompat, radii_healpy)
+
+    radii_hpcompat = hpc.max_pixrad(nsides, degrees=True)
+    radii_healpy = hp.max_pixrad(nsides, degrees=True)
+    np.testing.assert_array_almost_equal(radii_hpcompat, radii_healpy)
+
+    radii_hpcompat = hpc.max_pixrad(nsides[0])
+    radii_healpy = hp.max_pixrad(nsides[0])
+    np.testing.assert_almost_equal(radii_hpcompat, radii_healpy)

@@ -8,6 +8,7 @@ from ._hpgeom import (
     neighbors,
     vector_to_pixel,
     pixel_to_vector,
+    max_pixel_radius,
 )
 from .hpgeom import (
     query_circle_vec,
@@ -44,6 +45,7 @@ __all__ = [
     'vec2pix',
     'boundaries',
     'get_all_neighbours',
+    'max_pixrad',
     'UNSEEN',
 ]
 
@@ -486,3 +488,21 @@ def get_all_neighbours(nside, theta, phi=None, nest=False, lonlat=False):
     neigh = neighbors(nside, _pix, nest=nest)
 
     return neigh.transpose()
+
+
+def max_pixrad(nside, degrees=False):
+    """Compute maximum angular distance between any pixel and its corners.
+
+    Parameters
+    ----------
+    nside : `int` or `np.ndarray`
+        HEALPix nside.
+    degrees : `bool`, optional
+        If True, returns pixel radius in degrees, otherwise radians.
+
+    Returns
+    -------
+    radii : `np.ndarray` (N, ) or `float`
+        Angular distance(s) in degrees or radians.
+    """
+    return max_pixel_radius(nside, degrees=degrees)
