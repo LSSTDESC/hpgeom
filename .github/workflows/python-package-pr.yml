@@ -40,6 +40,9 @@ jobs:
         else
             python -m pip install .[test,test_with_healpy]
         fi
+    - name: Run flake8
+      run: |
+        flake8
     - name: Run tests
       run: |
         cd tests
