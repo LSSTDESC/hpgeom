@@ -113,44 +113,82 @@ with open('benchmark_table.md', 'w') as bt:
                 bt.write(f'|{function}|{scheme}|{nside}|{size}|{time_healpy}|{time_hpgeom}|{time_ratio}|\n')
 
     bt.write("\n")
-    bt.write("|Function|Scheme|Nside|Radius|Time (healpy)|Time (hpgeom)|hpgeom/healpy|\n")
-    bt.write("|--------|------|-----|----|-------------|-------------|-------------|\n")
+    bt.write("|Function|Scheme|Nside|Radius|Inclusive|Time (healpy)|Time (hpgeom)|hpgeom/healpy|\n")
+    bt.write("|--------|------|-----|------|---------|-------------|-------------|-------------|\n")
 
     function = 'query_circle'
 
-    for scheme in ['nest', 'ring', 'ring2nest']:
+    for scheme in ['nest', 'ring']:
         if scheme == 'nest':
             nest = True
         else:
             nest = False
 
-        for radius in np.deg2rad([0.1, 0.5, 1.0]):
-            rad_deg = np.rad2deg(radius)
-            for nside in [128, 1024, 4096]:
-                start_time = time.time()
-                for i in range(ntrial):
-                    pixels = hpgeom.query_circle(
-                        nside,
-                        0.0,
-                        0.0,
-                        radius,
-                        nest=nest,
-                        lonlat=True,
-                        degrees=False
-                    )
-                    if scheme == 'ring2nest':
-                        _ = hpgeom.ring_to_nest(nside, pixels)
-                time_hpgeom = (time.time() - start_time)/ntrial
+        for inclusive in [False, True]:
+            for radius in np.deg2rad([0.1, 0.5, 1.0]):
+                rad_deg = np.rad2deg(radius)
+                for nside in [128, 1024, 4096, 16384]:
+                    start_time = time.time()
+                    for i in range(ntrial):
+                        pixels = hpgeom.query_circle(
+                            nside,
+                            0.0,
+                            0.0,
+                            radius,
+                            nest=nest,
+                            lonlat=True,
+                            degrees=False,
+                            inclusive=inclusive
+                        )
+                    time_hpgeom = (time.time() - start_time)/ntrial
 
-                vec = hp.ang2vec(0.0, 0.0, lonlat=True)
-                start_time = time.time()
-                for i in range(ntrial):
-                    pixels = hp.query_disc(nside, vec, radius, nest=nest)
-                    if scheme == 'ring2nest':
-                        _ = hp.ring2nest(nside, pixels)
-                time_healpy = (time.time() - start_time)/ntrial
+                    vec = hp.ang2vec(0.0, 0.0, lonlat=True)
+                    start_time = time.time()
+                    for i in range(ntrial):
+                        pixels = hp.query_disc(nside, vec, radius, nest=nest, inclusive=inclusive)
 
-                time_ratio = time_hpgeom/time_healpy
+                    time_healpy = (time.time() - start_time)/ntrial
 
-                bt.write(f'|{function}|{scheme}|{nside}|{rad_deg}|'
-                         f'{time_healpy}|{time_hpgeom}|{time_ratio}|\n')
+                    time_ratio = time_hpgeom/time_healpy
+
+                    bt.write(f'|{function}|{scheme}|{nside}|{rad_deg}|{inclusive}|'
+                             f'{time_healpy}|{time_hpgeom}|{time_ratio}|\n')
+
+    function = 'query_polygon'
+
+    for scheme in ['nest', 'ring']:
+        if scheme == 'nest':
+            nest = True
+        else:
+            nest = False
+
+        for inclusive in [False, True]:
+            for radius in [0.1, 0.5, 1.0]:
+                poly_lon = np.array([0.0, 2*radius, 2*radius, 0.0])
+                poly_lat = np.array([0.0, 0.0, 2*radius, 2*radius])
+
+                poly_vec = hp.ang2vec(poly_lon, poly_lat, lonlat=True)
+
+                for nside in [128, 1024, 4096, 16384]:
+                    start_time = time.time()
+                    for i in range(ntrial):
+                        pixels = hpgeom.query_polygon(
+                            nside,
+                            poly_lon,
+                            poly_lat,
+                            nest=nest,
+                            inclusive=inclusive
+                        )
+
+                        time_hpgeom = (time.time() - start_time)/ntrial
+
+                        start_time = time.time()
+                        for i in range(ntrial):
+                            pixels = hp.query_polygon(nside, poly_vec, nest=nest, inclusive=inclusive)
+
+                    time_healpy = (time.time() - start_time)/ntrial
+
+                    time_ratio = time_hpgeom/time_healpy
+
+                    bt.write(f'|{function}|{scheme}|{nside}|{rad_deg}|{inclusive}|'
+                             f'{time_healpy}|{time_hpgeom}|{time_ratio}|\n')
