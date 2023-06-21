@@ -63,7 +63,7 @@ def test_query_box_square(nside_radius, lon, lat):
 
     # Ensure all the inner pixels are in the inclusive pixels
     sub1, sub2 = match_arrays(pixels_box, pixels)
-    assert(sub2.size == pixels.size)
+    assert sub2.size == pixels.size
 
     # Look at boundaries of the pixels, check if any are included.
     pixels_circle = hpgeom.query_circle(nside, lon, lat, radius*2.5)
@@ -74,7 +74,7 @@ def test_query_box_square(nside_radius, lon, lat):
 
     # Ensure all these pixels are in the inclusive list
     sub1, sub2 = match_arrays(pixels_circle_box, pixels_box)
-    assert(sub1.size == pixels_circle_box.size)
+    assert sub1.size == pixels_circle_box.size
 
 
 @pytest.mark.parametrize("nside_radius", [(2**7, 2.0),
@@ -105,7 +105,7 @@ def test_query_box_edge(nside_radius, lon, lat):
 
     # Ensure all the inner pixels are in the inclusive pixels
     sub1, sub2 = match_arrays(pixels_box, pixels)
-    assert(sub2.size == pixels.size)
+    assert sub2.size == pixels.size
 
     # Look at boundaries of the pixels.
     pixels_circle = hpgeom.query_circle(nside, (box[0] + box[1])/2., lat, radius*2.5)
@@ -116,14 +116,14 @@ def test_query_box_edge(nside_radius, lon, lat):
 
     # Ensure all these pixels are in the inclusive list
     sub1, sub2 = match_arrays(pixels_circle_box, pixels_box)
-    assert(sub1.size == pixels_circle_box.size)
+    assert sub1.size == pixels_circle_box.size
 
     # And ensure that we did wrap over the edge
     lon_box, lat_box = hpgeom.pixel_to_angle(nside, pixels_box)
     if (lon == 0.0):
-        assert(lon_box.max() > 355.0)
+        assert lon_box.max() > 355.0
     else:
-        assert(lon_box.min() < 5.0)
+        assert lon_box.min() < 5.0
 
 
 @pytest.mark.parametrize("nside_radius", [(2**5, 2.0),
@@ -154,7 +154,7 @@ def test_query_box_pole(nside_radius, lon, lat):
 
     # Ensure all the inner pixels are in the inclusive pixels
     sub1, sub2 = match_arrays(pixels_box, pixels)
-    assert(sub2.size == pixels.size)
+    assert sub2.size == pixels.size
 
     # Look at boundaries of the pixels, check if any are included.
     pixels_circle = hpgeom.query_circle(nside, lon, lat, radius*2.5)
@@ -168,9 +168,9 @@ def test_query_box_pole(nside_radius, lon, lat):
     if (lon == 0.0 and lat == -90.0):
         # There is some oddity with the polar pixel boundaries that needs to
         # be investigated.
-        assert(sub1.size == (pixels_circle_box.size - 2))
+        assert sub1.size == (pixels_circle_box.size - 2)
     else:
-        assert(sub1.size == pixels_circle_box.size)
+        assert sub1.size == pixels_circle_box.size
 
 
 @pytest.mark.parametrize("nside", [2**5, 2**10])
@@ -196,7 +196,7 @@ def test_query_box_pole_full_longitude(nside, lat):
 
     # Ensure all the inner pixels are in the inclusive pixels
     sub1, sub2 = match_arrays(pixels_box, pixels)
-    assert(sub2.size == pixels.size)
+    assert sub2.size == pixels.size
 
     pixels_circle_inc = hpgeom.query_circle(nside, 0.0, lat, radius, inclusive=True)
 
@@ -224,7 +224,7 @@ def test_query_box_full_longitude(nside, lat):
 
     # Ensure all the inner pixels are in the inclusive pixels
     sub1, sub2 = match_arrays(pixels_box, pixels)
-    assert(sub2.size == pixels.size)
+    assert sub2.size == pixels.size
 
     # Look at boundaries of the pixels, check if any are included.
     inside_plus = ((lat_all >= (lat - 2*radius)) & (lat_all <= (lat + 2*radius)))
@@ -235,7 +235,7 @@ def test_query_box_full_longitude(nside, lat):
 
     # Ensure all these pixels are in the inclusive list
     sub1, sub2 = match_arrays(pixels_all_box, pixels_box)
-    assert(sub1.size == pixels_all_box.size)
+    assert sub1.size == pixels_all_box.size
 
 
 @pytest.mark.parametrize("fact", [1, 2, 4, 8])
@@ -254,7 +254,7 @@ def test_query_box_fact(fact):
 
     # Ensure all the inner pixels are in the inclusive pixels
     sub1, sub2 = match_arrays(pixels_box, pixels)
-    assert(sub2.size == pixels.size)
+    assert sub2.size == pixels.size
 
     # Look at boundaries of the pixels, check if any are included.
     pixels_circle = hpgeom.query_circle(nside, lon, lat, radius*2.5)
@@ -265,17 +265,17 @@ def test_query_box_fact(fact):
 
     # Ensure all these pixels are in the inclusive list
     sub1, sub2 = match_arrays(pixels_circle_box, pixels_box)
-    assert(sub1.size == pixels_circle_box.size)
+    assert sub1.size == pixels_circle_box.size
 
 
 def test_query_box_empty():
     """Test query box when it is empty."""
 
     pixels = hpgeom.query_box(1024, 25.0, 25.0, 0.0, 2.0)
-    assert(pixels.size == 0)
+    assert pixels.size == 0
 
     pixels = hpgeom.query_box(1024, 90.0, 92.0, 45.0, 45.0)
-    assert(pixels.size == 0)
+    assert pixels.size == 0
 
 
 def test_query_box_radians():

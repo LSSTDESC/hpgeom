@@ -26,8 +26,8 @@ def test_boundaries_single(nside, pixfrac, step, scheme):
     theta_hpgeom, phi_hpgeom = hpgeom.boundaries(nside, pix, step=step, nest=nest, lonlat=False)
     theta_healpy, phi_healpy = hp.vec2ang(hp.boundaries(nside, pix, step=step, nest=nest).T)
 
-    assert(theta_hpgeom.shape == (step*4,))
-    assert(phi_hpgeom.shape == (step*4,))
+    assert theta_hpgeom.shape == (step*4,)
+    assert phi_hpgeom.shape == (step*4,)
 
     np.testing.assert_array_almost_equal(theta_hpgeom, theta_healpy)
     np.testing.assert_array_almost_equal(phi_hpgeom, phi_healpy)
@@ -74,8 +74,8 @@ def test_boundaries_multiple(nside, pixfrac, step, scheme, npix):
     theta_healpy = theta_healpy.reshape((npix, step*4))
     phi_healpy = phi_healpy.reshape((npix, step*4))
 
-    assert(theta_hpgeom.shape == (npix, step*4,))
-    assert(phi_hpgeom.shape == (npix, step*4,))
+    assert theta_hpgeom.shape == (npix, step*4,)
+    assert phi_hpgeom.shape == (npix, step*4,)
 
     np.testing.assert_array_almost_equal(theta_hpgeom, theta_healpy)
     np.testing.assert_array_almost_equal(phi_hpgeom, phi_healpy)

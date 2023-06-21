@@ -40,4 +40,4 @@ def test_vector_to_pixel_single():
 
     pix_hpgeom = hpgeom.vector_to_pixel(1024, x, y, z)
 
-    assert(isinstance(pix_hpgeom, np.int64))
+    assert isinstance(pix_hpgeom, np.int64)

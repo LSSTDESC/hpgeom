@@ -160,7 +160,7 @@ def test_query_ellipse_nest_inclusive(nside_major_minor, alpha, lon, lat):
 
     # Ensure all the inner pixels are in the inclusive pixels
     sub1, sub2 = match_arrays(pixels_ellipse, pixels)
-    assert(sub2.size == pixels.size)
+    assert sub2.size == pixels.size
 
     # Look at the boundaries of the pixels, check if any are included.
     pixels_circle = hpgeom.query_circle(nside, lon, lat, major*1.1)
@@ -171,7 +171,7 @@ def test_query_ellipse_nest_inclusive(nside_major_minor, alpha, lon, lat):
 
     # Ensure all these pixels are in the inclusive list
     sub1, sub2 = match_arrays(pixels_circle_ellipse, pixels_ellipse)
-    assert(sub1.size == pixels_circle_ellipse.size)
+    assert sub1.size == pixels_circle_ellipse.size
 
 
 def test_query_ellipse_radians():
@@ -247,8 +247,8 @@ def test_query_ellipse_fact(fact):
     sub2, = (pixels_ellipse[sub1] == pixels_circle_ellipse).nonzero()
     sub1 = sub1[sub2]
 
-    assert(sub1.size >= int(0.9*pixels_ellipse.size))
-    assert(sub1.size >= int(0.9*pixels_circle_ellipse.size))
+    assert sub1.size >= int(0.9*pixels_ellipse.size)
+    assert sub1.size >= int(0.9*pixels_circle_ellipse.size)
 
 
 def test_query_ellipse_badinputs():
