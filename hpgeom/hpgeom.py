@@ -211,7 +211,7 @@ def npixel_to_nside(npixel):
         raise ValueError("Illegal npixel (it must be 12*nside*nside)")
 
     if len(nside) == 1:
-        return int(nside)
+        return int(nside[0])
     else:
         return nside.astype(np.int64)
 
