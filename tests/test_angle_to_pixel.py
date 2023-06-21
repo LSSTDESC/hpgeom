@@ -89,7 +89,7 @@ def test_angle_to_pixel_scalar(nside):
 
     pix_scalar1 = hpgeom.angle_to_pixel(nside, lon[0], lat[0], nest=True, lonlat=True, degrees=True)
 
-    assert(pix_scalar1 == pix_arr[0])
+    assert pix_scalar1 == pix_arr[0]
 
     pix_scalar2 = hpgeom.angle_to_pixel(
         nside,
@@ -100,7 +100,7 @@ def test_angle_to_pixel_scalar(nside):
         degrees=True
     )
 
-    assert(pix_scalar2 == pix_arr[0])
+    assert pix_scalar2 == pix_arr[0]
 
 
 def test_angle_to_pixel_mismatched_dims():

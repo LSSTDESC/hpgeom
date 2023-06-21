@@ -26,7 +26,7 @@ def test_angle_to_vector():
     vec_hpgeom = hpgeom.angle_to_vector(float(lon[0]), float(lat[0]))
     vec_healpy = hp.ang2vec(float(lon[0]), float(lat[0]), lonlat=True)
 
-    assert(vec_hpgeom.shape == (3, ))
+    assert vec_hpgeom.shape == (3, )
     np.testing.assert_array_almost_equal(vec_hpgeom, vec_healpy)
 
     theta, phi = hpgeom.lonlat_to_thetaphi(lon, lat)

@@ -93,7 +93,7 @@ def test_ring2nest():
     pix_hpcompat = hpc.ring2nest(2048, 1000)
     pix_healpy = hp.ring2nest(2048, 1000)
 
-    assert(pix_hpcompat == pix_healpy)
+    assert pix_hpcompat == pix_healpy
 
     pix_hpcompat = hpc.ring2nest(2048, np.arange(100))
     pix_healpy = hp.ring2nest(2048, np.arange(100))
@@ -107,7 +107,7 @@ def test_nest2ring():
     pix_hpcompat = hpc.nest2ring(2048, 1000)
     pix_healpy = hp.nest2ring(2048, 1000)
 
-    assert(pix_hpcompat == pix_healpy)
+    assert pix_hpcompat == pix_healpy
 
     pix_hpcompat = hpc.nest2ring(2048, np.arange(100))
     pix_healpy = hp.nest2ring(2048, np.arange(100))
@@ -121,7 +121,7 @@ def test_nside2npix():
     npix_hpcompat = hpc.nside2npix(2048)
     npix_healpy = hp.nside2npix(2048)
 
-    assert(npix_hpcompat == npix_healpy)
+    assert npix_hpcompat == npix_healpy
 
 
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
@@ -130,7 +130,7 @@ def test_npix2nside():
     nside_hpcompat = hpc.nside2npix(12*2048*2048)
     nside_healpy = hp.nside2npix(12*2048*2048)
 
-    assert(nside_hpcompat == nside_healpy)
+    assert nside_hpcompat == nside_healpy
 
     with pytest.raises(ValueError, match=r"Illegal npixel"):
         hpc.npix2nside(100)
@@ -142,12 +142,12 @@ def test_nside2pixarea():
     pixarea_hpcompat = hpc.nside2pixarea(1024)
     pixarea_healpy = hp.nside2pixarea(1024)
 
-    assert (pixarea_hpcompat == pixarea_healpy)
+    assert pixarea_hpcompat == pixarea_healpy
 
     pixarea_hpcompat = hpc.nside2pixarea(1024, degrees=True)
     pixarea_healpy = hp.nside2pixarea(1024, degrees=True)
 
-    assert (pixarea_hpcompat == pixarea_healpy)
+    assert pixarea_hpcompat == pixarea_healpy
 
 
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
@@ -156,12 +156,12 @@ def test_nside2resol():
     resol_hpcompat = hpc.nside2resol(1024)
     resol_healpy = hp.nside2resol(1024)
 
-    assert (resol_hpcompat == resol_healpy)
+    assert resol_hpcompat == resol_healpy
 
     resol_hpcompat = hpc.nside2resol(1024, arcmin=True)
     resol_healpy = hp.nside2resol(1024, arcmin=True)
 
-    assert (resol_hpcompat == resol_healpy)
+    assert resol_hpcompat == resol_healpy
 
 
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")

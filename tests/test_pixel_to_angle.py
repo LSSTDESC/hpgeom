@@ -84,8 +84,8 @@ def test_pixel_to_angle_scalar(nside):
     lon_arr, lat_arr = hpgeom.pixel_to_angle(nside, pix, nest=True, lonlat=True, degrees=True)
     lon_scalar1, lat_scalar1 = hpgeom.pixel_to_angle(nside, pix[0], nest=True, lonlat=True, degrees=True)
 
-    assert(lon_scalar1 == lon_arr[0])
-    assert(lat_scalar1 == lat_arr[0])
+    assert lon_scalar1 == lon_arr[0]
+    assert lat_scalar1 == lat_arr[0]
 
     lon_scalar2, lat_scalar2 = hpgeom.pixel_to_angle(
         nside,
@@ -95,8 +95,8 @@ def test_pixel_to_angle_scalar(nside):
         degrees=True
     )
 
-    assert(lon_scalar2 == lon_arr[0])
-    assert(lat_scalar2 == lat_arr[0])
+    assert lon_scalar2 == lon_arr[0]
+    assert lat_scalar2 == lat_arr[0]
 
 
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
