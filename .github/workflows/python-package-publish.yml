@@ -62,7 +62,7 @@ jobs:
   pypi_wheel_build:
     strategy:
       matrix:
-        os: ["ubuntu-latest", "macOS-10.15", "windows-2019"]
+        os: ["ubuntu-latest", "macOS-11", "windows-2019"]
     runs-on: ${{ matrix.os }}
     needs: [build_and_test]
     env:
