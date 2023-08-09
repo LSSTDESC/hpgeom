@@ -1703,6 +1703,160 @@ fail:
     return NULL;
 }
 
+PyDoc_STRVAR(
+    get_interpolation_weights_doc,
+    "get_interpolation_weights(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
+    "--\n\n"
+    "Return the 4 closest pixels and weights to perform bilinear interpolation along\n"
+    "latitude and longitude.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n" NSIDE_DOC_PAR AB_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "pixels : `np.ndarray` (N, 4)\n"
+    "    Array of pixels (`np.int64`), each set of 4 can be used to do bilinear\n"
+    "    interpolation of a map.\n"
+    "weights : `np.ndarray` (N, 4)\n"
+    "    Array of weiaghts (`np.float64`), each set of 4 corresponds with the pixels.\n");
+
+static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyObject *kwargs) {
+    PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
+    PyObject *nside_arr = NULL, *a_arr = NULL, *b_arr = NULL;
+    PyObject *pix_arr = NULL;
+    PyObject *wgt_arr = NULL;
+    PyArrayMultiIterObject *itr = NULL;
+    int lonlat = 1;
+    int nest = 1;
+    int degrees = 1;
+    static char *kwlist[] = {"nside", "a", "b", "lonlat", "nest", "degrees", NULL};
+
+    int64_t *pixels = NULL;
+    double *weights = NULL;
+    healpix_info hpx;
+    char err[ERR_SIZE];
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|ppp", kwlist, &nside_obj, &a_obj,
+                                     &b_obj, &lonlat, &nest, &degrees))
+        goto fail;
+
+    nside_arr =
+        PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (nside_arr == NULL) goto fail;
+    a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (a_arr == NULL) goto fail;
+    b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (b_arr == NULL) goto fail;
+
+    if (PyArray_NDIM((PyArrayObject *)a_arr) > 1) {
+        PyErr_SetString(PyExc_ValueError, "a array must be at most 1D.");
+        goto fail;
+    }
+    if (PyArray_NDIM((PyArrayObject *)a_arr) != PyArray_NDIM((PyArrayObject *)b_arr)) {
+        PyErr_SetString(PyExc_ValueError,
+                        "a and b arrays must have same number of dimensions.");
+        goto fail;
+    }
+
+    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(3, nside_arr, a_arr, b_arr);
+    if (itr == NULL) {
+        PyErr_SetString(PyExc_ValueError,
+                        "nside, a, b arrays could not be broadcast together.");
+        goto fail;
+    }
+
+    int ndims_pos = PyArray_NDIM((PyArrayObject *)a_arr);
+    size_t npix;
+    if (ndims_pos == 0) {
+        npy_intp dims[1];
+        dims[0] = 4;
+        pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+        if (pix_arr == NULL) goto fail;
+        wgt_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
+        if (wgt_arr == NULL) goto fail;
+        npix = 1;
+    } else {
+        npy_intp dims[2];
+        dims[0] = PyArray_DIM((PyArrayObject *)a_arr, 0);
+        dims[1] = 4;
+        pix_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
+        if (pix_arr == NULL) goto fail;
+        wgt_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
+        if (wgt_arr == NULL) goto fail;
+        npix = (size_t)dims[0];
+    }
+    pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+    weights = (double *)PyArray_DATA((PyArrayObject *)wgt_arr);
+
+    enum Scheme scheme;
+    if (nest) {
+        scheme = NEST;
+    } else {
+        scheme = RING;
+    }
+
+    int64_t pixels_temp[4];
+    double weights_temp[4];
+
+    int64_t *nside;
+    double *a, *b;
+    double theta, phi;
+    int64_t last_nside = -1;
+    bool started = false;
+    while (PyArray_MultiIter_NOTDONE(itr)) {
+        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+        a = (double *)PyArray_MultiIter_DATA(itr, 1);
+        b = (double *)PyArray_MultiIter_DATA(itr, 2);
+
+        if ((!started) || (*nside != last_nside)) {
+            if (!hpgeom_check_nside(*nside, scheme, err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+            hpx = healpix_info_from_nside(*nside, scheme);
+            started = true;
+        }
+        if (lonlat) {
+            if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+        } else {
+            if (!hpgeom_check_theta_phi(*a, *b, err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+            theta = *a;
+            phi = *b;
+        }
+        size_t index = 4 * itr->index;
+        get_interpol(&hpx, theta, phi, &pixels[index], &weights[index]);
+        PyArray_MultiIter_NEXT(itr);
+    }
+
+    Py_DECREF(nside_arr);
+    Py_DECREF(a_arr);
+    Py_DECREF(b_arr);
+    Py_DECREF(itr);
+
+    PyObject *retval = PyTuple_New(2);
+    PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)pix_arr));
+    PyTuple_SET_ITEM(retval, 1, PyArray_Return((PyArrayObject *)wgt_arr));
+
+    return retval;
+
+fail:
+    Py_XDECREF(nside_arr);
+    Py_XDECREF(a_arr);
+    Py_XDECREF(b_arr);
+    Py_XDECREF(pix_arr);
+    Py_XDECREF(wgt_arr);
+    Py_XDECREF(itr);
+
+    return NULL;
+}
+
 static PyMethodDef hpgeom_methods[] = {
     {"angle_to_pixel", (PyCFunction)(void (*)(void))angle_to_pixel,
      METH_VARARGS | METH_KEYWORDS, angle_to_pixel_doc},
@@ -1730,6 +1884,8 @@ static PyMethodDef hpgeom_methods[] = {
      neighbors_doc},
     {"max_pixel_radius", (PyCFunction)(void (*)(void))max_pixel_radius,
      METH_VARARGS | METH_KEYWORDS, max_pixel_radius_doc},
+    {"get_interpolation_weights", (PyCFunction)(void (*)(void))get_interpolation_weights,
+     METH_VARARGS | METH_KEYWORDS, get_interpolation_weights_doc},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef hpgeom_module = {PyModuleDef_HEAD_INIT, "_hpgeom", NULL, -1,

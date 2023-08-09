@@ -1534,3 +1534,110 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
         }
     }
 }
+
+void get_ring_info2(healpix_info *hpx, int64_t ring, int64_t *startpix, int64_t *ringpix,
+                    double *theta, bool *shifted) {
+    int64_t northring = (ring > 2 * hpx->nside) ? 4 * hpx->nside - ring : ring;
+    if (northring < hpx->nside) {
+        double tmp = northring * northring * hpx->fact2;
+        double costheta = 1 - tmp;
+        double sintheta = sqrt(tmp * (2 - tmp));
+        *theta = atan2(sintheta, costheta);
+        *ringpix = 4 * northring;
+        *shifted = true;
+        *startpix = 2 * northring * (northring - 1);
+    } else {
+        *theta = acos((2 * hpx->nside - northring) * hpx->fact1);
+        *ringpix = 4 * hpx->nside;
+        *shifted = ((northring - hpx->nside) & 1) == 0;
+        *startpix = hpx->ncap + (northring - hpx->nside) * *ringpix;
+    }
+    if (northring != ring) {  // southern hemisphere
+        *theta = HPG_PI - *theta;
+        *startpix = hpx->npix - *startpix - *ringpix;
+    }
+}
+
+void get_interpol(healpix_info *hpx, double ptg_theta, double ptg_phi, int64_t *pixels,
+                  double *weights) {
+    double z = cos(ptg_theta);
+    int64_t ir1 = ring_above(hpx, z);
+    int64_t ir2 = ir1 + 1;
+
+    double theta1, theta2, w1, tmp, dphi;
+    int64_t sp, nr;
+    bool shift;
+    int64_t i1, i2;
+
+    if (ir1 > 0) {
+        get_ring_info2(hpx, ir1, &sp, &nr, &theta1, &shift);
+        dphi = HPG_TWO_PI / nr;
+        tmp = (ptg_phi / dphi - 0.5 * shift);
+        i1 = (tmp < 0) ? (int64_t)tmp - 1 : (int64_t)tmp;
+        w1 = (ptg_phi - (i1 + 0.5 * shift) * dphi) / dphi;
+        i2 = i1 + 1;
+        if (i1 < 0) {
+            i1 += nr;
+        }
+        if (i2 >= nr) {
+            i2 -= nr;
+        }
+        pixels[0] = sp + i1;
+        pixels[1] = sp + i2;
+        weights[0] = 1 - w1;
+        weights[1] = w1;
+    }
+    if (ir2 < (4 * hpx->nside)) {
+        get_ring_info2(hpx, ir2, &sp, &nr, &theta2, &shift);
+        dphi = HPG_TWO_PI / nr;
+        tmp = (ptg_phi / dphi - 0.5 * shift);
+        i1 = (tmp < 0) ? (int64_t)tmp - 1 : (int64_t)tmp;
+        w1 = (ptg_phi - (i1 + 0.5 * shift) * dphi) / dphi;
+        i2 = i1 + 1;
+        if (i1 < 0) {
+            i1 += nr;
+        }
+        if (i2 >= nr) {
+            i2 -= nr;
+        }
+        pixels[2] = sp + i1;
+        pixels[3] = sp + i2;
+        weights[2] = 1 - w1;
+        weights[3] = w1;
+    }
+    if (ir1 == 0) {
+        double wtheta = ptg_theta / theta2;  // ??
+        weights[2] *= wtheta;
+        weights[3] *= wtheta;
+        double fac = (1 - wtheta) * 0.25;
+        weights[0] = fac;
+        weights[1] = fac;
+        weights[2] += fac;
+        weights[3] += fac;
+        pixels[0] = (pixels[2] + 2) & 3;
+        pixels[1] = (pixels[3] + 2) & 3;
+    } else if (ir2 == 4 * hpx->nside) {
+        double wtheta = (ptg_theta - theta1) / (HPG_PI - theta1);
+        weights[0] *= (1 - wtheta);
+        weights[1] *= (1 - wtheta);
+        double fac = wtheta * 0.25;
+        weights[0] += fac;
+        weights[1] += fac;
+        weights[2] = fac;
+        weights[3] = fac;
+        pixels[2] = ((pixels[0] + 2) & 3) + hpx->npix - 4;
+        pixels[3] = ((pixels[1] + 2) & 3) + hpx->npix - 4;
+    } else {
+        double wtheta = (ptg_theta - theta1) / (theta2 - theta1);
+        weights[0] *= (1 - wtheta);
+        weights[1] *= (1 - wtheta);
+        weights[2] *= wtheta;
+        weights[3] *= wtheta;
+    }
+
+    if (hpx->scheme == NEST) {
+        for (size_t m = 0; m < 4; m++) {
+            pixels[m] = ring2nest(hpx, pixels[m]);
+        }
+    }
+}
