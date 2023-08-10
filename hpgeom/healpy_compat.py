@@ -9,6 +9,7 @@ from ._hpgeom import (
     vector_to_pixel,
     pixel_to_vector,
     max_pixel_radius,
+    get_interpolation_weights,
 )
 from .hpgeom import (
     query_circle_vec,
@@ -46,6 +47,7 @@ __all__ = [
     'boundaries',
     'get_all_neighbours',
     'max_pixrad',
+    'get_interp_weights',
     'UNSEEN',
 ]
 
@@ -506,3 +508,34 @@ def max_pixrad(nside, degrees=False):
         Angular distance(s) in degrees or radians.
     """
     return max_pixel_radius(nside, degrees=degrees)
+
+
+def get_interp_weights(nside, theta, phi=None, nest=False, lonlat=False):
+    """Return the 4 closest pixels and weights for bilinear interpolation.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside.
+    theta, phi : `float` or `np.ndarray`
+        If phi is not given, theta is interpreted as pixel number,
+        otherwise theta/phi are angular coordinates.
+    nest : `bool`, optional
+        Use nest ordering scheme?
+    lonlat : `bool`, optional
+        Use longitude/latitude (degrees) instead of co-latitude/longitude (radians).
+
+    Returns
+    -------
+    pixels : `np.ndarray` (4, N)
+        Array of pixel neighbors (4 for each input position).
+    weights : `np.ndarray` (4, N)
+        Array of pixel weights corresponding with pixels.
+    """
+    if phi is None:
+        _theta, _phi = pixel_to_angle(nside, theta, nest=nest, lonlat=False)
+        pixels, weights = get_interpolation_weights(nside, _theta, _phi, nest=nest, lonlat=False)
+    else:
+        pixels, weights = get_interpolation_weights(nside, theta, phi, nest=nest, lonlat=lonlat)
+
+    return pixels.T, weights.T
