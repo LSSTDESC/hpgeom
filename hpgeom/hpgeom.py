@@ -14,6 +14,7 @@ from ._hpgeom import (
     boundaries,
     neighbors,
     max_pixel_radius,
+    get_interpolation_weights,
 )
 
 __all__ = [
@@ -43,6 +44,7 @@ __all__ = [
     'boundaries',
     'neighbors',
     'max_pixel_radius',
+    'get_interpolation_weights',
     'reorder',
     'UNSEEN',
 ]
