@@ -1,14 +1,14 @@
 `HPGeom`: HEALPix Geometry Routines with Python and Numpy
 =========================================================
 
-`HPGeom` is a new, lightweight implementation of HEALPix geometry functions, wrapped in a numpy interface.
+`HPGeom` is a lightweight implementation of HEALPix geometry functions, wrapped in a numpy interface.
 The implementation is based on the geometric functions in the original HEALPix_ C++ library code.
 This has an all-new API, but there are compatibility functions with the same interfaces as healpy_ for easy transition from healpy_ to `HPGeom`.
 
 The `HPGeom` package addresses multiple issues in the default healpy_ routines.
 
-1. `HPGeom` is lightweight, with no plotting or i/o routines.  Therefore it is fast to load with no dependencies on matplotlib_ or cfitsio_.
-2. `HPGeom` only depends on python, numpy_ and a working C compiler.
+* `HPGeom` is lightweight, with no plotting or i/o routines.  Therefore it is fast to load with no dependencies on matplotlib_ or cfitsio_.
+* `HPGeom` only depends on python, numpy_ and a working C compiler.
 
 The code is hosted in GitHub_.
 Please use the `issue tracker <https://github.com/lsstdesc/hpgeom/issues>`_ to let us know about any problems or questions with the code.
@@ -34,6 +34,7 @@ This work was performed in part under DOE Contract DE-AC02-76SF00515.
    :caption: Contents:
 
    install
+   basic_interface
 
 
 Modules API Reference
