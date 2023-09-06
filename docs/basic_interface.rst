@@ -103,6 +103,10 @@ Note that this function is more efficient with ``ring`` ordering, though it is o
     plt.plot(lon, lat, 'r.')
     plt.show()
 
+.. image:: images/query_circle.png
+   :width: 600
+   :alt: Demonstration of the pixels returned from :code:`hpgeom.query_circle()`.
+
 
 The `HPGeom` :code:`query_polygon()` function behaves much the same as the healpy_ :code:`query_polygon()`.
 It returns pixels whose centers lie within the convex polygon defined by the points listed if :code:`inclusive=False`, or which overlap with the polygon if :code:`inclusive=True`.
@@ -129,6 +133,10 @@ Note that this function is more efficient with ``nest`` ordering.
     plt.plot(lon, lat, 'r.')
     plt.show()
 
+.. image:: images/query_polygon.png
+   :width: 600
+   :alt: Demonstration of the pixels returned from :code:`hpgeom.query_polygon()`.
+
 
 The `HPGeom` :code:`query_box()` function does not have a direct analog in healpy_.
 This function returns pixels whose centers lie within a box if :code:`inclusive=False` or which overlap with the box if :code:`inclusive=True`.
@@ -151,6 +159,10 @@ The box definition is derived from lsst-sphgeom_.
     plt.plot(lon, lat, 'r.')
     plt.show()
 
+.. image:: images/query_box.png
+   :width: 600
+   :alt: Demonstration of the pixels returned from :code:`hpgeom.query_box()`.
+
 
 The `HPGeom` :code:`query_ellipse()` function also does not have a direct analog in healpy_.
 This function returns pixels whose centers lie within an ellipse if :code:`inclusive=False` or which overlap with the ellipse if :code:`inclusive=True`.
@@ -172,6 +184,10 @@ If called with ring ordering then a :code:`ResourceWarning` is emitted, and the 
 
     plt.plot(lon, lat, 'r.')
     plt.show()
+
+.. image:: images/query_ellipse.png
+   :width: 600
+   :alt: Demonstration of the pixels returned from :code:`hpgeom.query_ellipse()`.
 
 
 Pixel Boundaries and Neighbors
@@ -196,6 +212,10 @@ In order to get coordinates for just the corners of the specified pixels, specif
     plt.plot(bounds_lon, bounds_lat, 'r.')
     plt.show()
 
+.. image:: images/boundaries.png
+   :width: 600
+   :alt: Demonstration of the positions returned from :code:`hpgeom.boundaries()`.
+
 
 The `HPGeom` :code:`neighbors` function is similar to healpy_ :code:`get_all_neighbours()`.
 It returns the 8 nearest neighbors for the given list of pixels.
@@ -216,6 +236,10 @@ Note that the returned shape is :code:`(N, 8)`, which is the transpose of that r
     plt.plot(lon[0, :], lat[0, :], 'r.')
     plt.plot(lon[1, :], lat[1, :], 'b+')
     plt.show()
+
+.. image:: images/neighbors.png
+   :width: 600
+   :alt: Demonstration of the pixels returned from :code:`hpgeom.neighbors()`.
 
 
 The `HPGeom` :code:`get_interpolation_weights()` function is the analog to healpy_ :code:`get_interp_weights()`.
