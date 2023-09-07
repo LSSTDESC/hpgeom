@@ -429,7 +429,7 @@ PyDoc_STRVAR(query_polygon_doc,
              "points in a, b\n"
              "([lon, lat] if lonlat=True, otherwise [theta, phi]) if inclusive is False, or "
              "which overlap\n"
-             "with this polygon (if inclusive is True.\n"
+             "with this polygon (if inclusive is True).\n"
              "\n"
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR "a, b : `np.ndarray` (N,)\n" AB_DOC_DESCR
@@ -762,7 +762,7 @@ PyDoc_STRVAR(
     "degrees=True)\n"
     "--\n\n"
     "Returns pixels whose centers lie within a box if inclusive is False,\n"
-    "or which overlap with this box if inclusive is True, The box is defined\n"
+    "or which overlap with this box if inclusive is True. The box is defined\n"
     "by all the points within [a0, a1] and [b0, b1] ([lon, lat] if lonlat=True\n"
     "otherwise [theta, phi] (in degrees if lonlat=True and degrees=True, otherwise\n"
     "radians). The box will have boundaries in constant longitude/latitude, rather\n"
@@ -1116,7 +1116,7 @@ PyDoc_STRVAR(boundaries_doc,
              "\n"
              "Returns\n"
              "-------\n"
-             "a, b : `np.ndarray` (4*step,) or (N,4*step,)\n" AB_DOC_DESCR
+             "a, b : `np.ndarray` (4*step,) or (N, 4*step,)\n" AB_DOC_DESCR
              "\n"
              "Raises\n"
              "------\n"
