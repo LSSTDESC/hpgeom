@@ -58,7 +58,6 @@ html_static_path = []
 import inspect
 from os.path import relpath, dirname
 
-import hpgeom # for the relpath below
 
 def linkcode_resolve(domain, info):
     """
@@ -103,7 +102,7 @@ def linkcode_resolve(domain, info):
     else:
         linespec = ""
 
-    fn = relpath(fn, start=dirname(hpgeom.__file__))
+    fn = relpath(fn, start=dirname(os.path.join(os.path.abspath('..'), "hpgeom")))
 
     # Could use version,release declared above here but for now we
     # just link to the latest code on the master branch.
