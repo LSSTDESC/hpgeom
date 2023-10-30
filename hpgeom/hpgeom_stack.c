@@ -254,7 +254,7 @@ void i64rangeset_append_single(struct i64rangeset *rangeset, int64_t v1, int *st
     i64rangeset_append(rangeset, v1, v1 + 1, status, err);
 }
 
-static ptrdiff_t iiv(i64rangeset *rangeset, int64_t val) {
+ptrdiff_t iiv(i64rangeset *rangeset, int64_t val) {
     size_t mid;
     size_t low = 0;
     size_t high = rangeset->stack->size;
