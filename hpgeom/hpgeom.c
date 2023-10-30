@@ -1767,7 +1767,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     }
 
     int ndims_pos = PyArray_NDIM((PyArrayObject *)a_arr);
-    size_t npix;
     if (ndims_pos == 0) {
         npy_intp dims[1];
         dims[0] = 4;
@@ -1775,7 +1774,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         if (pix_arr == NULL) goto fail;
         wgt_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
         if (wgt_arr == NULL) goto fail;
-        npix = 1;
     } else {
         npy_intp dims[2];
         dims[0] = PyArray_DIM((PyArrayObject *)a_arr, 0);
@@ -1784,7 +1782,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         if (pix_arr == NULL) goto fail;
         wgt_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
         if (wgt_arr == NULL) goto fail;
-        npix = (size_t)dims[0];
     }
     pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
     weights = (double *)PyArray_DATA((PyArrayObject *)wgt_arr);
@@ -1795,9 +1792,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     } else {
         scheme = RING;
     }
-
-    int64_t pixels_temp[4];
-    double weights_temp[4];
 
     int64_t *nside;
     double *a, *b;
@@ -1857,6 +1851,330 @@ fail:
     return NULL;
 }
 
+struct Moc {
+    int64_t nside;
+    i64rangeset *rangeset;
+};
+
+struct HpgeomMoc {
+    PyObject_HEAD
+
+    struct Moc moc;
+};
+
+static int
+HpgeomMoc_init(struct HpgeomMoc* self, PyObject *args, PyObject *kwargs)
+{
+    /* It takes ...
+       nside_max ...
+       ranges_or_nuniq array ...
+       values (optional) ...
+
+       ranges will be 2xN, nuniq will be 1D array.
+
+       Then we need lookup by pixel function, that's the fundamental, but at high
+       res, so really lookup by thing.
+
+       Can we get nside_max from ranges?  Or nuniq ...
+       ... turn each nuniq into a range ...
+       ... insert ...
+       ... if we know they're sorted can we do no check?  hmmm.
+       ... do worry about stuffing scaling.
+    */
+    int64_t nside_max;
+    PyObject *array_obj = NULL, *values_obj = NULL;
+    PyObject *array_arr = NULL, *values_arr = NULL;
+    // static char *kwlist[] = {"nside_max", "array", "values", NULL};
+    static char *kwlist[] = {"nside_max", "array", NULL};
+    NpyIter *iter = NULL;
+    NpyIter_IterNextFunc *iternext;
+    char** dataptr;
+    npy_intp *strideptr, *innersizeptr;
+    char err[ERR_SIZE];
+    int status = 1;
+
+    // Ensure this is initialized to NULL
+    self->moc.rangeset = NULL;
+
+    if (!PyArg_ParseTuple(args, "LO", &nside_max, &array_obj))
+        goto fail;
+
+    array_arr = PyArray_FROM_OTF(array_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (array_arr == NULL) goto fail;
+
+    // Need to figure out values, optional, default to True.
+    // That will be later.
+    // Also need to allow an empty one to be done, so we can have insert function.
+
+    // FIXME: check nside
+
+    self->moc.nside = nside_max;
+    self->moc.rangeset = i64rangeset_new(&status, err);
+    if (!status) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+    }
+
+    // And here we figure out which dimensionality and iterate.
+    int ndims_array = PyArray_NDIM((PyArrayObject *)array_arr);
+    if (ndims_array == 1) {
+        // This is NUNIQ style.
+    } else if (ndims_array == 2) {
+        // This is RANGE style.
+        npy_intp *dims = PyArray_DIMS((PyArrayObject *) array_arr);
+        if (dims[1] != 2) {
+            PyErr_SetString(PyExc_ValueError,
+                            "The array dimensions must be (N, 2) for range style.");
+            goto fail;
+        }
+
+        iter = NpyIter_New((PyArrayObject *)array_arr,
+                           NPY_ITER_READONLY | NPY_ITER_MULTI_INDEX,
+                           NPY_KEEPORDER,
+                           NPY_NO_CASTING,
+                           NULL);
+        if (iter == NULL)
+            goto fail;
+
+        if (NpyIter_RemoveAxis(iter, 1) == NPY_FAIL)
+            goto fail;
+
+        iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL)
+            goto fail;
+
+        dataptr = NpyIter_GetDataPtrArray(iter);
+
+        do {
+            int64_t* data = (int64_t *) *dataptr;
+
+            i64rangeset_append(self->moc.rangeset, *data, *(data + 1), &status, err);
+            if (!status) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+        } while(iternext(iter));
+
+    } else {
+        // Illegal
+        PyErr_SetString(PyExc_ValueError,
+                        "The array dimensions must be 1D (NUNIQ) or 2D (range).");
+        goto fail;
+    }
+
+    Py_DECREF(array_arr);
+    // Py_DECREF(values_arr);
+    if (iter != NULL)
+        NpyIter_Deallocate(iter);
+    return 0;
+ fail:
+    Py_XDECREF(array_arr);
+    // Py_XDECREF(values_arr);
+    if (iter != NULL)
+        NpyIter_Deallocate(iter);
+    i64rangeset_delete(self->moc.rangeset);
+
+    return -1;
+}
+
+static PyObject *HpgeomMoc_repr(struct HpgeomMoc* self) {
+    char buff[2048];
+
+    size_t nrange = self->moc.rangeset->stack->size / 2;
+
+    snprintf(buff, sizeof(buff), "Moc(nside=%lld,\n[", self->moc.nside);
+
+    if (nrange < 20) {
+        for (size_t j = 0; j < nrange; j++) {
+            snprintf(buff, sizeof(buff), "%s[%lld, %lld]\n", buff,
+                     self->moc.rangeset->stack->data[j*2],
+                     self->moc.rangeset->stack->data[j*2 + 1]);
+        }
+    } else {
+        for (size_t j = 0; j < 10; j++) {
+            snprintf(buff, sizeof(buff), "%s[%lld, %lld]\n", buff,
+                     self->moc.rangeset->stack->data[j*2],
+                     self->moc.rangeset->stack->data[j*2 + 1]);
+        }
+        for (size_t j = nrange - 10; j < nrange; j++) {
+            snprintf(buff, sizeof(buff), "%s[%lld, %lld]\n", buff,
+                     self->moc.rangeset->stack->data[j*2],
+                     self->moc.rangeset->stack->data[j*2 + 1]);
+        }
+    }
+    snprintf(buff, sizeof(buff), "%s])", buff);
+
+    return PyUnicode_FromString((const char*)buff);
+}
+
+static PyObject *HpgeomMoc_contains_pos(struct HpgeomMoc* self, PyObject *args, PyObject *kwargs) {
+    PyObject *a_obj = NULL, *b_obj = NULL;
+    PyObject *a_arr = NULL, *b_arr = NULL;
+    PyObject *contains_arr = NULL;
+    int lonlat = 1;
+    int degrees = 1;
+    static char *kwlist[] = {"a", "b", "lonlat", "nest", "degrees", NULL};
+    NpyIter *iter = NULL;
+    NpyIter_IterNextFunc *iternext;
+    PyObject *op[3], *ret = NULL;
+    npy_uint32 op_flags[3];
+    PyArray_Descr *op_dtypes[3];
+    char **dataptrarray;
+    double theta, phi;
+    char err[ERR_SIZE];
+    int status = 1;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|pp", kwlist, &a_obj, &b_obj,
+                                     &lonlat, &degrees))
+        goto fail;
+
+    a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (a_arr == NULL) goto fail;
+    b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (b_arr == NULL) goto fail;
+
+    healpix_info hpx = healpix_info_from_nside(self->moc.nside, NEST);
+
+    op[0] = a_arr;
+    op[1] = b_arr;
+    op[2] = NULL;
+    op_flags[0] = op_flags[1] = NPY_ITER_READONLY;
+    op_flags[2] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
+    op_dtypes[0] = op_dtypes[1] = NULL;
+    op_dtypes[2] = PyArray_DescrFromType(NPY_BOOL);
+
+    iter = NpyIter_MultiNew(3, op, 0, NPY_KEEPORDER, NPY_NO_CASTING,
+                            op_flags, op_dtypes);
+    if (iter == NULL)
+        goto fail;
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL)
+        goto fail;
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    double *a, *b;
+    bool *out;
+    int64_t pixel;
+    ptrdiff_t range_index;
+
+    size_t max_index = self->moc.rangeset->stack->size - 2;
+
+    do {
+        a = (double *)dataptrarray[0];
+        b = (double *)dataptrarray[1];
+
+        if (lonlat) {
+            if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+        } else {
+            if (!hpgeom_check_theta_phi(*a, *b, err)) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+            theta = *a;
+            phi = *b;
+        }
+        pixel = ang2pix(&hpx, theta, phi);
+        range_index = iiv(self->moc.rangeset, pixel);
+
+        out = (bool *)dataptrarray[2];
+
+        if ((range_index < 0) || (range_index > max_index) || ((range_index % 2) == 1)) {
+            *out = 0;
+        } else {
+            *out = 1;
+        }
+
+    } while (iternext(iter));
+
+    ret = NpyIter_GetOperandArray(iter)[2];
+    Py_INCREF(ret);
+
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED)
+        goto fail;
+    Py_DECREF(a_arr);
+    Py_DECREF(b_arr);
+
+    return ret;
+
+ fail:
+    Py_XDECREF(a_arr);
+    Py_XDECREF(b_arr);
+    Py_XDECREF(contains_arr);
+    if (iter != NULL)
+        NpyIter_Deallocate(iter);
+    Py_XDECREF(ret);
+
+    return NULL;
+}
+
+
+// define methods on the object ... there is basically lookup functions.
+// And append, etc.
+// Lookup by pixel or by position.
+
+static void
+HpgeomMoc_dealloc(struct HpgeomMoc* self)
+{
+    i64rangeset_delete(self->moc.rangeset);
+
+    Py_TYPE(self)->tp_free((PyObject*)self);
+};
+
+static PyMethodDef HpgeomMoc_methods[] = {
+    // This defines the methods like below.
+    // And says which c functions.
+    {"contains_pos", (PyCFunction)(void (*)(void))HpgeomMoc_contains_pos,
+     METH_VARARGS | METH_KEYWORDS, NULL},
+    {NULL, NULL, 0, NULL}};
+
+
+static PyTypeObject HpgeomMocType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+
+    "_hpgeom.Moc",                 /* tp_name */
+    sizeof(struct HpgeomMoc),      /* tp_basicsize */
+    0,                                 /* tp_itemsize */
+    (destructor)HpgeomMoc_dealloc, /* tp_dealloc */
+    0,                                 /* tp_print */
+    0,                                 /* tp_getattr */
+    0,                                 /* tp_setattr */
+    0,                                 /* tp_compare */
+    //0,                                 /* tp_repr */
+    (reprfunc)HpgeomMoc_repr,    /* tp_repr */
+    0,                                 /* tp_as_number */
+    0,                                 /* tp_as_sequence */
+    0,                                 /* tp_as_mapping */
+    0,                                 /* tp_hash */
+    0,                                 /* tp_call */
+    0,                                 /* tp_str */
+    0,                                 /* tp_getattro */
+    0,                                 /* tp_setattro */
+    0,                                 /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "Something\n",
+    0,                                 /* tp_traverse */
+    0,                                 /* tp_clear */
+    0,                                 /* tp_richcompare */
+    0,                                 /* tp_weaklistoffset */
+    0,                                 /* tp_iter */
+    0,                                 /* tp_iternext */
+    HpgeomMoc_methods,             /* tp_methods */
+    0,                                 /* tp_members */
+    0,                                 /* tp_getset */
+    0,                                 /* tp_base */
+    0,                                 /* tp_dict */
+    0,                                 /* tp_descr_get */
+    0,                                 /* tp_descr_set */
+    0,                                 /* tp_dictoffset */
+    (initproc)HpgeomMoc_init,      /* tp_init */
+    0,                                 /* tp_alloc */
+    PyType_GenericNew,                 /* tp_new */
+};
+
 static PyMethodDef hpgeom_methods[] = {
     {"angle_to_pixel", (PyCFunction)(void (*)(void))angle_to_pixel,
      METH_VARARGS | METH_KEYWORDS, angle_to_pixel_doc},
@@ -1892,6 +2210,23 @@ static struct PyModuleDef hpgeom_module = {PyModuleDef_HEAD_INIT, "_hpgeom", NUL
                                            hpgeom_methods};
 
 PyMODINIT_FUNC PyInit__hpgeom(void) {
+    PyObject* m;
+
     import_array();
-    return PyModule_Create(&hpgeom_module);
+
+    HpgeomMocType.tp_new = PyType_GenericNew;
+
+    if (PyType_Ready(&HpgeomMocType) < 0) {
+        return NULL;
+    }
+
+    m = PyModule_Create(&hpgeom_module);
+    if (m == NULL) {
+        return NULL;
+    }
+
+    Py_INCREF(&HpgeomMocType);
+    PyModule_AddObject(m, "Moc", (PyObject *)&HpgeomMocType);
+
+    return m;
 }

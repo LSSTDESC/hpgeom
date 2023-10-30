@@ -15,6 +15,7 @@ from ._hpgeom import (
     neighbors,
     max_pixel_radius,
     get_interpolation_weights,
+    Moclike,
 )
 
 __all__ = [
@@ -47,6 +48,7 @@ __all__ = [
     'get_interpolation_weights',
     'reorder',
     'UNSEEN',
+    'Moclike',
 ]
 
 UNSEEN = -1.6375e+30
