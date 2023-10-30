@@ -1882,14 +1882,12 @@ HpgeomMoc_init(struct HpgeomMoc* self, PyObject *args, PyObject *kwargs)
        ... do worry about stuffing scaling.
     */
     int64_t nside_max;
-    PyObject *array_obj = NULL, *values_obj = NULL;
-    PyObject *array_arr = NULL, *values_arr = NULL;
-    // static char *kwlist[] = {"nside_max", "array", "values", NULL};
+    PyObject *array_obj = NULL;
+    PyObject *array_arr = NULL;
     static char *kwlist[] = {"nside_max", "array", NULL};
     NpyIter *iter = NULL;
     NpyIter_IterNextFunc *iternext;
     char** dataptr;
-    npy_intp *strideptr, *innersizeptr;
     char err[ERR_SIZE];
     int status = 1;
 
@@ -1963,13 +1961,11 @@ HpgeomMoc_init(struct HpgeomMoc* self, PyObject *args, PyObject *kwargs)
     }
 
     Py_DECREF(array_arr);
-    // Py_DECREF(values_arr);
     if (iter != NULL)
         NpyIter_Deallocate(iter);
     return 0;
  fail:
     Py_XDECREF(array_arr);
-    // Py_XDECREF(values_arr);
     if (iter != NULL)
         NpyIter_Deallocate(iter);
     i64rangeset_delete(self->moc.rangeset);
