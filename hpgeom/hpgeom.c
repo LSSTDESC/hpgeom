@@ -1900,11 +1900,12 @@ HpgeomMoc_init(struct HpgeomMoc* self, PyObject *args, PyObject *kwargs)
     array_arr = PyArray_FROM_OTF(array_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (array_arr == NULL) goto fail;
 
-    // Need to figure out values, optional, default to True.
-    // That will be later.
     // Also need to allow an empty one to be done, so we can have insert function.
 
-    // FIXME: check nside
+    if (!hpgeom_check_nside(nside_max, NEST, err)) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+    }
 
     self->moc.nside = nside_max;
     self->moc.rangeset = i64rangeset_new(&status, err);
@@ -1917,6 +1918,41 @@ HpgeomMoc_init(struct HpgeomMoc* self, PyObject *args, PyObject *kwargs)
     int ndims_array = PyArray_NDIM((PyArrayObject *)array_arr);
     if (ndims_array == 1) {
         // This is NUNIQ style.
+        healpix_info hpx = healpix_info_from_nside(self->moc.nside, NEST);
+        int max_order = hpx.order;
+
+        iter = NpyIter_New((PyArrayObject *)array_arr,
+                           NPY_ITER_READONLY,
+                           NPY_KEEPORDER,
+                           NPY_NO_CASTING,
+                           NULL);
+        if (iter == NULL)
+            goto fail;
+
+        iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL)
+            goto fail;
+
+        dataptr = NpyIter_GetDataPtrArray(iter);
+
+        do {
+            int64_t* uniq = (int64_t *) *dataptr;
+
+            // Need to decompose uniq into order and index
+            int order = ilog2(*uniq/4)/2;
+            int64_t index = *uniq - 4*ipow(4, order);
+
+            // And now we need to turn this into a range at nside resolution
+            int64_t range_start = index << 2*(max_order - order);
+            int64_t range_end = range_start + ipow(4, max_order - order);
+
+            i64rangeset_append(self->moc.rangeset, range_start, range_end, &status, err);
+            if (!status) {
+                PyErr_SetString(PyExc_ValueError, err);
+                goto fail;
+            }
+        } while(iternext(iter));
+
     } else if (ndims_array == 2) {
         // This is RANGE style.
         npy_intp *dims = PyArray_DIMS((PyArrayObject *) array_arr);
@@ -2018,7 +2054,6 @@ static PyObject *HpgeomMoc_contains_pos(struct HpgeomMoc* self, PyObject *args, 
     char **dataptrarray;
     double theta, phi;
     char err[ERR_SIZE];
-    int status = 1;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|pp", kwlist, &a_obj, &b_obj,
                                      &lonlat, &degrees))
@@ -2078,7 +2113,7 @@ static PyObject *HpgeomMoc_contains_pos(struct HpgeomMoc* self, PyObject *args, 
 
         out = (bool *)dataptrarray[2];
 
-        if ((range_index < 0) || (range_index > max_index) || ((range_index % 2) == 1)) {
+        if ((range_index < 0) || ((size_t) range_index > max_index) || ((range_index % 2) == 1)) {
             *out = 0;
         } else {
             *out = 1;
@@ -2086,7 +2121,7 @@ static PyObject *HpgeomMoc_contains_pos(struct HpgeomMoc* self, PyObject *args, 
 
     } while (iternext(iter));
 
-    ret = NpyIter_GetOperandArray(iter)[2];
+    ret = (PyObject *) NpyIter_GetOperandArray(iter)[2];
     Py_INCREF(ret);
 
     if (NpyIter_Deallocate(iter) != NPY_SUCCEED)
