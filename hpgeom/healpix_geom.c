@@ -88,6 +88,26 @@ int64_t imodulo(int64_t v1, int64_t v2) {
     return (v1 >= 0) ? ((v1 < v2) ? v1 : (v1 % v2)) : ((v1 % v2) + v2);
 }
 
+int64_t ipow(int64_t base, int64_t exp)
+{
+    int64_t result = 1;
+
+    if (exp < 0) return 0;
+
+    for (;;)
+    {
+        if (exp & 1)
+            result *= base;
+        exp >>= 1;
+        if (!exp)
+            break;
+        base *= base;
+    }
+
+    return result;
+}
+
+
 static inline int64_t i64max(int64_t v1, int64_t v2) { return v1 > v2 ? v1 : v2; }
 static inline int64_t i64min(int64_t v1, int64_t v2) { return v1 < v2 ? v1 : v2; }
 static inline int intmin(int v1, int v2) { return v1 < v2 ? v1 : v2; }
