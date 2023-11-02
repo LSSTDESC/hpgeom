@@ -254,7 +254,7 @@ void i64rangeset_append_single(struct i64rangeset *rangeset, int64_t v1, int *st
     i64rangeset_append(rangeset, v1, v1 + 1, status, err);
 }
 
-ptrdiff_t iiv(i64rangeset *rangeset, int64_t val) {
+static ptrdiff_t iiv(i64rangeset *rangeset, int64_t val) {
     size_t mid;
     size_t low = 0;
     size_t high = rangeset->stack->size;
@@ -271,6 +271,50 @@ ptrdiff_t iiv(i64rangeset *rangeset, int64_t val) {
     return (ptrdiff_t)(low - 0) - 1;
 }
 
+ptrdiff_t find_interval(struct i64rangeset *rangeset, int64_t val) {
+    ptrdiff_t res = iiv(rangeset, val);
+    return (res & 1) ? -1 : res>>1;
+}
+
+void i64rangeset_add_remove(struct i64rangeset *rangeset, int64_t a, int64_t b, ptrdiff_t v, int *status, char *err) {
+    *status = 1;
+
+    ptrdiff_t pos1 = iiv(rangeset, a);
+    ptrdiff_t pos2 = iiv(rangeset, b);
+    if ((pos1 >= 0) && (rangeset->stack->data[pos1] == a)) --pos1;
+    // first to delete is at pos1+1; last is at pos2
+    bool insert_a = (pos1 & 1) == v;
+    bool insert_b = (pos2 & 1) == v;
+    ptrdiff_t rmstart = pos1 + 1 + (insert_a ? 1 : 0);
+    ptrdiff_t rmend = pos2 - (insert_b ? 1 : 0);
+
+    if (insert_a && insert_b && (pos1 + 1 > pos2)) {  // insert
+        i64stack_insert(rangeset->stack, pos1 + 1, 2, a, status, err);
+        if (!*status) return;
+        rangeset->stack->data[pos1 + 2] = b;
+    } else {  // erase
+        if (insert_a) rangeset->stack->data[pos1 + 1] = a;
+        if (insert_b) rangeset->stack->data[pos2] = b;
+        i64stack_erase(rangeset->stack, rmstart, rmend + 1, status, err);
+        if (!*status) return;
+    }
+}
+
+void i64rangeset_add(struct i64rangeset *rangeset, int64_t v1, int64_t v2, int *status, char *err) {
+    *status = 1;
+
+    if (v2 <= v1) {
+        return;
+    }
+    if ((rangeset->stack->size == 0)
+        || (v1 >= rangeset->stack->data[rangeset->stack->size - 2])) {
+        i64rangeset_append(rangeset, v1, v2, status, err);
+        if (!status) return;
+    }
+    i64rangeset_add_remove(rangeset, v1, v2, 1, status, err);
+    if (!status) return;
+}
+
 void i64rangeset_remove(i64rangeset *rangeset, int64_t v1, int64_t v2, int *status,
                         char *err) {
     if (v2 <= v1) return;
@@ -282,28 +326,8 @@ void i64rangeset_remove(i64rangeset *rangeset, int64_t v1, int64_t v2, int *stat
         (v2 >= rangeset->stack->data[rangeset->stack->size - 1])) {
         rangeset->stack->size = 0;
     }
-    // addRemove(v1, v2, 0);
-    ptrdiff_t v = 0;
-    ptrdiff_t pos1 = iiv(rangeset, v1);
-    ptrdiff_t pos2 = iiv(rangeset, v2);
-    if ((pos1 >= 0) && (rangeset->stack->data[pos1] == v1)) --pos1;
-    // first to delete is at pos1+1; last is at pos2
-    bool insert_v1 = (pos1 & 1) == v;
-    bool insert_v2 = (pos2 & 1) == v;
-    ptrdiff_t rmstart = pos1 + 1 + (insert_v1 ? 1 : 0);
-    ptrdiff_t rmend = pos2 - (insert_v2 ? 1 : 0);
-
-    if (insert_v1 && insert_v2 && (pos1 + 1 > pos2)) {  // insert
-        i64stack_insert(rangeset->stack, pos1 + 1, 2, v1, status, err);
-        if (!*status) return;
-        rangeset->stack->data[pos1 + 2] = v2;
-
-    } else {  // erase
-        if (insert_v1) rangeset->stack->data[pos1 + 1] = v1;
-        if (insert_v2) rangeset->stack->data[pos2] = v2;
-        i64stack_erase(rangeset->stack, rmstart, rmend + 1, status, err);
-        if (!*status) return;
-    }
+    i64rangeset_add_remove(rangeset, v1, v2, 0, status, err);
+    if (!status) return;
 }
 
 void i64rangeset_intersect(i64rangeset *rangeset, int64_t a, int64_t b, int *status,

@@ -1884,7 +1884,7 @@ HpgeomMoc_init(struct HpgeomMoc* self, PyObject *args, PyObject *kwargs)
     int64_t nside_max;
     PyObject *array_obj = NULL;
     PyObject *array_arr = NULL;
-    static char *kwlist[] = {"nside_max", "array", NULL};
+    // static char *kwlist[] = {"nside_max", "array", NULL};
     NpyIter *iter = NULL;
     NpyIter_IterNextFunc *iternext;
     char** dataptr;
@@ -1946,7 +1946,14 @@ HpgeomMoc_init(struct HpgeomMoc* self, PyObject *args, PyObject *kwargs)
             int64_t range_start = index << 2*(max_order - order);
             int64_t range_end = range_start + ipow(4, max_order - order);
 
-            i64rangeset_append(self->moc.rangeset, range_start, range_end, &status, err);
+            // Unfortunately, these aren't sorted, blah.
+            // i64rangeset_add(self->moc.rangeset, range_start, range_end, &status, err);
+            // i64rangeset_append(self->moc.rangeset, range_start, range_end, &status, err);
+
+            // okay, that is so much slower ... wow, this is terrible.
+            // We do _not_ want to do that.
+            // Need to load in and sort.
+
             if (!status) {
                 PyErr_SetString(PyExc_ValueError, err);
                 goto fail;
@@ -2109,18 +2116,26 @@ static PyObject *HpgeomMoc_contains_pos(struct HpgeomMoc* self, PyObject *args, 
             phi = *b;
         }
         pixel = ang2pix(&hpx, theta, phi);
-        range_index = iiv(self->moc.rangeset, pixel);
+        // range_index = iiv(self->moc.rangeset, pixel);
+        range_index = find_interval(self->moc.rangeset, pixel);
 
         out = (bool *)dataptrarray[2];
 
+        /*
         if ((range_index < 0) || ((size_t) range_index > max_index) || ((range_index % 2) == 1)) {
             *out = 0;
         } else {
             *out = 1;
         }
-
+        */
+        if (range_index < 0) {
+            *out = 0;
+        } else {
+            *out = 1;
+        }
     } while (iternext(iter));
 
+    // THIS DOES NOT WORK FOR A SINGLE NEED ENSURE
     ret = (PyObject *) NpyIter_GetOperandArray(iter)[2];
     Py_INCREF(ret);
 
@@ -2142,6 +2157,13 @@ static PyObject *HpgeomMoc_contains_pos(struct HpgeomMoc* self, PyObject *args, 
     return NULL;
 }
 
+// Add contains pix lookup.
+// Add way to get all the pixels.
+// Add way to get uniqs
+// Add way to get ranges
+// Add way to simplify?
+
+// And then test with what we have.
 
 // define methods on the object ... there is basically lookup functions.
 // And append, etc.

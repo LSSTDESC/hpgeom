@@ -89,10 +89,12 @@ void i64stack_erase(struct i64stack *stack, size_t pos1, size_t pos2, int *statu
 i64rangeset *i64rangeset_new(int *status, char *err);
 void i64rangeset_append(i64rangeset *rangeset, int64_t v1, int64_t v2, int *status, char *err);
 void i64rangeset_append_single(i64rangeset *rangeset, int64_t v1, int *status, char *err);
-ptrdiff_t iiv(i64rangeset *rangeset, int64_t val);
+ptrdiff_t find_interval(i64rangeset *rangeset, int64_t val);
 void i64rangeset_clear(i64rangeset *rangeset, int *status, char *err);
 void i64rangeset_append_i64rangeset(i64rangeset *rangeset, i64rangeset *other, int *status,
                                     char *err);
+void i64rangeset_add_remove(struct i64rangeset *rangeset, int64_t a, int64_t b, ptrdiff_t v, int *status, char *err);
+void i64rangeset_add(struct i64rangeset *rangeset, int64_t v1, int64_t v2, int *status, char *err);
 i64rangeset *i64rangeset_delete(i64rangeset *rangeset);
 size_t i64rangeset_npix(i64rangeset *rangeset);
 void i64rangeset_fill_buffer(i64rangeset *rangeset, size_t npix, int64_t *buf);
