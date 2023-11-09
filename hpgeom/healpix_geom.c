@@ -651,7 +651,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
 
         if (rsmall >= HPG_PI) {
             i64rangeset_append(pixset, 0, hpx->npix, status, err);
-            return;
+            goto cleanup_ring;
         }
 
         if (rbig > HPG_PI) {
@@ -675,7 +675,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
             bool dummy;
             get_ring_info_small(hpx, irmin - 1, &sp, &rp, &dummy);
             i64rangeset_append(pixset, 0, sp + rp, status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_ring;
         }
         if ((fct > 1) && (rlat1 > 0)) irmin = i64max((int64_t)1, irmin - 1);
 
@@ -725,13 +725,13 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
                     }
                     if (ip_lo < 0) {
                         i64rangeset_append(pixset, ipix1, ipix1 + ip_hi + 1, status, err);
-                        if (!*status) return;
+                        if (!*status) goto cleanup_ring;
                         i64rangeset_append(pixset, ipix1 + ip_lo + nr, ipix2 + 1, status, err);
-                        if (!*status) return;
+                        if (!*status) goto cleanup_ring;
                     } else {
                         i64rangeset_append(pixset, ipix1 + ip_lo, ipix1 + ip_hi + 1, status,
                                            err);
-                        if (!*status) return;
+                        if (!*status) goto cleanup_ring;
                     }
                 }
             }
@@ -741,9 +741,12 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
             bool dummy;
             get_ring_info_small(hpx, irmax + 1, &sp, &rp, &dummy);
             i64rangeset_append(pixset, sp, hpx->npix, status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_ring;
         }
+    cleanup_ring:
+        ;
     } else {                     // schema == NEST
+        i64stack *stk = NULL;
         if (radius >= HPG_PI) {  // disk covers the whole sphere
             i64rangeset_append(pixset, 0, hpx->npix, status, err);
             return;
@@ -767,13 +770,13 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
             crmdr[o] = ((radius - dr) < 0.) ? 1. : cos(radius - dr);
         }
 
-        i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
-        if (!*status) return;
+        stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+        if (!*status) goto cleanup_nest;
         for (int i = 0; i < 12; i++) {
             i64stack_push(stk, (int64_t)(11 - i), status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_nest;
             i64stack_push(stk, 0, status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_nest;
         }
 
         int stacktop = 0;  // a place to save a stack position
@@ -781,7 +784,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
             // pop current pixel number and order from the stack
             int64_t pix, temp;
             i64stack_pop_pair(stk, &pix, &temp, status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_nest;
             int o = (int)temp;
 
             double pix_z, pix_phi;
@@ -793,9 +796,11 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
                 int zone = (cangdist < cosrad) ? 1 : ((cangdist <= crmdr[o]) ? 2 : 3);
                 check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive,
                                  &stacktop, status, err);
-                if (!*status) return;
+                if (!*status) goto cleanup_nest;
             }
         }
+    cleanup_nest:
+        if (stk != NULL) i64stack_delete(stk);
     }
 }
 
@@ -1111,7 +1116,7 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
             double shift = shifted ? 0.5 : 0.;
             tr->stack->size = 0;
             i64rangeset_append(tr, ipix1, ipix1 + nr, status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_ring;
             for (size_t j = 0; j < counter; j++) {
                 double x = (cosrbig->data[j] - z * z0->data[j]) * xa->data[j];
                 double ysq = 1. - z * z - x * x;
@@ -1142,24 +1147,25 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
                 } else {
                     i64rangeset_intersect(tr, ipix1 + ip_lo, ipix1 + ip_hi + 1, status, err);
                 }
-                if (!*status) return;
+                if (!*status) goto cleanup_ring;
             }
             i64rangeset_append_i64rangeset(pixset, tr, status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_ring;
         }
 
     cleanup_ring:
-        dblarr_delete(z0);
-        dblarr_delete(xa);
-        dblarr_delete(cosrsmall);
-        dblarr_delete(cosrbig);
-        pointingarr_delete(ptg);
-        i64rangeset_delete(tr);
+        if (z0 != NULL) dblarr_delete(z0);
+        if (xa != NULL) dblarr_delete(xa);
+        if (cosrsmall != NULL) dblarr_delete(cosrsmall);
+        if (cosrbig != NULL) dblarr_delete(cosrbig);
+        if (ptg != NULL) pointingarr_delete(ptg);
+        if (tr != NULL) i64rangeset_delete(tr);
 
     } else {  // scheme == NEST
         dblarr *crlimit0[MAX_ORDER + 1];
         dblarr *crlimit1[MAX_ORDER + 1];
         dblarr *crlimit2[MAX_ORDER + 1];
+        i64stack *stk = NULL;
 
         for (int o = 0; o <= MAX_ORDER; o++) {
             crlimit0[o] = NULL;
@@ -1194,13 +1200,13 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
             }
         }
 
-        i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
-        if (!*status) return;
+        stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+        if (!*status) goto cleanup_nest;
         for (int i = 0; i < 12; i++) {
             i64stack_push(stk, (int64_t)(11 - i), status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_nest;
             i64stack_push(stk, 0, status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_nest;
         }
 
         int stacktop = 0;  // a place to save a stack position
@@ -1208,7 +1214,7 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
             // pop current pixel number and order from the stack
             int64_t pix, temp;
             i64stack_pop_pair(stk, &pix, &temp, status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_nest;
             int o = (int)temp;
             vec3 pv = pix2vec(&base[o], pix);
 
@@ -1230,15 +1236,16 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
             }
             check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive, &stacktop,
                              status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup_nest;
         bailout:;
         }
     cleanup_nest:
         for (int o = 0; o <= MAX_ORDER; o++) {
-            dblarr_delete(crlimit0[o]);
-            dblarr_delete(crlimit1[o]);
-            dblarr_delete(crlimit2[o]);
+            if (crlimit0[o] != NULL) dblarr_delete(crlimit0[o]);
+            if (crlimit1[o] != NULL) dblarr_delete(crlimit1[o]);
+            if (crlimit2[o] != NULL) dblarr_delete(crlimit2[o]);
         }
+        if (stk != NULL) i64stack_delete(stk);
     }
 }
 
@@ -1250,6 +1257,7 @@ void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset
     size_t nv = vertex->size;
     size_t ncirc = inclusive ? nv + 1 : nv;
     vec3arr *vv = NULL, *normal = NULL;
+    double *rad = NULL;
 
     if (nv < 3) {
         snprintf(err, ERR_SIZE, "Polygon does not have enough vertices.");
@@ -1287,7 +1295,7 @@ void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset
         normal->data[i].y *= flip;
         normal->data[i].z *= flip;
     }
-    double *rad = (double *)calloc(ncirc, sizeof(double));
+    rad = (double *)calloc(ncirc, sizeof(double));
     if (rad == NULL) {
         snprintf(err, ERR_SIZE, "Could not allocate array memory.");
         *status = 0;
@@ -1302,8 +1310,9 @@ void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset
     query_multidisc(hpx, normal, rad, fact, pixset, status, err);
 
 cleanup:
-    vec3arr_delete(vv);
-    vec3arr_delete(normal);
+    if (vv != NULL) vec3arr_delete(vv);
+    if (normal != NULL) vec3arr_delete(normal);
+    if (rad != NULL) free(rad);
 }
 
 void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double semi_major,
@@ -1314,6 +1323,8 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
         *status = 0;
         return;
     }
+
+    i64stack *stk = NULL;
 
     bool inclusive = (fact != 0);
     // this does not alter the storage
@@ -1362,7 +1373,7 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
 
     if (semi_minor >= HPG_PI) {  // disk covers the whole sphere
         i64rangeset_append(pixset, 0, hpx->npix, status, err);
-        return;
+        goto cleanup;
     }
 
     int oplus = 0;
@@ -1384,13 +1395,13 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
         dpdr[o] = 2 * semi_major + 2 * dr[o];
     }
 
-    i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
-    if (!*status) return;
+    stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+    if (!*status) goto cleanup;
     for (int i = 0; i < 12; i++) {
         i64stack_push(stk, (int64_t)(11 - i), status, err);
-        if (!*status) return;
+        if (!*status) goto cleanup;
         i64stack_push(stk, 0, status, err);
-        if (!*status) return;
+        if (!*status) goto cleanup;
     }
 
     int stacktop = 0;  // a place to save a stack position
@@ -1398,7 +1409,7 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
         // pop current pixel number and order from the stack
         int64_t pix, temp;
         i64stack_pop_pair(stk, &pix, &temp, status, err);
-        if (!*status) return;
+        if (!*status) goto cleanup;
         int o = (int)temp;
 
         double pix_z, pix_phi;
@@ -1409,9 +1420,11 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
             int zone = (d >= 2 * semi_major) ? 1 : ((d > dmdr[o]) ? 2 : 3);
             check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive, &stacktop,
                              status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup;
         }
     }
+ cleanup:
+    if (stk != NULL) i64stack_delete(stk);
 }
 
 void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double ptg_phi0,
@@ -1423,13 +1436,15 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
         return;
     }
 
+    i64stack *stk = NULL;
+
     bool inclusive = (fact != 0);
     // this does not alter the storage
     pixset->stack->size = 0;
 
     // First check if we have an empty box
-    if (ptg_theta0 == ptg_theta1) return;
-    if (ptg_phi0 == ptg_phi1 && !full_lon) return;
+    if (ptg_theta0 == ptg_theta1) goto cleanup;
+    if (ptg_phi0 == ptg_phi1 && !full_lon) goto cleanup;
 
     if (inclusive && !full_lon) {
         // This ensures that pixels which wrap around the edge are included
@@ -1450,13 +1465,13 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
         dr[o] = max_pixrad(&base[o]);  // safety distance
     }
 
-    i64stack *stk = i64stack_new(2 * (12 + 3 * omax), status, err);
-    if (!*status) return;
+    stk = i64stack_new(2 * (12 + 3 * omax), status, err);
+    if (!*status) goto cleanup;
     for (int i = 0; i < 12; i++) {
         i64stack_push(stk, (int64_t)(11 - i), status, err);
-        if (!*status) return;
+        if (!*status) goto cleanup;
         i64stack_push(stk, 0, status, err);
-        if (!*status) return;
+        if (!*status) goto cleanup;
     }
 
     int stacktop = 0;  // a place to save a stack position
@@ -1464,7 +1479,7 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
         // pop current pixel number and order from the stack
         int64_t pix, temp;
         i64stack_pop_pair(stk, &pix, &temp, status, err);
-        if (!*status) return;
+        if (!*status) goto cleanup;
         int o = (int)temp;
 
         /* Short note on the "zone":
@@ -1530,9 +1545,11 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
         if (zone > 0) {
             check_pixel_nest(o, hpx->order, omax, zone, pixset, pix, stk, inclusive, &stacktop,
                              status, err);
-            if (!*status) return;
+            if (!*status) goto cleanup;
         }
     }
+ cleanup:
+    if (stk != NULL) i64stack_delete(stk);
 }
 
 void get_ring_info2(healpix_info *hpx, int64_t ring, int64_t *startpix, int64_t *ringpix,

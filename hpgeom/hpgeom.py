@@ -144,7 +144,16 @@ def query_circle_vec(nside, vec, radius, inclusive=False, fact=4, nest=True):
 
     theta, phi = vector_to_angle(vec, lonlat=False)
 
-    return query_circle(nside, theta, phi, radius, inclusive=inclusive, fact=fact, nest=nest, lonlat=False)
+    return query_circle(
+        nside,
+        theta[0],
+        phi[0],
+        radius,
+        inclusive=inclusive,
+        fact=fact,
+        nest=nest,
+        lonlat=False,
+    )
 
 
 def query_polygon_vec(nside, vertices, inclusive=False, fact=4, nest=True):
