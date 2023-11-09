@@ -1160,6 +1160,7 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
         if (cosrbig != NULL) dblarr_delete(cosrbig);
         if (ptg != NULL) pointingarr_delete(ptg);
         if (tr != NULL) i64rangeset_delete(tr);
+        if (cpix != NULL) i64stack_delete(cpix);
 
     } else {  // scheme == NEST
         dblarr *crlimit0[MAX_ORDER + 1];
