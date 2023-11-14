@@ -1767,7 +1767,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     }
 
     int ndims_pos = PyArray_NDIM((PyArrayObject *)a_arr);
-    size_t npix;
     if (ndims_pos == 0) {
         npy_intp dims[1];
         dims[0] = 4;
@@ -1775,7 +1774,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         if (pix_arr == NULL) goto fail;
         wgt_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
         if (wgt_arr == NULL) goto fail;
-        npix = 1;
     } else {
         npy_intp dims[2];
         dims[0] = PyArray_DIM((PyArrayObject *)a_arr, 0);
@@ -1784,7 +1782,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         if (pix_arr == NULL) goto fail;
         wgt_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
         if (wgt_arr == NULL) goto fail;
-        npix = (size_t)dims[0];
     }
     pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
     weights = (double *)PyArray_DATA((PyArrayObject *)wgt_arr);
@@ -1795,9 +1792,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     } else {
         scheme = RING;
     }
-
-    int64_t pixels_temp[4];
-    double weights_temp[4];
 
     int64_t *nside;
     double *a, *b;
@@ -1857,6 +1851,233 @@ fail:
     return NULL;
 }
 
+struct bitarray {
+    uint8_t *buffer;
+    size_t size;
+};
+
+struct HpgeomBitArray {
+    PyObject_HEAD
+
+    struct bitarray *bitarray;
+};
+
+struct bitarray *bitarray_new(int *status, char *err) {
+    *status = 1;
+    struct bitarray *bitarray = malloc(sizeof(struct bitarray));
+    if (bitarray == NULL) {
+        *status = 0;
+        snprintf(err, ERR_SIZE, "Could not allocate struct bitarray");
+        return NULL;
+    }
+    bitarray->buffer = NULL;
+    bitarray->size = 0;
+
+    return bitarray;
+}
+
+void bitarray_resize(struct bitarray *bitarray, size_t newsize, int *status, char *err)
+{
+    *status = 1;
+
+    // check divisible by 8 here, and also positive.
+
+    if (newsize < bitarray->size) {
+        // not implemented yet
+        return;
+    }
+
+    if (bitarray->size == 0) {
+        // New allocation
+        bitarray->buffer = calloc(newsize / 8, sizeof(uint8_t));
+        if (bitarray->buffer == NULL) {
+            *status = 0;
+            snprintf(err, ERR_SIZE, "Could not allocate buffer in bitarray");
+            return;
+        }
+    } else {
+        uint8_t *newbuffer = realloc(bitarray->buffer, newsize);
+        if (newbuffer == NULL) {
+            *status = 0;
+            snprintf(err, ERR_SIZE, "Failed to reallocate bitarray.");
+            return;
+        }
+
+        if (newsize > bitarray->size) {
+            // initialize memory
+            size_t num_new_bytes = (newsize - bitarray->size);
+            memset(&newbuffer[bitarray->size], 0, num_new_bytes);
+        }
+        bitarray->buffer = newbuffer;
+    }
+    bitarray->size = newsize;
+}
+
+struct bitarray *bitarray_delete(struct bitarray *bitarray) {
+    if (bitarray->buffer != NULL) {
+        free(bitarray->buffer);
+    }
+    free(bitarray);
+    return NULL;
+}
+
+static int
+HpgeomBitArray_init(struct HpgeomBitArray* self, PyObject *args, PyObject *kwargs)
+{
+    int64_t size;
+    // bool fill_value;
+    int status;
+    char err[ERR_SIZE];
+
+    self->bitarray = NULL;
+
+    if (!PyArg_ParseTuple(args, "L", &size))
+        goto fail;
+
+    if ((size % 8) != 0) {
+        snprintf(err, ERR_SIZE, "Buffer size must be a multiple of 8.");
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+    }
+
+    self->bitarray = bitarray_new(&status, err);
+    bitarray_resize(self->bitarray, (size_t) size, &status, err);
+
+    return 0;
+ fail:
+    return -1;
+}
+
+static PyObject *HpgeomBitArray_repr(struct HpgeomBitArray *self) {
+    char buff[2048];
+
+    snprintf(buff, sizeof(buff), "HpgeomBitArray(size=%lld)", (int64_t) self->bitarray->size);
+
+    return PyUnicode_FromString((const char*)buff);
+}
+
+static void
+HpgeomBitArray_dealloc(struct HpgeomBitArray *self)
+{
+    bitarray_delete(self->bitarray);
+
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject* HpgeomBitArray_set_with_indices(struct HpgeomBitArray *self, PyObject *args) {
+    PyObject *indices_obj = NULL, *values_obj = NULL;
+    PyObject *indices_arr = NULL, *values_arr = NULL;
+    NpyIter *iter = NULL;
+
+    if (!PyArg_ParseTuple(args, "OO", &indices_obj, &values_obj))
+        goto fail;
+
+    indices_arr = PyArray_FROM_OTF(indices_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (indices_arr == NULL) goto fail;
+    values_arr = PyArray_FROM_OTF(values_obj, NPY_BOOL, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (values_arr == NULL) goto fail;
+
+    PyObject *op[2];
+    npy_uint32 op_flags[2];
+    PyArray_Descr *op_dtypes[2];
+
+    op[0] = indices_arr;
+    op[1] = values_arr;
+    op_flags[0] = op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[0] = op_dtypes[1] = NULL;
+
+    iter = NpyIter_MultiNew(2, op, 0, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL)
+        goto fail;
+
+    NpyIter_IterNextFunc *iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL)
+        goto fail;
+    char **dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    int64_t *index;
+    bool *value;
+    do {
+        index = (int64_t *)dataptrarray[0];
+        value = (bool *)dataptrarray[1];
+
+        fprintf(stdout, "index = %lld, value = %d\n", *index, (int) *value);
+
+    } while (iternext(iter));
+
+    Py_DECREF(indices_arr);
+    Py_DECREF(values_arr);
+
+    Py_RETURN_NONE;
+ fail:
+    Py_XDECREF(indices_arr);
+    Py_XDECREF(values_arr);
+
+    return NULL;
+}
+
+/* Methods that we need:
+   - Resize method.
+   - Reshape method (!) (needs a shape parameters; c ordering?)
+   - Setting values by index, slice, or shape.
+   - Getting values by index, slice, or shape.
+   - Oh I need to define an outer type, that takes the slice and calls things internally!
+   - So this will have a set_with_indices(), set_with_slice(), set_with_mask()
+   - and getters.  Should it return a boolean array?  
+   - And a way of getting the mask, and the sum.
+ */
+
+static PyMethodDef HpgeomBitArray_methods[] = {
+    // This defines the methods like below.
+    // And says which c functions.
+    {"set_with_indices", (PyCFunction)(void (*)(void))HpgeomBitArray_set_with_indices,
+     METH_VARARGS, NULL},
+    {NULL, NULL, 0, NULL}
+};
+
+static PyTypeObject HpgeomBitArrayType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+
+    "_hpgeom.BitArray",                /* tp_name */
+    sizeof(struct HpgeomBitArray),     /* tp_basicsize */
+    0,                                 /* tp_itemsize */
+    (destructor)HpgeomBitArray_dealloc,/* tp_dealloc */
+    0,                                 /* tp_print */
+    0,                                 /* tp_getattr */
+    0,                                 /* tp_setattr */
+    0,                                 /* tp_compare */
+    (reprfunc)HpgeomBitArray_repr,     /* tp_repr */
+    0,                                 /* tp_as_number */
+    0,                                 /* tp_as_sequence */
+    0,                                 /* tp_as_mapping */
+    0,                                 /* tp_hash */
+    0,                                 /* tp_call */
+    0,                                 /* tp_str */
+    0,                                 /* tp_getattro */
+    0,                                 /* tp_setattro */
+    0,                                 /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    "Something\n",
+    0,                                 /* tp_traverse */
+    0,                                 /* tp_clear */
+    0,                                 /* tp_richcompare */
+    0,                                 /* tp_weaklistoffset */
+    0,                                 /* tp_iter */
+    0,                                 /* tp_iternext */
+    HpgeomBitArray_methods,            /* tp_methods */
+    0,                                 /* tp_members */
+    0,                                 /* tp_getset */
+    0,                                 /* tp_base */
+    0,                                 /* tp_dict */
+    0,                                 /* tp_descr_get */
+    0,                                 /* tp_descr_set */
+    0,                                 /* tp_dictoffset */
+    (initproc)HpgeomBitArray_init,     /* tp_init */
+    0,                                 /* tp_alloc */
+    PyType_GenericNew,                 /* tp_new */
+};
+
+
 static PyMethodDef hpgeom_methods[] = {
     {"angle_to_pixel", (PyCFunction)(void (*)(void))angle_to_pixel,
      METH_VARARGS | METH_KEYWORDS, angle_to_pixel_doc},
@@ -1892,6 +2113,23 @@ static struct PyModuleDef hpgeom_module = {PyModuleDef_HEAD_INIT, "_hpgeom", NUL
                                            hpgeom_methods};
 
 PyMODINIT_FUNC PyInit__hpgeom(void) {
+    PyObject* m;
+
     import_array();
-    return PyModule_Create(&hpgeom_module);
+
+    HpgeomBitArrayType.tp_new = PyType_GenericNew;
+
+    if (PyType_Ready(&HpgeomBitArrayType) < 0) {
+        return NULL;
+    }
+
+    m = PyModule_Create(&hpgeom_module);
+    if (m == NULL) {
+        return NULL;
+    }
+
+    Py_INCREF(&HpgeomBitArrayType);
+    PyModule_AddObject(m, "BitArray", (PyObject *)&HpgeomBitArrayType);
+
+    return m;
 }
