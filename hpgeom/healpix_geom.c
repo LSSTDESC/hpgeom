@@ -1350,7 +1350,13 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
 
     double cos_alpha = cos(alpha);
     double sin_alpha = sin(alpha);
-    double gamma = sqrt(semi_major * semi_major - semi_minor * semi_minor);
+    double gamma2 = semi_major * semi_major - semi_minor * semi_minor;
+    double gamma;
+    if (gamma2 < HPG_EPSILON) {
+        gamma = 0.0;
+    } else {
+        gamma = sqrt(gamma2);
+    }
     double sin_gamma = sin(gamma);
     double cos_gamma = cos(gamma);
     double cos_phi = cos(ptg_phi);
