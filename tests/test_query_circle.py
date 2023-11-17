@@ -169,6 +169,15 @@ def test_query_circle_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
 
+    # And try a tiny circle that has no pixels.
+    radius = 0.001
+    pixels = hpgeom.query_circle(nside, lon, lat, radius)
+    pixel_ranges = hpgeom.query_circle(nside, lon, lat, radius, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+    assert len(pixel_ranges) == 0
+
 
 def test_query_circle_badinputs():
     """Test query circle with bad inputs."""

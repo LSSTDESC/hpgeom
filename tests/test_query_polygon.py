@@ -222,6 +222,18 @@ def test_query_polygon_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
 
+    # And try a tiny polygon that has no pixels.
+    delta = 0.001
+    lon = np.array([lon_ref, lon_ref + delta, lon_ref + delta, lon_ref])
+    lat = np.array([lat_ref, lat_ref, lat_ref + delta, lat_ref + delta])
+
+    pixels = hpgeom.query_polygon(nside, lon, lat)
+    pixel_ranges = hpgeom.query_polygon(nside, lon, lat, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+    assert len(pixel_ranges) == 0
+
 
 def test_query_polygon_badinputs():
     """Test query_polygon with bad inputs."""

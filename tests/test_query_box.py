@@ -348,6 +348,16 @@ def test_query_box_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
 
+    # And test a tiny box that has no pixels.
+    radius = 0.001
+    box = [lon - radius, lon + radius, lat - radius, lat + radius]
+    pixels = hpgeom.query_box(nside, *box)
+    pixel_ranges = hpgeom.query_box(nside, *box, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+    assert len(pixel_ranges) == 0
+
 
 def test_query_box_badinputs():
     """Test query_box with bad inputs."""

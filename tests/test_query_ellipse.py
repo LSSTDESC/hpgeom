@@ -269,6 +269,16 @@ def test_query_ellipse_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
 
+    # And try a tiny ellipse that has no pixels.
+    major = 0.001
+    minor = 0.0005
+    pixels = hpgeom.query_ellipse(nside, lon, lat, major, minor, alpha)
+    pixel_ranges = hpgeom.query_ellipse(nside, lon, lat, major, minor, alpha, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+    assert len(pixel_ranges) == 0
+
 
 def test_query_ellipse_badinputs():
     """Test query ellipse with bad inputs."""
