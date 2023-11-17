@@ -1960,6 +1960,110 @@ fail:
     return NULL;
 }
 
+PyDoc_STRVAR(pixel_ranges_to_pixels_doc,
+             "pixel_ranges_to_pixels(pixel_ranges, inclusive=False)\n"
+             "--\n\n"
+             "Convert (M, 2) array of pixel ranges to an array of pixels.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "pixel_ranges : `np.ndarray` (M, 2)\n"
+             "    Array of pixel ranges, [lo, high) (if inclusive=False) or\n"
+             "    [lo, high] (if inclusive=True).\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "pixels : `np.ndarray` (N,)\n"
+             "    Array of pixels.\n");
+
+static PyObject *pixel_ranges_to_pixels(PyObject *dummy, PyObject *args, PyObject *kwargs) {
+    PyObject *pixel_ranges_obj = NULL;
+    PyObject *pixel_ranges_arr = NULL;
+    PyObject *pix_arr = NULL;
+    int inclusive = 0;
+    static char *kwlist[] = {"pixel_ranges", "inclusive", NULL};
+    NpyIter *iter = NULL;
+    NpyIter_IterNextFunc *iternext;
+    char** dataptr;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|p", kwlist, &pixel_ranges_obj, &inclusive))
+        goto fail;
+
+    pixel_ranges_arr = PyArray_FROM_OTF(pixel_ranges_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (pixel_ranges_arr == NULL) goto fail;
+
+    if ((PyArray_NDIM((PyArrayObject *)pixel_ranges_arr) != 2) || (PyArray_DIM((PyArrayObject *)pixel_ranges_arr, 1) != 2)) {
+        PyErr_SetString(PyExc_ValueError, "pixel_ranges must be 2D, with shape (M, 2).");
+        goto fail;
+    }
+
+    iter = NpyIter_New((PyArrayObject *)pixel_ranges_arr,
+                       NPY_ITER_READONLY | NPY_ITER_MULTI_INDEX,
+                       NPY_KEEPORDER,
+                       NPY_NO_CASTING,
+                       NULL);
+    if (iter == NULL) goto fail;
+    // We don't want to iterate over the second axis.
+    if (NpyIter_RemoveAxis(iter, 1) == NPY_FAIL)
+        goto fail;
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL)
+        goto fail;
+
+    dataptr = NpyIter_GetDataPtrArray(iter);
+
+    // We first loop over to count the number of pixels in the output,
+    // and check that the pixel_ranges are valid.
+    npy_intp dims[1];
+    dims[0] = 0;
+
+    do {
+        int64_t* data = (int64_t *) *dataptr;
+
+        if (*(data + 1) < *data) {
+            PyErr_SetString(PyExc_ValueError, "pixel_ranges[:, 0] must all be <= pixel_ranges[:, 1]");
+            goto fail;
+        }
+
+        dims[0] += (*(data + 1) - *data) + inclusive;
+    } while (iternext(iter));
+
+    // Create the output array
+    pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+    if (pix_arr == NULL) goto fail;
+
+    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+
+    // Reset the iterator and loop to expand pixels.
+    if (NpyIter_Reset(iter, NULL) == NPY_FAIL)
+        goto fail;
+
+    size_t counter = 0;
+
+    do {
+        int64_t* data = (int64_t *) *dataptr;
+
+        for (int64_t pix = *data; pix < (*(data + 1) + inclusive); pix++) {
+            pix_data[counter++] = pix;
+        }
+    } while (iternext(iter));
+
+    Py_DECREF(pixel_ranges_arr);
+    if (iter != NULL)
+        NpyIter_Deallocate(iter);
+
+    return PyArray_Return((PyArrayObject *)pix_arr);
+
+ fail:
+    Py_XDECREF(pixel_ranges_arr);
+    if (iter != NULL)
+        NpyIter_Deallocate(iter);
+    Py_XDECREF(pix_arr);
+
+    return NULL;
+}
+
 static PyMethodDef hpgeom_methods[] = {
     {"angle_to_pixel", (PyCFunction)(void (*)(void))angle_to_pixel,
      METH_VARARGS | METH_KEYWORDS, angle_to_pixel_doc},
@@ -1989,6 +2093,8 @@ static PyMethodDef hpgeom_methods[] = {
      METH_VARARGS | METH_KEYWORDS, max_pixel_radius_doc},
     {"get_interpolation_weights", (PyCFunction)(void (*)(void))get_interpolation_weights,
      METH_VARARGS | METH_KEYWORDS, get_interpolation_weights_doc},
+    {"pixel_ranges_to_pixels", (PyCFunction)(void (*)(void))pixel_ranges_to_pixels,
+     METH_VARARGS | METH_KEYWORDS, pixel_ranges_to_pixels_doc},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef hpgeom_module = {PyModuleDef_HEAD_INIT, "_hpgeom", NULL, -1,
