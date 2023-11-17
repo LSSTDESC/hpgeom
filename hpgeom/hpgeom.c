@@ -55,6 +55,12 @@
     "    a resolution fact*nside. For nest ordering, fact must be a power\n" \
     "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n" \
     "    fact may be any positive integer.\n"
+#define RETURN_PIXEL_RANGES_PAR                                                   \
+    "return_pixel_ranges : `bool`, optional\n"                                    \
+    "    Return an array of pixel ranges instead of a list of pixels.\n"          \
+    "    The ranges will be sorted, and each range is of the form [lo, high).\n"  \
+    "    This option is only compatible with nest ordering.\n"
+
 
 PyDoc_STRVAR(angle_to_pixel_doc,
              "angle_to_pixel(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
@@ -307,11 +313,15 @@ PyDoc_STRVAR(query_circle_doc,
              "    within the circle. If True, return all pixels that overlap with\n"
              "    the circle. This is an approximation and may return a few extra\n"
              "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
+             RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
              "pixels : `np.ndarray` (N,)\n"
              "    Array of pixels (`np.int64`) which cover the circle.\n"
+             "    (if return_pixel_ranges is False) or\n"
+             "pixel_ranges : `np.ndarray` (M, 2)\n"
+             "    Array of pixel ranges, [lo, high), which cover the circle.\n"
              "\n"
              "Raises\n"
              "------\n"
@@ -335,16 +345,23 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
     int nest = 1;
     int lonlat = 1;
     int degrees = 1;
+    int return_pixel_ranges = 0;
     static char *kwlist[] = {"nside", "a",    "b",      "radius",  "inclusive",
-                             "fact",  "nest", "lonlat", "degrees", NULL};
+                             "fact",  "nest", "lonlat", "degrees", "return_pixel_ranges", NULL};
 
     char err[ERR_SIZE];
     int status = 1;
     i64rangeset *pixset = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plppp", kwlist, &nside, &a, &b,
-                                     &radius, &inclusive, &fact, &nest, &lonlat, &degrees))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plpppp", kwlist, &nside, &a, &b,
+                                     &radius, &inclusive, &fact, &nest, &lonlat, &degrees,
+                                     &return_pixel_ranges))
         goto fail;
+
+    if (return_pixel_ranges & ~nest) {
+        PyErr_SetString(PyExc_RuntimeError, "Can only use return_pixel_ranges with nest ordering.");
+        goto fail;
+    }
 
     double theta, phi;
     if (lonlat) {
@@ -402,18 +419,33 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
         goto fail;
     }
 
-    size_t npix = i64rangeset_npix(pixset);
-    npy_intp dims[1];
-    dims[0] = (npy_intp)npix;
+    PyObject *return_arr;
 
-    PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+    if (return_pixel_ranges) {
+        npy_intp dims[2];
+        dims[0] = pixset->stack->size/2;
+        dims[1] = 2;
 
-    i64rangeset_fill_buffer(pixset, npix, pix_data);
+        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
+    } else {
+        size_t npix = i64rangeset_npix(pixset);
+        npy_intp dims[1];
+        dims[0] = (npy_intp)npix;
+
+        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        i64rangeset_fill_buffer(pixset, npix, pix_data);
+    }
 
     i64rangeset_delete(pixset);
 
-    return PyArray_Return((PyArrayObject *)pix_arr);
+    return PyArray_Return((PyArrayObject *)return_arr);
 
 fail:
     i64rangeset_delete(pixset);
@@ -438,11 +470,15 @@ PyDoc_STRVAR(query_polygon_doc,
              "    within the polygon. If True, return all pixels that overlap with\n"
              "    the polygon. This is an approximation and may return a few extra\n"
              "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
+             RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
              "pixels : `np.ndarray` (N,)\n"
              "    Array of pixels (`np.int64`) which cover the polygon.\n"
+             "    (if return_pixel_ranges is False) or\n"
+             "pixel_ranges : `np.ndarray` (M, 2)\n"
+             "    Array of pixel ranges, [lo, high), which cover the polygon.\n"
              "\n"
              "Raises\n"
              "------\n"
@@ -468,16 +504,23 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
     int nest = 1;
     int lonlat = 1;
     int degrees = 1;
+    int return_pixel_ranges = 0;
     static char *kwlist[] = {"nside", "a",      "b",       "inclusive", "fact",
-                             "nest",  "lonlat", "degrees", NULL};
+                             "nest",  "lonlat", "degrees", "return_pixel_ranges", NULL};
     char err[ERR_SIZE];
     int status = 1;
     i64rangeset *pixset = NULL;
     pointingarr *vertices = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LOO|plppp", kwlist, &nside, &a_obj, &b_obj,
-                                     &inclusive, &fact, &nest, &lonlat, &degrees))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LOO|plpppp", kwlist, &nside, &a_obj, &b_obj,
+                                     &inclusive, &fact, &nest, &lonlat, &degrees,
+                                     &return_pixel_ranges))
         goto fail;
+
+    if (return_pixel_ranges & ~nest) {
+        PyErr_SetString(PyExc_RuntimeError, "Can only use return_pixel_ranges with nest ordering.");
+        goto fail;
+    }
 
     a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (a_arr == NULL) goto fail;
@@ -573,22 +616,36 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
         goto fail;
     }
 
-    size_t npix = i64rangeset_npix(pixset);
-    npy_intp dims[1];
-    dims[0] = (npy_intp)npix;
+    PyObject *return_arr;
 
-    PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-    if (pix_arr == NULL) goto fail;
-    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+    if (return_pixel_ranges) {
+        npy_intp dims[2];
+        dims[0] = pixset->stack->size/2;
+        dims[1] = 2;
 
-    i64rangeset_fill_buffer(pixset, npix, pix_data);
+        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
+    } else {
+        size_t npix = i64rangeset_npix(pixset);
+        npy_intp dims[1];
+        dims[0] = (npy_intp)npix;
+
+        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        i64rangeset_fill_buffer(pixset, npix, pix_data);
+    }
 
     Py_DECREF(a_arr);
     Py_DECREF(b_arr);
     i64rangeset_delete(pixset);
     pointingarr_delete(vertices);
 
-    return PyArray_Return((PyArrayObject *)pix_arr);
+    return PyArray_Return((PyArrayObject *)return_arr);
 
 fail:
     Py_XDECREF(a_arr);
@@ -627,11 +684,15 @@ PyDoc_STRVAR(query_ellipse_doc,
              "    within the ellipse. If True, return all pixels that overlap with\n"
              "    the ellipse. This is an approximation and may return a few extra\n"
              "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
+             RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
              "pixels : `np.ndarray` (N,)\n"
              "    Array of pixels (`np.int64`) which cover the ellipse.\n"
+             "    (if return_pixel_ranges is False) or\n"
+             "pixel_ranges : `np.ndarray` (M, 2)\n"
+             "    Array of pixel ranges, [lo, high), which cover the ellipse.\n"
              "\n"
              "Raises\n"
              "------\n"
@@ -658,17 +719,24 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
     int nest = 1;
     int lonlat = 1;
     int degrees = 1;
+    int return_pixel_ranges = 0;
     static char *kwlist[] = {"nside",     "a",    "b",    "semi_major", "semi_minor", "alpha",
-                             "inclusive", "fact", "nest", "lonlat",     "degrees",    NULL};
+                             "inclusive", "fact", "nest", "lonlat",     "degrees",
+                             "return_pixel_ranges", NULL};
 
     char err[ERR_SIZE];
     int status = 1;
     i64rangeset *pixset = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddddd|plppp", kwlist, &nside, &a, &b,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddddd|plpppp", kwlist, &nside, &a, &b,
                                      &semi_major, &semi_minor, &alpha, &inclusive, &fact,
-                                     &nest, &lonlat, &degrees))
+                                     &nest, &lonlat, &degrees, &return_pixel_ranges))
         goto fail;
+
+    if (return_pixel_ranges & ~nest) {
+        PyErr_SetString(PyExc_RuntimeError, "Can only use return_pixel_ranges with nest ordering.");
+        goto fail;
+    }
 
     double theta, phi;
     if (lonlat) {
@@ -729,26 +797,41 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
         goto fail;
     }
 
-    size_t npix = i64rangeset_npix(pixset);
-    npy_intp dims[1];
-    dims[0] = (npy_intp)npix;
+    PyObject *return_arr;
 
-    PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+    if (return_pixel_ranges) {
+        npy_intp dims[2];
+        dims[0] = pixset->stack->size/2;
+        dims[1] = 2;
 
-    i64rangeset_fill_buffer(pixset, npix, pix_data);
+        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
+    } else {
+        size_t npix = i64rangeset_npix(pixset);
+        npy_intp dims[1];
+        dims[0] = (npy_intp)npix;
+
+        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        i64rangeset_fill_buffer(pixset, npix, pix_data);
+
+        if (!nest) {
+            // Convert from nest to ring
+            for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(&hpx, pix_data[i]);
+
+            // And sort the pixels, as is expected.
+            PyArray_Sort((PyArrayObject *)return_arr, 0, NPY_QUICKSORT);
+        }
+    }
 
     i64rangeset_delete(pixset);
 
-    if (!nest) {
-        // Convert from nest to ring
-        for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(&hpx, pix_data[i]);
-
-        // And sort the pixels, as is expected.
-        PyArray_Sort((PyArrayObject *)pix_arr, 0, NPY_QUICKSORT);
-    }
-
-    return PyArray_Return((PyArrayObject *)pix_arr);
+    return PyArray_Return((PyArrayObject *)return_arr);
 
 fail:
     i64rangeset_delete(pixset);
@@ -778,11 +861,15 @@ PyDoc_STRVAR(
     "    within the box. If True, return all pixels that overlap with\n"
     "    the box. This is an approximation and may return a few extra\n"
     "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
+    RETURN_PIXEL_RANGES_PAR
     "\n"
     "Returns\n"
     "-------\n"
     "pixels : `np.ndarray` (N,)\n"
     "    Array of pixels (`np.int64`) which cover the box.\n"
+    "    (if return_pixel_ranges is False) or\n"
+    "pixel_ranges : `np.ndarray` (M, 2)\n"
+    "    Array of pixel ranges, [lo, high), which cover the box.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -808,16 +895,23 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     int nest = 1;
     int lonlat = 1;
     int degrees = 1;
+    int return_pixel_ranges = 0;
     static char *kwlist[] = {"nside", "a0",   "a1",     "b0",      "b1", "inclusive",
-                             "fact",  "nest", "lonlat", "degrees", NULL};
+                             "fact",  "nest", "lonlat", "degrees", "return_pixel_ranges", NULL};
 
     char err[ERR_SIZE];
     int status = 1;
     i64rangeset *pixset = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Ldddd|plppp", kwlist, &nside, &a0, &a1,
-                                     &b0, &b1, &inclusive, &fact, &nest, &lonlat, &degrees))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Ldddd|plpppp", kwlist, &nside, &a0, &a1,
+                                     &b0, &b1, &inclusive, &fact, &nest, &lonlat, &degrees,
+                                     &return_pixel_ranges))
         goto fail;
+
+    if (return_pixel_ranges & ~nest) {
+        PyErr_SetString(PyExc_RuntimeError, "Can only use return_pixel_ranges with nest ordering.");
+        goto fail;
+    }
 
     double theta0, theta1, phi0, phi1;
     bool full_lon = false;
@@ -890,26 +984,41 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         goto fail;
     }
 
-    size_t npix = i64rangeset_npix(pixset);
-    npy_intp dims[1];
-    dims[0] = (npy_intp)npix;
+    PyObject *return_arr;
 
-    PyObject *pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-    int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+    if (return_pixel_ranges) {
+        npy_intp dims[2];
+        dims[0] = pixset->stack->size/2;
+        dims[1] = 2;
 
-    i64rangeset_fill_buffer(pixset, npix, pix_data);
+        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
+    } else {
+        size_t npix = i64rangeset_npix(pixset);
+        npy_intp dims[1];
+        dims[0] = (npy_intp)npix;
+
+        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        i64rangeset_fill_buffer(pixset, npix, pix_data);
+
+        if (!nest) {
+            // Convert from nest to ring
+            for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(&hpx, pix_data[i]);
+
+            // And sort the pixels, as is expected.
+            PyArray_Sort((PyArrayObject *)return_arr, 0, NPY_QUICKSORT);
+        }
+    }
 
     i64rangeset_delete(pixset);
 
-    if (!nest) {
-        // Convert from nest to ring
-        for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(&hpx, pix_data[i]);
-
-        // And sort the pixels, as is expected.
-        PyArray_Sort((PyArrayObject *)pix_arr, 0, NPY_QUICKSORT);
-    }
-
-    return PyArray_Return((PyArrayObject *)pix_arr);
+    return PyArray_Return((PyArrayObject *)return_arr);
 
 fail:
     i64rangeset_delete(pixset);
