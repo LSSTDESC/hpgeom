@@ -1767,7 +1767,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     }
 
     int ndims_pos = PyArray_NDIM((PyArrayObject *)a_arr);
-    size_t npix;
     if (ndims_pos == 0) {
         npy_intp dims[1];
         dims[0] = 4;
@@ -1775,7 +1774,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         if (pix_arr == NULL) goto fail;
         wgt_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
         if (wgt_arr == NULL) goto fail;
-        npix = 1;
     } else {
         npy_intp dims[2];
         dims[0] = PyArray_DIM((PyArrayObject *)a_arr, 0);
@@ -1784,7 +1782,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         if (pix_arr == NULL) goto fail;
         wgt_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
         if (wgt_arr == NULL) goto fail;
-        npix = (size_t)dims[0];
     }
     pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
     weights = (double *)PyArray_DATA((PyArrayObject *)wgt_arr);
@@ -1795,9 +1792,6 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     } else {
         scheme = RING;
     }
-
-    int64_t pixels_temp[4];
-    double weights_temp[4];
 
     int64_t *nside;
     double *a, *b;
