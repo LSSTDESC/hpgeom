@@ -330,6 +330,35 @@ def test_query_box_ring():
     np.testing.assert_array_equal(pixels_ring, pixels_nest_to_ring)
 
 
+def test_query_box_return_pixel_ranges():
+    """Test query_box with return_pixel_ranges."""
+    nside = 1024
+    lon = 90.0
+    lat = 45.0
+    radius = 1.0
+
+    box = [lon - radius, lon + radius, lat - radius, lat + radius]
+
+    pixels = hpgeom.query_box(nside, *box)
+
+    pixel_ranges = hpgeom.query_box(nside, *box, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    assert pixel_ranges.size < pixels.size
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+
+    # And test a tiny box that has no pixels.
+    radius = 0.001
+    box = [lon - radius, lon + radius, lat - radius, lat + radius]
+    pixels = hpgeom.query_box(nside, *box)
+    pixel_ranges = hpgeom.query_box(nside, *box, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+    assert len(pixel_ranges) == 0
+
+
 def test_query_box_badinputs():
     """Test query_box with bad inputs."""
     with pytest.raises(ValueError, match=r"lat .* out of range"):
@@ -364,6 +393,9 @@ def test_query_box_badinputs():
 
     with pytest.raises(ValueError, match=r"Inclusive factor .* must be power of 2 for nest"):
         hpgeom.query_box(2048, 0.0, 1.0, 0.0, 1.0, inclusive=True, fact=3)
+
+    with pytest.raises(RuntimeError, match=r"Can only use return_pixel_ranges with nest"):
+        hpgeom.query_box(2048, 0.0, 1.0, 0.0, 1.0, nest=False, return_pixel_ranges=True)
 
     # Different platforms have different strings here, but they all say ``integer``.
     with pytest.raises(TypeError, match=r"integer"):

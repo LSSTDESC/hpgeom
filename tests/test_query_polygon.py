@@ -204,6 +204,37 @@ def test_query_polygon_vec():
     np.testing.assert_array_equal(pixels_lonlat, pixels_vec)
 
 
+def test_query_polygon_return_pixel_ranges():
+    """Test query_polygon with return_pixel_ranges."""
+    nside = 1024
+    delta = 1.0
+    lon_ref = 180.0
+    lat_ref = 0.0
+    lon = np.array([lon_ref, lon_ref + delta, lon_ref + delta, lon_ref])
+    lat = np.array([lat_ref, lat_ref, lat_ref + delta, lat_ref + delta])
+
+    pixels = hpgeom.query_polygon(nside, lon, lat)
+
+    pixel_ranges = hpgeom.query_polygon(nside, lon, lat, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    assert pixel_ranges.size < pixels.size
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+
+    # And try a tiny polygon that has no pixels.
+    delta = 0.001
+    lon = np.array([lon_ref, lon_ref + delta, lon_ref + delta, lon_ref])
+    lat = np.array([lat_ref, lat_ref, lat_ref + delta, lat_ref + delta])
+
+    pixels = hpgeom.query_polygon(nside, lon, lat)
+    pixel_ranges = hpgeom.query_polygon(nside, lon, lat, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+    assert len(pixel_ranges) == 0
+
+
 def test_query_polygon_badinputs():
     """Test query_polygon with bad inputs."""
     nside = 1024
@@ -241,3 +272,11 @@ def test_query_polygon_badinputs():
 
     with pytest.raises(ValueError, match=r"Inclusive factor .* must be power of 2 for nest"):
         hpgeom.query_polygon(nside, lon, lat, inclusive=True, fact=3)
+
+    # Different platforms have different strings here, but they all say ``integer``.
+    with pytest.raises(TypeError, match=r"integer"):
+        # Illegal fact (must be integer)
+        hpgeom.query_polygon(nside, lon, lat, inclusive=True, nest=False, fact=3.5)
+
+    with pytest.raises(RuntimeError, match=r"Can only use return_pixel_ranges with nest"):
+        hpgeom.query_polygon(nside, lon, lat, nest=False, return_pixel_ranges=True)
