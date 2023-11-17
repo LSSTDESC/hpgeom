@@ -1325,6 +1325,13 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
         return;
     }
 
+    if ((semi_major <= 0) || (semi_minor <= 0) || (semi_major < semi_minor)) {
+        snprintf(err, ERR_SIZE, "query_ellipse must have semi_major and semi_minor positive "
+                 "and semi_major >= semi_minor.");
+        *status = 0;
+        return;
+    }
+
     i64stack *stk = NULL;
 
     bool inclusive = (fact != 0);
@@ -1351,14 +1358,19 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
     double cos_alpha = cos(alpha);
     double sin_alpha = sin(alpha);
     double gamma2 = semi_major * semi_major - semi_minor * semi_minor;
-    double gamma;
+    double gamma, sin_gamma, cos_gamma;
+    // On some systems subtracting off two very small numbers can
+    // have floating point errors leading to gamma**2 values that are
+    // ever so slightly negative, leading to errors in sqrt.
     if (gamma2 < HPG_EPSILON) {
         gamma = 0.0;
+        sin_gamma = 0.0;
+        cos_gamma = 1.0;
     } else {
         gamma = sqrt(gamma2);
+        sin_gamma = sin(gamma);
+        cos_gamma = cos(gamma);
     }
-    double sin_gamma = sin(gamma);
-    double cos_gamma = cos(gamma);
     double cos_phi = cos(ptg_phi);
     double cos_theta = cos(ptg_theta);
     double sin_phi = sin(ptg_phi);
