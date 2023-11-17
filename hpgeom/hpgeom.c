@@ -294,6 +294,51 @@ fail:
     return NULL;
 }
 
+static PyObject *create_query_return_arr(struct i64rangeset *pixset, int return_pixel_ranges,
+                                         int convert, healpix_info *hpx)
+{
+    // Convenience routine to share code between query returns.
+
+    PyObject *return_arr;
+
+    if (return_pixel_ranges) {
+        npy_intp dims[2];
+        dims[0] = pixset->stack->size/2;
+        dims[1] = 2;
+
+        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
+    } else {
+        size_t npix = i64rangeset_npix(pixset);
+        npy_intp dims[1];
+        dims[0] = (npy_intp)npix;
+
+        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+        if (return_arr == NULL) goto fail;
+        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
+
+        i64rangeset_fill_buffer(pixset, npix, pix_data);
+
+        if (convert) {
+            // Convert from nest to ring
+            for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(hpx, pix_data[i]);
+
+            // And sort the pixels, as is expected.
+            PyArray_Sort((PyArrayObject *)return_arr, 0, NPY_QUICKSORT);
+        }
+    }
+
+    return return_arr;
+
+ fail:
+    Py_XDECREF(return_arr);
+
+    return NULL;
+}
+
 PyDoc_STRVAR(query_circle_doc,
              "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
              "lonlat=True, degrees=True)\n"
@@ -419,29 +464,7 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
         goto fail;
     }
 
-    PyObject *return_arr;
-
-    if (return_pixel_ranges) {
-        npy_intp dims[2];
-        dims[0] = pixset->stack->size/2;
-        dims[1] = 2;
-
-        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
-        if (return_arr == NULL) goto fail;
-        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
-
-        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
-    } else {
-        size_t npix = i64rangeset_npix(pixset);
-        npy_intp dims[1];
-        dims[0] = (npy_intp)npix;
-
-        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-        if (return_arr == NULL) goto fail;
-        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
-
-        i64rangeset_fill_buffer(pixset, npix, pix_data);
-    }
+    PyObject *return_arr = create_query_return_arr(pixset, return_pixel_ranges, 0, &hpx);
 
     i64rangeset_delete(pixset);
 
@@ -616,29 +639,7 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
         goto fail;
     }
 
-    PyObject *return_arr;
-
-    if (return_pixel_ranges) {
-        npy_intp dims[2];
-        dims[0] = pixset->stack->size/2;
-        dims[1] = 2;
-
-        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
-        if (return_arr == NULL) goto fail;
-        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
-
-        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
-    } else {
-        size_t npix = i64rangeset_npix(pixset);
-        npy_intp dims[1];
-        dims[0] = (npy_intp)npix;
-
-        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-        if (return_arr == NULL) goto fail;
-        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
-
-        i64rangeset_fill_buffer(pixset, npix, pix_data);
-    }
+    PyObject *return_arr = create_query_return_arr(pixset, return_pixel_ranges, 0, &hpx);
 
     Py_DECREF(a_arr);
     Py_DECREF(b_arr);
@@ -797,37 +798,7 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
         goto fail;
     }
 
-    PyObject *return_arr;
-
-    if (return_pixel_ranges) {
-        npy_intp dims[2];
-        dims[0] = pixset->stack->size/2;
-        dims[1] = 2;
-
-        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
-        if (return_arr == NULL) goto fail;
-        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
-
-        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
-    } else {
-        size_t npix = i64rangeset_npix(pixset);
-        npy_intp dims[1];
-        dims[0] = (npy_intp)npix;
-
-        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-        if (return_arr == NULL) goto fail;
-        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
-
-        i64rangeset_fill_buffer(pixset, npix, pix_data);
-
-        if (!nest) {
-            // Convert from nest to ring
-            for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(&hpx, pix_data[i]);
-
-            // And sort the pixels, as is expected.
-            PyArray_Sort((PyArrayObject *)return_arr, 0, NPY_QUICKSORT);
-        }
-    }
+    PyObject *return_arr = create_query_return_arr(pixset, return_pixel_ranges, !nest, &hpx);
 
     i64rangeset_delete(pixset);
 
@@ -984,37 +955,7 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         goto fail;
     }
 
-    PyObject *return_arr;
-
-    if (return_pixel_ranges) {
-        npy_intp dims[2];
-        dims[0] = pixset->stack->size/2;
-        dims[1] = 2;
-
-        return_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
-        if (return_arr == NULL) goto fail;
-        int64_t *range_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
-
-        memcpy(range_data, pixset->stack->data, pixset->stack->size * sizeof(int64_t));
-    } else {
-        size_t npix = i64rangeset_npix(pixset);
-        npy_intp dims[1];
-        dims[0] = (npy_intp)npix;
-
-        return_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
-        if (return_arr == NULL) goto fail;
-        int64_t *pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)return_arr);
-
-        i64rangeset_fill_buffer(pixset, npix, pix_data);
-
-        if (!nest) {
-            // Convert from nest to ring
-            for (size_t i = 0; i < npix; i++) pix_data[i] = nest2ring(&hpx, pix_data[i]);
-
-            // And sort the pixels, as is expected.
-            PyArray_Sort((PyArrayObject *)return_arr, 0, NPY_QUICKSORT);
-        }
-    }
+    PyObject *return_arr = create_query_return_arr(pixset, return_pixel_ranges, !nest, &hpx);
 
     i64rangeset_delete(pixset);
 
