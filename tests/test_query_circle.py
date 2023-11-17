@@ -153,6 +153,23 @@ def test_query_circle_vec():
     np.testing.assert_array_equal(pixels_qcv, pixels_qc)
 
 
+def test_query_circle_return_pixel_ranges():
+    """Test query_circle with return_pixel_ranges."""
+    lon = 10.0
+    lat = 20.0
+    radius = 0.5
+    nside = 4096
+
+    pixels = hpgeom.query_circle(nside, lon, lat, radius)
+
+    pixel_ranges = hpgeom.query_circle(nside, lon, lat, radius, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    assert pixel_ranges.size < pixels.size
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+
+
 def test_query_circle_badinputs():
     """Test query circle with bad inputs."""
     with pytest.raises(ValueError, match=r"lat .* out of range"):
@@ -194,6 +211,9 @@ def test_query_circle_badinputs():
     with pytest.raises(ValueError, match=r"Inclusive factor .* must be power of 2 for nest"):
         # Illegal fact (must be power of 2 for nest)
         hpgeom.query_circle(2048, 0.0, 0.0, 1.0, inclusive=True, fact=3)
+
+    with pytest.raises(RuntimeError, match=r"Can only use return_pixel_ranges with nest"):
+        hpgeom.query_circle(2048, 0.0, 0.0, 1.0, nest=False, return_pixel_ranges=True)
 
     # Different platforms have different strings here, but they all say ``integer``.
     with pytest.raises(TypeError, match=r"integer"):

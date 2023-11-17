@@ -251,6 +251,25 @@ def test_query_ellipse_fact(fact):
     assert sub1.size >= int(0.9*pixels_circle_ellipse.size)
 
 
+def test_query_ellipse_return_pixel_ranges():
+    """Test query_ellipse with return_pixel_ranges."""
+    nside = 1024
+    lon = 90.0
+    lat = 20.0
+    major = 2.0
+    minor = 1.0
+    alpha = 75.0
+
+    pixels = hpgeom.query_ellipse(nside, lon, lat, major, minor, alpha)
+
+    pixel_ranges = hpgeom.query_ellipse(nside, lon, lat, major, minor, alpha, return_pixel_ranges=True)
+    pixels_from_ranges = hpgeom.pixel_ranges_to_pixels(pixel_ranges)
+
+    assert pixel_ranges.size < pixels.size
+
+    np.testing.assert_array_equal(pixels, pixels_from_ranges)
+
+
 def test_query_ellipse_badinputs():
     """Test query ellipse with bad inputs."""
     with pytest.raises(ValueError, match=r"lat .* out of range"):
@@ -300,6 +319,9 @@ def test_query_ellipse_badinputs():
     with pytest.raises(ValueError, match=r"Inclusive factor .* must be power of 2 for nest"):
         # Illegal fact (must be power of 2 for nest)
         hpgeom.query_ellipse(2048, 0.0, 0.0, 1.0, 0.5, 0.0, inclusive=True, fact=3)
+
+    with pytest.raises(RuntimeError, match=r"Can only use return_pixel_ranges with nest"):
+        hpgeom.query_ellipse(2048, 0.0, 0.0, 1.0, 0.5, 0.0, nest=False, return_pixel_ranges=True)
 
     # Different platforms have different strings here, but they all say ``integer``.
     with pytest.raises(TypeError, match=r"integer"):
