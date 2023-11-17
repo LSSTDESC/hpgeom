@@ -1997,6 +1997,16 @@ static PyObject *pixel_ranges_to_pixels(PyObject *dummy, PyObject *args, PyObjec
         goto fail;
     }
 
+    if (PyArray_SIZE((PyArrayObject *)pixel_ranges_arr) == 0) {
+        npy_intp dims[1];
+        dims[0] = 0;
+
+        pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
+        if (pix_arr == NULL) goto fail;
+
+        goto succeed;
+    }
+
     iter = NpyIter_New((PyArrayObject *)pixel_ranges_arr,
                        NPY_ITER_READONLY | NPY_ITER_MULTI_INDEX,
                        NPY_KEEPORDER,
@@ -2048,6 +2058,8 @@ static PyObject *pixel_ranges_to_pixels(PyObject *dummy, PyObject *args, PyObjec
             pix_data[counter++] = pix;
         }
     } while (iternext(iter));
+
+ succeed:
 
     Py_DECREF(pixel_ranges_arr);
     if (iter != NULL)
