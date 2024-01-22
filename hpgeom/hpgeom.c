@@ -1476,7 +1476,9 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     PyObject *nside_obj = NULL, *x_obj = NULL, *y_obj = NULL, *z_obj = NULL;
     PyObject *nside_arr = NULL, *x_arr = NULL, *y_arr = NULL, *z_arr = NULL;
     PyObject *pix_arr = NULL;
-    PyArrayMultiIterObject *itr = NULL;
+
+    NpyIter *iter = NULL;
+
     int nest = 1;
     static char *kwlist[] = {"nside", "x", "y", "z", "nest", NULL};
 
@@ -1498,16 +1500,40 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     z_arr = PyArray_FROM_OTF(z_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (z_arr == NULL) goto fail;
 
-    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(4, nside_arr, x_arr, y_arr, z_arr);
-    if (itr == NULL) {
+    // The input arrays are nside_arr (int64_t), x_arr (double), y_arr (double),
+    // z_arr (double).
+    // The output array is pix_arr (int64_t).
+    PyArrayObject *op[5];
+    npy_uint32 op_flags[5];
+    PyArray_Descr *op_dtypes[5];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+
+    op[0] = (PyArrayObject *)nside_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = (PyArrayObject *)x_arr;
+    op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[1] = NULL;
+    op[2] = (PyArrayObject *)y_arr;
+    op_flags[2] = NPY_ITER_READONLY;
+    op_dtypes[2] = NULL;
+    op[3] = (PyArrayObject *)z_arr;
+    op_flags[3] = NPY_ITER_READONLY;
+    op_dtypes[3] = NULL;
+    op[4] = (PyArrayObject *)pix_arr;
+    op_flags[4] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
+    op_dtypes[4] = PyArray_DescrFromType(NPY_INT64);
+
+    iter = NpyIter_MultiNew(5, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, x, y, z arrays could not be broadcast together.");
         goto fail;
     }
 
-    pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
-    if (pix_arr == NULL) goto fail;
-    pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
 
     enum Scheme scheme;
     if (nest) {
@@ -1518,14 +1544,16 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
 
     int64_t *nside;
     double *x, *y, *z;
+    int64_t *outpix;
     int64_t last_nside = -1;
     bool started = false;
     vec3 vec;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        x = (double *)PyArray_MultiIter_DATA(itr, 1);
-        y = (double *)PyArray_MultiIter_DATA(itr, 2);
-        z = (double *)PyArray_MultiIter_DATA(itr, 3);
+    do {
+        nside = (int64_t *)dataptrarray[0];
+        x = (double *)dataptrarray[1];
+        y = (double *)dataptrarray[2];
+        z = (double *)dataptrarray[3];
+        outpix = (int64_t *)dataptrarray[4];
 
         if ((!started) || (*nside != last_nside)) {
             if (!hpgeom_check_nside(*nside, scheme, err)) {
@@ -1538,15 +1566,20 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
         vec.x = *x;
         vec.y = *y;
         vec.z = *z;
-        pixels[itr->index] = vec2pix(&hpx, &vec);
-        PyArray_MultiIter_NEXT(itr);
-    }
+        *outpix = vec2pix(&hpx, &vec);
+    } while(iternext(iter));
+
+    pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[4];
+    Py_INCREF(pix_arr);
 
     Py_DECREF(nside_arr);
     Py_DECREF(x_arr);
     Py_DECREF(y_arr);
     Py_DECREF(z_arr);
-    Py_DECREF(itr);
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
+        iter = NULL;
+        goto fail;
+    }
 
     return PyArray_Return((PyArrayObject *)pix_arr);
 
@@ -1556,7 +1589,9 @@ fail:
     Py_XDECREF(y_arr);
     Py_XDECREF(z_arr);
     Py_XDECREF(pix_arr);
-    Py_XDECREF(itr);
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
+    }
 
     return NULL;
 }
