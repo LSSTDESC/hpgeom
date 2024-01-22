@@ -84,13 +84,14 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
     PyObject *nside_arr = NULL, *a_arr = NULL, *b_arr = NULL;
     PyObject *pix_arr = NULL;
-    PyArrayMultiIterObject *itr = NULL;
+
+    NpyIter *iter = NULL;
+
     int lonlat = 1;
     int nest = 1;
     int degrees = 1;
     static char *kwlist[] = {"nside", "a", "b", "lonlat", "nest", "degrees", NULL};
 
-    int64_t *pixels = NULL;
     double theta, phi;
     healpix_info hpx;
     char err[ERR_SIZE];
@@ -107,16 +108,36 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (b_arr == NULL) goto fail;
 
-    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(3, nside_arr, a_arr, b_arr);
-    if (itr == NULL) {
+    // The input arrays are nside_arr (int64_t), a_arr (double), b_arr (double).
+    // The output array is pix_arr (int64_t).
+    PyArrayObject *op[4];
+    npy_uint32 op_flags[4];
+    PyArray_Descr *op_dtypes[4];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+
+    op[0] = (PyArrayObject *)nside_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = (PyArrayObject *)a_arr;
+    op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[1] = NULL;
+    op[2] = (PyArrayObject *)b_arr;
+    op_flags[2] = NPY_ITER_READONLY;
+    op_dtypes[2] = NULL;
+    op[3] = NULL;
+    op_flags[3] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
+    op_dtypes[3] = PyArray_DescrFromType(NPY_INT64);
+
+    iter = NpyIter_MultiNew(4, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, a, b arrays could not be broadcast together.");
         goto fail;
     }
 
-    pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
-    if (pix_arr == NULL) goto fail;
-    pixels = (int64_t *)PyArray_DATA((PyArrayObject *)pix_arr);
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
 
     enum Scheme scheme;
     if (nest) {
@@ -127,12 +148,14 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     int64_t *nside;
     double *a, *b;
+    int64_t *outpix;
     int64_t last_nside = -1;
     bool started = false;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        a = (double *)PyArray_MultiIter_DATA(itr, 1);
-        b = (double *)PyArray_MultiIter_DATA(itr, 2);
+    do {
+        nside = (int64_t *)dataptrarray[0];
+        a = (double *)dataptrarray[1];
+        b = (double *)dataptrarray[2];
+        outpix = (int64_t *)dataptrarray[3];
 
         if ((!started) || (*nside != last_nside)) {
             if (!hpgeom_check_nside(*nside, scheme, err)) {
@@ -155,14 +178,19 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
             theta = *a;
             phi = *b;
         }
-        pixels[itr->index] = ang2pix(&hpx, theta, phi);
-        PyArray_MultiIter_NEXT(itr);
-    }
+        *outpix = ang2pix(&hpx, theta, phi);
+    } while(iternext(iter));
+
+    pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[3];
+    Py_INCREF(pix_arr);
 
     Py_DECREF(nside_arr);
     Py_DECREF(a_arr);
     Py_DECREF(b_arr);
-    Py_DECREF(itr);
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
+        iter = NULL;
+        goto fail;
+    }
 
     return PyArray_Return((PyArrayObject *)pix_arr);
 
@@ -171,7 +199,9 @@ fail:
     Py_XDECREF(a_arr);
     Py_XDECREF(b_arr);
     Py_XDECREF(pix_arr);
-    Py_XDECREF(itr);
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
+    }
 
     return NULL;
 }
