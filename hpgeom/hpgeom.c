@@ -1050,10 +1050,11 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
     PyObject *nside_obj = NULL, *nest_pix_obj = NULL;
     PyObject *nside_arr = NULL, *nest_pix_arr = NULL;
     PyObject *ring_pix_arr = NULL;
-    PyArrayMultiIterObject *itr = NULL;
+
+    NpyIter *iter = NULL;
+
     static char *kwlist[] = {"nside", "pix", NULL};
 
-    int64_t *ring_pix_data = NULL;
     healpix_info hpx;
     char err[ERR_SIZE];
 
@@ -1067,24 +1068,43 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
         PyArray_FROM_OTF(nest_pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (nest_pix_arr == NULL) goto fail;
 
-    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, nest_pix_arr);
-    if (itr == NULL) {
+    // The input arrays are nside_arr (int64_t) and nest_pix_arr (int64_t).
+    // The output array is ring_pix_arr (int64_t).
+    PyArrayObject *op[3];
+    npy_uint32 op_flags[3];
+    PyArray_Descr *op_dtypes[3];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+
+    op[0] = (PyArrayObject *)nside_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = (PyArrayObject *)nest_pix_arr;
+    op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[1] = NULL;
+    op[2] = (PyArrayObject *)ring_pix_arr;
+    op_flags[2] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
+    op_dtypes[2] = PyArray_DescrFromType(NPY_INT64);
+
+    iter = NpyIter_MultiNew(3, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
         goto fail;
     }
 
-    ring_pix_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_INT64);
-    if (ring_pix_arr == NULL) goto fail;
-    ring_pix_data = (int64_t *)PyArray_DATA((PyArrayObject *)ring_pix_arr);
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
 
     int64_t *nside;
     int64_t *nest_pix;
+    int64_t *ring_pix;
     int64_t last_nside = -1;
     bool started = false;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        nest_pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+    do {
+        nside = (int64_t *)dataptrarray[0];
+        nest_pix = (int64_t *)dataptrarray[1];
+        ring_pix = (int64_t *)dataptrarray[2];
 
         if ((!started) || (*nside != last_nside)) {
             if (!hpgeom_check_nside(*nside, NEST, err)) {
@@ -1098,13 +1118,18 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
             PyErr_SetString(PyExc_ValueError, err);
             goto fail;
         }
-        ring_pix_data[itr->index] = nest2ring(&hpx, *nest_pix);
-        PyArray_MultiIter_NEXT(itr);
-    }
+        *ring_pix = nest2ring(&hpx, *nest_pix);
+    } while(iternext(iter));
+
+    ring_pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
+    Py_INCREF(ring_pix_arr);
 
     Py_DECREF(nside_arr);
     Py_DECREF(nest_pix_arr);
-    Py_DECREF(itr);
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
+        iter = NULL;
+        goto fail;
+    }
 
     return PyArray_Return((PyArrayObject *)ring_pix_arr);
 
@@ -1112,7 +1137,9 @@ fail:
     Py_XDECREF(nside_arr);
     Py_XDECREF(nest_pix_arr);
     Py_XDECREF(ring_pix_arr);
-    Py_XDECREF(itr);
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
+    }
 
     return NULL;
 }
