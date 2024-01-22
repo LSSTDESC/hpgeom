@@ -59,6 +59,18 @@ def test_pixel_ranges_empty():
     assert len(pixels) == 0
 
 
+def test_pixel_ranges_scalar():
+    """Test pixel ranges, scalar."""
+    range1 = np.zeros((1, 2), dtype=np.int64)
+    range1[0, 0] = 100
+    range1[0, 1] = 101
+
+    pixels = hpg.pixel_ranges_to_pixels(range1)
+
+    assert pixels == 100
+    assert len(pixels) == 1
+
+
 def test_pixel_ranges_bad():
     """Test pixel_ranges_to_pixels, bad inputs."""
     with pytest.raises(ValueError, match=r"pixel_ranges must be 2D"):

@@ -90,6 +90,7 @@ def test_angle_to_pixel_scalar(nside):
     pix_scalar1 = hpgeom.angle_to_pixel(nside, lon[0], lat[0], nest=True, lonlat=True, degrees=True)
 
     assert pix_scalar1 == pix_arr[0]
+    assert not isinstance(pix_scalar1, np.ndarray)
 
     pix_scalar2 = hpgeom.angle_to_pixel(
         nside,
@@ -100,6 +101,7 @@ def test_angle_to_pixel_scalar(nside):
         degrees=True
     )
 
+    assert not isinstance(pix_scalar2, np.ndarray)
     assert pix_scalar2 == pix_arr[0]
 
 
