@@ -1291,7 +1291,9 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
     PyObject *nside_obj = NULL, *pix_obj = NULL;
     PyObject *nside_arr = NULL, *pix_arr = NULL;
     PyObject *a_arr = NULL, *b_arr = NULL;
-    PyArrayMultiIterObject *itr = NULL;
+
+    NpyIter *iter = NULL;
+
     int lonlat = 1;
     int nest = 1;
     int degrees = 1;
@@ -1324,12 +1326,30 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         goto fail;
     }
 
-    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
-    if (itr == NULL) {
+    // The input arrays are nside_arr (int64_t) and pix_arr (int64_t).
+    // We are allocating our own output arrays.
+    PyArrayObject *op[2];
+    npy_uint32 op_flags[2];
+    PyArray_Descr *op_dtypes[2];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+
+    op[0] = (PyArrayObject *)nside_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = (PyArrayObject *)pix_arr;
+    op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[1] = NULL;
+
+    iter = NpyIter_MultiNew(2, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
         goto fail;
     }
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
 
     int ndims_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
     if (ndims_pix == 0) {
@@ -1368,9 +1388,9 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
     int64_t *pix;
     int64_t last_nside = -1;
     bool started = false;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+    do {
+        nside = (int64_t *)dataptrarray[0];
+        pix = (int64_t *)dataptrarray[1];
 
         if ((!started) || (*nside != last_nside)) {
             if (!hpgeom_check_nside(*nside, scheme, err)) {
@@ -1394,7 +1414,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
 
         size_t index;
         for (size_t i = 0; i < ptg_arr->size; i++) {
-            index = ptg_arr->size * itr->index + i;
+            index = ptg_arr->size * NpyIter_GetIterIndex(iter) + i;
             if (lonlat) {
                 // We can skip error checking since theta/phi will always be
                 // within range on output.
@@ -1406,13 +1426,15 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
             }
         }
 
-        PyArray_MultiIter_NEXT(itr);
-    }
+    } while(iternext(iter));
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
-    Py_DECREF(itr);
     pointingarr_delete(ptg_arr);
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
+        iter = NULL;
+        goto fail;
+    }
 
     PyObject *retval = PyTuple_New(2);
     PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)a_arr));
@@ -1425,8 +1447,10 @@ fail:
     Py_XDECREF(pix_arr);
     Py_XDECREF(a_arr);
     Py_XDECREF(b_arr);
-    Py_XDECREF(itr);
     pointingarr_delete(ptg_arr);
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
+    }
 
     return NULL;
 }
