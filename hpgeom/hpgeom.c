@@ -228,13 +228,14 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
     PyObject *nside_obj = NULL, *pix_obj = NULL;
     PyObject *nside_arr = NULL, *pix_arr = NULL;
     PyObject *a_arr = NULL, *b_arr = NULL;
-    PyArrayMultiIterObject *itr = NULL;
+
+    NpyIter *iter = NULL;
+
     int lonlat = 1;
     int nest = 1;
     int degrees = 1;
     static char *kwlist[] = {"nside", "pix", "lonlat", "nest", "degrees", NULL};
 
-    double *as = NULL, *bs = NULL;
     double theta, phi;
     healpix_info hpx;
     char err[ERR_SIZE];
@@ -249,20 +250,36 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
     pix_arr = PyArray_FROM_OTF(pix_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (pix_arr == NULL) goto fail;
 
-    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
-    if (itr == NULL) {
+    // The input arrays are nside_arr (int64_t), pix_arr (int64_t).
+    // The output arrays are a_arr (double), b_arr (double).
+    PyArrayObject *op[4];
+    npy_uint32 op_flags[4];
+    PyArray_Descr *op_dtypes[4];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+
+    op[0] = (PyArrayObject *)nside_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = (PyArrayObject *)pix_arr;
+    op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[1] = NULL;
+    op[2] = NULL;
+    op_flags[2] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
+    op_dtypes[2] = PyArray_DescrFromType(NPY_DOUBLE);
+    op[3] = NULL;
+    op_flags[3] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
+    op_dtypes[3] = PyArray_DescrFromType(NPY_DOUBLE);
+
+    iter = NpyIter_MultiNew(4, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
         goto fail;
     }
 
-    a_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (a_arr == NULL) goto fail;
-    as = (double *)PyArray_DATA((PyArrayObject *)a_arr);
-
-    b_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (b_arr == NULL) goto fail;
-    bs = (double *)PyArray_DATA((PyArrayObject *)b_arr);
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
 
     enum Scheme scheme;
     if (nest) {
@@ -273,11 +290,14 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     int64_t *nside;
     int64_t *pix;
+    double *outa, *outb;
     int64_t last_nside = -1;
     bool started = false;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+    do {
+        nside = (int64_t *)dataptrarray[0];
+        pix = (int64_t *)dataptrarray[1];
+        outa = (double *)dataptrarray[2];
+        outb = (double *)dataptrarray[3];
 
         if ((!started) || (*nside != last_nside)) {
             if (!hpgeom_check_nside(*nside, scheme, err)) {
@@ -295,18 +315,25 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
         if (lonlat) {
             // We can skip error checking since theta/phi will always be
             // within range on output.
-            hpgeom_thetaphi_to_lonlat(theta, phi, &as[itr->index], &bs[itr->index],
+            hpgeom_thetaphi_to_lonlat(theta, phi, outa, outb,
                                       (bool)degrees, false, err);
         } else {
-            as[itr->index] = theta;
-            bs[itr->index] = phi;
+            *outa = theta;
+            *outb = phi;
         }
-        PyArray_MultiIter_NEXT(itr);
-    }
+    } while(iternext(iter));
+
+    a_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
+    Py_INCREF(a_arr);
+    b_arr = (PyObject *)NpyIter_GetOperandArray(iter)[3];
+    Py_INCREF(b_arr);
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
-    Py_DECREF(itr);
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
+        iter = NULL;
+        goto fail;
+    }
 
     PyObject *retval = PyTuple_New(2);
     PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)a_arr));
@@ -319,7 +346,9 @@ fail:
     Py_XDECREF(pix_arr);
     Py_XDECREF(a_arr);
     Py_XDECREF(b_arr);
-    Py_XDECREF(itr);
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
+    }
 
     return NULL;
 }
