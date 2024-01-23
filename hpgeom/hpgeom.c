@@ -1771,7 +1771,9 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     PyObject *nside_obj = NULL, *pix_obj = NULL;
     PyObject *nside_arr = NULL, *pix_arr = NULL;
     PyObject *neighbor_arr = NULL;
-    PyArrayMultiIterObject *itr = NULL;
+
+    NpyIter *iter = NULL;
+
     int nest = 1;
     static char *kwlist[] = {"nside", "pix", "nest", NULL};
 
@@ -1795,22 +1797,44 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         PyErr_SetString(PyExc_ValueError, "pix array must be at most 1D.");
         goto fail;
     }
+    if (PyArray_NDIM((PyArrayObject *)nside_arr) > 1) {
+        PyErr_SetString(PyExc_ValueError, "nside array must be at most 1D.");
+        goto fail;
+    }
 
-    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(2, nside_arr, pix_arr);
-    if (itr == NULL) {
+    // The input arrays are nside_arr (int64_t) and pix_arr (int64_t).
+    // We are allocating our own output arrays.
+    PyArrayObject *op[2];
+    npy_uint32 op_flags[2];
+    PyArray_Descr *op_dtypes[2];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+
+    op[0] = (PyArrayObject *)nside_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = (PyArrayObject *)pix_arr;
+    op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[1] = NULL;
+
+    iter = NpyIter_MultiNew(2, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
         goto fail;
     }
 
-    int ndims_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
-    if (ndims_pix == 0) {
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    int ndims = NpyIter_GetNDim(iter);
+    if (ndims == 0) {
         npy_intp dims[1];
         dims[0] = 8;
         neighbor_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
     } else {
         npy_intp dims[2];
-        dims[0] = PyArray_DIM((PyArrayObject *)pix_arr, 0);
+        dims[0] = NpyIter_GetIterSize(iter);
         dims[1] = 8;
         neighbor_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
     }
@@ -1840,9 +1864,9 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     int64_t last_nside = -1;
     bool started = false;
     size_t index;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        pix = (int64_t *)PyArray_MultiIter_DATA(itr, 1);
+    do {
+        nside = (int64_t *)dataptrarray[0];
+        pix = (int64_t *)dataptrarray[1];
 
         if ((!started) || (*nside != last_nside)) {
             if (!hpgeom_check_nside(*nside, scheme, err)) {
@@ -1860,16 +1884,17 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         neighbors(&hpx, *pix, neigh, &status, err);
 
         for (size_t i = 0; i < neigh->size; i++) {
-            index = neigh->size * itr->index + i;
+            index = neigh->size * NpyIter_GetIterIndex(iter) + i;
             neighbor_pixels[index] = neigh->data[i];
         }
-
-        PyArray_MultiIter_NEXT(itr);
-    }
+    } while(iternext(iter));
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
-    Py_DECREF(itr);
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
+        iter = NULL;
+        goto fail;
+    }
     i64stack_delete(neigh);
 
     return PyArray_Return((PyArrayObject *)neighbor_arr);
@@ -1878,9 +1903,11 @@ fail:
     Py_XDECREF(nside_arr);
     Py_XDECREF(pix_arr);
     Py_XDECREF(neighbor_arr);
-    Py_XDECREF(itr);
     if (neigh != NULL) {
         i64stack_delete(neigh);
+    }
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
     }
 
     return NULL;
