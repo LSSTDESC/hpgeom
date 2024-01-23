@@ -1775,6 +1775,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     int nest = 1;
     static char *kwlist[] = {"nside", "pix", "nest", NULL};
 
+    i64stack *neigh = NULL;
     int64_t *neighbor_pixels;
     healpix_info hpx;
     int status;
@@ -1823,7 +1824,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         scheme = RING;
     }
 
-    i64stack *neigh = i64stack_new(8, &status, err);
+    neigh = i64stack_new(8, &status, err);
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
         goto fail;
@@ -1869,6 +1870,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
     Py_DECREF(itr);
+    i64stack_delete(neigh);
 
     return PyArray_Return((PyArrayObject *)neighbor_arr);
 
@@ -1877,6 +1879,9 @@ fail:
     Py_XDECREF(pix_arr);
     Py_XDECREF(neighbor_arr);
     Py_XDECREF(itr);
+    if (neigh != NULL) {
+        i64stack_delete(neigh);
+    }
 
     return NULL;
 }
