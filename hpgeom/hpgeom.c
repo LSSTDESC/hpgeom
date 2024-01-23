@@ -1351,8 +1351,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
     iternext = NpyIter_GetIterNext(iter, NULL);
     dataptrarray = NpyIter_GetDataPtrArray(iter);
 
-    int ndims_pix = PyArray_NDIM((PyArrayObject *)pix_arr);
-    if (ndims_pix == 0) {
+    int ndims = NpyIter_GetNDim(iter);
+    if (ndims == 0) {
         npy_intp dims[1];
         dims[0] = 4 * step;
         a_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT64);
@@ -1361,7 +1361,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         if (b_arr == NULL) goto fail;
     } else {
         npy_intp dims[2];
-        dims[0] = PyArray_DIM((PyArrayObject *)pix_arr, 0);
+        dims[0] = NpyIter_GetIterSize(iter);
         dims[1] = 4 * step;
         a_arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
         if (a_arr == NULL) goto fail;
