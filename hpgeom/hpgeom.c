@@ -1482,7 +1482,6 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     int nest = 1;
     static char *kwlist[] = {"nside", "x", "y", "z", "nest", NULL};
 
-    int64_t *pixels = NULL;
     healpix_info hpx;
     char err[ERR_SIZE];
 
