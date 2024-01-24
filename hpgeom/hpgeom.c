@@ -1932,11 +1932,12 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
     PyObject *nside_obj = NULL;
     PyObject *nside_arr = NULL;
     PyObject *pixrad_arr = NULL;
-    PyArrayMultiIterObject *itr = NULL;
+
+    NpyIter *iter = NULL;
+
     int degrees = 1;
     static char *kwlist[] = {"nside", "degrees", NULL};
 
-    double *pixrads = NULL;
     healpix_info hpx;
     char err[ERR_SIZE];
 
@@ -1947,18 +1948,38 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
         PyArray_FROM_OTF(nside_obj, NPY_INT64, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
     if (nside_arr == NULL) goto fail;
 
-    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(1, nside_arr);
-    if (itr == NULL) goto fail;
+    // The input array is nside_arr (int64_t).
+    // The output array is pixrad_arr (double).
+    PyArrayObject *op[2];
+    npy_uint32 op_flags[2];
+    PyArray_Descr *op_dtypes[2];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
 
-    pixrad_arr = PyArray_SimpleNew(itr->nd, itr->dimensions, NPY_FLOAT64);
-    if (pixrad_arr == NULL) goto fail;
-    pixrads = (double *)PyArray_DATA((PyArrayObject *)pixrad_arr);
+    op[0] = (PyArrayObject *)nside_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = NULL;
+    op_flags[1] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
+    op_dtypes[1] = PyArray_DescrFromType(NPY_DOUBLE);
+
+    iter = NpyIter_MultiNew(2, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL) {
+        PyErr_SetString(PyExc_ValueError,
+                        "nside, a, b arrays could not be broadcast together.");
+        goto fail;
+    }
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
 
     int64_t *nside;
+    double *pixrad;
     int64_t last_nside = -1;
     bool started = false;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
+    do {
+        nside = (int64_t *)dataptrarray[0];
+        pixrad = (double *)dataptrarray[1];
 
         if ((!started) || (*nside != last_nside)) {
             if (!hpgeom_check_nside(*nside, RING, err)) {
@@ -1968,21 +1989,28 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
             hpx = healpix_info_from_nside(*nside, RING);
             started = true;
         }
-        pixrads[itr->index] = max_pixrad(&hpx);
-        if (degrees) pixrads[itr->index] *= HPG_R2D;
+        *pixrad = max_pixrad(&hpx);
+        if (degrees) *pixrad *= HPG_R2D;
 
-        PyArray_MultiIter_NEXT(itr);
-    }
+    } while(iternext(iter));
+
+    pixrad_arr = (PyObject *)NpyIter_GetOperandArray(iter)[1];
+    Py_INCREF(pixrad_arr);
 
     Py_DECREF(nside_arr);
-    Py_DECREF(itr);
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
+        iter = NULL;
+        goto fail;
+    }
 
     return PyArray_Return((PyArrayObject *)pixrad_arr);
 
 fail:
     Py_XDECREF(nside_arr);
     Py_XDECREF(pixrad_arr);
-    Py_XDECREF(itr);
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
+    }
 
     return NULL;
 }
