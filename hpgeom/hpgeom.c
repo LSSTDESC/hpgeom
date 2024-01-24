@@ -181,6 +181,10 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         *outpix = ang2pix(&hpx, theta, phi);
     } while(iternext(iter));
 
+    // The reference to the automatically generated output array is owned
+    // by the iterator, so we must explicitly increase the reference
+    // count to keep it after deallocating the iterator. This is also the
+    // case for all uses following.
     pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[3];
     Py_INCREF(pix_arr);
 
