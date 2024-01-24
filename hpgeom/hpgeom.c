@@ -2038,7 +2038,9 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     PyObject *nside_arr = NULL, *a_arr = NULL, *b_arr = NULL;
     PyObject *pix_arr = NULL;
     PyObject *wgt_arr = NULL;
-    PyArrayMultiIterObject *itr = NULL;
+
+    NpyIter *iter = NULL;
+
     int lonlat = 1;
     int nest = 1;
     int degrees = 1;
@@ -2071,15 +2073,36 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         goto fail;
     }
 
-    itr = (PyArrayMultiIterObject *)PyArray_MultiIterNew(3, nside_arr, a_arr, b_arr);
-    if (itr == NULL) {
+    // The input arrays are nside_arr (int64_t), a_arr (double), and b_arr (double).
+    // We are allocating our own output arrays.
+    PyArrayObject *op[3];
+    npy_uint32 op_flags[3];
+    PyArray_Descr *op_dtypes[3];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+
+    op[0] = (PyArrayObject *)nside_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = (PyArrayObject *)a_arr;
+    op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[1] = NULL;
+    op[2] = (PyArrayObject *)b_arr;
+    op_flags[2] = NPY_ITER_READONLY;
+    op_dtypes[2] = NULL;
+
+    iter = NpyIter_MultiNew(3, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING, op_flags, op_dtypes);
+    if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, a, b arrays could not be broadcast together.");
         goto fail;
     }
 
-    int ndims_pos = PyArray_NDIM((PyArrayObject *)a_arr);
-    if (ndims_pos == 0) {
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    int ndims = NpyIter_GetNDim(iter);
+    if (ndims == 0) {
         npy_intp dims[1];
         dims[0] = 4;
         pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
@@ -2088,7 +2111,7 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         if (wgt_arr == NULL) goto fail;
     } else {
         npy_intp dims[2];
-        dims[0] = PyArray_DIM((PyArrayObject *)a_arr, 0);
+        dims[0] = NpyIter_GetIterSize(iter);
         dims[1] = 4;
         pix_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
         if (pix_arr == NULL) goto fail;
@@ -2110,10 +2133,10 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     double theta, phi;
     int64_t last_nside = -1;
     bool started = false;
-    while (PyArray_MultiIter_NOTDONE(itr)) {
-        nside = (int64_t *)PyArray_MultiIter_DATA(itr, 0);
-        a = (double *)PyArray_MultiIter_DATA(itr, 1);
-        b = (double *)PyArray_MultiIter_DATA(itr, 2);
+    do {
+        nside = (int64_t *)dataptrarray[0];
+        a = (double *)dataptrarray[1];
+        b = (double *)dataptrarray[2];
 
         if ((!started) || (*nside != last_nside)) {
             if (!hpgeom_check_nside(*nside, scheme, err)) {
@@ -2136,15 +2159,17 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
             theta = *a;
             phi = *b;
         }
-        size_t index = 4 * itr->index;
+        size_t index = 4 * NpyIter_GetIterIndex(iter);
         get_interpol(&hpx, theta, phi, &pixels[index], &weights[index]);
-        PyArray_MultiIter_NEXT(itr);
-    }
+    } while(iternext(iter));
 
     Py_DECREF(nside_arr);
     Py_DECREF(a_arr);
     Py_DECREF(b_arr);
-    Py_DECREF(itr);
+    if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
+        iter = NULL;
+        goto fail;
+    }
 
     PyObject *retval = PyTuple_New(2);
     PyTuple_SET_ITEM(retval, 0, PyArray_Return((PyArrayObject *)pix_arr));
@@ -2158,7 +2183,9 @@ fail:
     Py_XDECREF(b_arr);
     Py_XDECREF(pix_arr);
     Py_XDECREF(wgt_arr);
-    Py_XDECREF(itr);
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
+    }
 
     return NULL;
 }
