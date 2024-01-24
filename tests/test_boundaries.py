@@ -57,7 +57,7 @@ def test_boundaries_single(nside, pixfrac, step, scheme):
 @pytest.mark.parametrize("scheme", ["nest", "ring"])
 @pytest.mark.parametrize("npix", [1, 5])
 def test_boundaries_multiple(nside, pixfrac, step, scheme, npix):
-    """Test boundaries, single pixel."""
+    """Test boundaries, multiple pixels."""
     pixels = np.array([int(pixfrac*hpgeom.nside_to_npixel(nside))]*npix)
     if (scheme == "nest"):
         nest = True
@@ -103,6 +103,24 @@ def test_boundaries_multiple(nside, pixfrac, step, scheme, npix):
     )
     np.testing.assert_array_almost_equal(lonrad_hpgeom, np.deg2rad(lon_healpy))
     np.testing.assert_array_almost_equal(latrad_hpgeom, np.deg2rad(lat_healpy))
+
+
+def test_boundaries_multiple_nside():
+    """Test boundaries, multiple nside."""
+    lon, lat = hpgeom.boundaries([1024, 2048], [100, 200])
+    assert lon.shape == (2, 4)
+    assert lat.shape == (2, 4)
+
+    lon1, lat1 = hpgeom.boundaries(1024, 100)
+    np.testing.assert_array_equal(lon[0, :], lon1)
+    np.testing.assert_array_equal(lat[0, :], lat1)
+    lon2, lat2 = hpgeom.boundaries(2048, 200)
+    np.testing.assert_array_equal(lon[1, :], lon2)
+    np.testing.assert_array_equal(lat[1, :], lat2)
+
+    lon3, lat3 = hpgeom.boundaries([1024, 2048], 100)
+    assert lon3.shape == (2, 4)
+    assert lat3.shape == (2, 4)
 
 
 def test_boundaries_bad_inputs():

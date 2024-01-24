@@ -113,6 +113,28 @@ def test_interpolation_scalar(nside):
     np.testing.assert_array_almost_equal(interp_wgt_scalar, interp_wgt[0, :])
 
 
+def test_interpolation_multiple_nside():
+    """Test interpolation, multiple nside."""
+    interp_pix, interp_wgt = hpgeom.get_interpolation_weights(
+        [1024, 2048],
+        [1.0, 2.0],
+        [1.0, 2.0],
+    )
+    assert interp_pix.shape == (2, 4)
+    assert interp_wgt.shape == (2, 4)
+
+    interp_pix1, interp_wgt1 = hpgeom.get_interpolation_weights(1024, 1.0, 1.0)
+    np.testing.assert_array_equal(interp_pix[0, :], interp_pix1)
+    np.testing.assert_array_equal(interp_wgt[0, :], interp_wgt1)
+    interp_pix2, interp_wgt2 = hpgeom.get_interpolation_weights(2048, 2.0, 2.0)
+    np.testing.assert_array_equal(interp_pix[1, :], interp_pix2)
+    np.testing.assert_array_equal(interp_wgt[1, :], interp_wgt2)
+
+    interp_pix3, interp_wgt3 = hpgeom.get_interpolation_weights([1024, 2048], 1.0, 1.0)
+    assert interp_pix3.shape == (2, 4)
+    assert interp_wgt3.shape == (2, 4)
+
+
 def test_interpolation_mismatched_dims():
     """Test get_interpolation_weights when dimensions are mismatched."""
     np.random.seed(12345)

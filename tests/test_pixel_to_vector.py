@@ -33,6 +33,23 @@ def test_pixel_to_vector(nside, scheme):
 
 
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
+def test_pixel_to_vector_scalar(nside):
+    np.random.seed(12345)
+
+    pix = np.random.randint(low=0, high=hpgeom.nside_to_npixel(nside) - 1, size=100, dtype=np.int64)
+
+    x_arr, y_arr, z_arr = hpgeom.pixel_to_vector(nside, pix)
+    x_scalar, y_scalar, z_scalar = hpgeom.pixel_to_vector(nside, pix[0])
+
+    assert x_scalar == x_arr[0]
+    assert y_scalar == y_arr[0]
+    assert z_scalar == z_arr[0]
+    assert not isinstance(x_scalar, np.ndarray)
+    assert not isinstance(y_scalar, np.ndarray)
+    assert not isinstance(z_scalar, np.ndarray)
+
+
+@pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
 def test_pixel_to_vector_bad_pix(nside):
     """Test pixel_to_angle errors when given bad pixel"""
 

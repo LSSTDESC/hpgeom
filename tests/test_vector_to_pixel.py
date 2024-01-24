@@ -32,8 +32,8 @@ def test_vector_to_pixel(nside, scheme):
     np.testing.assert_array_equal(pix_hpgeom, pix_healpy)
 
 
-def test_vector_to_pixel_single():
-    """Test vector_to_pixel, single pixel."""
+def test_vector_to_pixel_scalar():
+    """Test vector_to_pixel, scalar pixel."""
     x = 0.5
     y = 0.5
     z = 0.5
@@ -41,3 +41,4 @@ def test_vector_to_pixel_single():
     pix_hpgeom = hpgeom.vector_to_pixel(1024, x, y, z)
 
     assert isinstance(pix_hpgeom, np.int64)
+    assert not isinstance(pix_hpgeom, np.ndarray)

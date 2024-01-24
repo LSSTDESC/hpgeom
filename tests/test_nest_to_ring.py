@@ -37,6 +37,24 @@ def test_nest_to_ring_samplepix(nside):
 
 
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
+def test_nest_to_ring_scalar(nside):
+    """Test nest_to_ring for scalars."""
+    np.random.seed(12345)
+
+    nest_pix = np.random.randint(low=0, high=12*nside*nside-1, size=100, dtype=np.int64)
+    ring_arr = hpgeom.nest_to_ring(nside, nest_pix)
+    ring_scalar = hpgeom.nest_to_ring(nside, nest_pix[0])
+
+    assert ring_scalar == ring_arr[0]
+    assert not isinstance(ring_scalar, np.ndarray)
+
+    ring_scalar2 = hpgeom.nest_to_ring(nside, int(nest_pix[0]))
+
+    assert ring_scalar2 == ring_arr[0]
+    assert not isinstance(ring_scalar2, np.ndarray)
+
+
+@pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
 def test_nest_to_ring_bad_pix(nside):
     """Test nest_to_ring errors when given bad pixel"""
 

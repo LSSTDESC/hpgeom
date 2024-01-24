@@ -34,6 +34,17 @@ def test_max_pixel_radius(degrees):
     np.testing.assert_almost_equal(radius_hpgeom, radius_healpy)
 
 
+def test_max_pixel_radius_scalar():
+    """Test max_pixel_radius with a scalar."""
+    nsides = 2**np.arange(29)
+
+    radii_arr = hpgeom.max_pixel_radius(nsides)
+    radius_scalar = hpgeom.max_pixel_radius(nsides[0])
+
+    assert radius_scalar == radii_arr[0]
+    assert not isinstance(radius_scalar, np.ndarray)
+
+
 def test_max_pixel_radius_badinputs():
     """Test max_pixel_radius with bad inputs."""
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
