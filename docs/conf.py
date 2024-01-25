@@ -10,9 +10,6 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import sys
-# sys.path.insert(0, os.path.abspath('..'))
 
 
 # -- Project information -----------------------------------------------------
@@ -28,7 +25,6 @@ author = 'Eli Rykoff'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.linkcode',
               'sphinx.ext.napoleon',
 ]
 
@@ -54,58 +50,3 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = []
 
 # -- Adding the API reference ------------------------------------------------
-
-import inspect
-from os.path import relpath, dirname
-
-import hpgeom # for the relpath below
-
-def linkcode_resolve(domain, info):
-    """
-    Determine the URL corresponding to Python object
-    """
-    if domain != 'py':
-        return None
-
-    modname = info['module']
-    fullname = info['fullname']
-
-    submod = sys.modules.get(modname)
-    if submod is None:
-        return None
-
-    obj = submod
-    for part in fullname.split('.'):
-        try:
-            obj = getattr(obj, part)
-        except:
-            return None
-
-    try:
-        fn = inspect.getsourcefile(obj)
-    except:
-        fn = None
-    if not fn:
-        try:
-            fn = inspect.getsourcefile(sys.modules[obj.__module__])
-        except:
-            fn = None
-    if not fn:
-        return None
-
-    try:
-        source, lineno = inspect.findsource(obj)
-    except:
-        lineno = None
-
-    if lineno:
-        linespec = "#L%d" % (lineno + 1)
-    else:
-        linespec = ""
-
-    fn = relpath(fn, start=dirname(hpgeom.__file__))
-
-    # Could use version,release declared above here but for now we
-    # just link to the latest code on the master branch.
-    github = 'https://github.com/lsstdesc/hpgeom'
-    return '%s/blob/main/hpgeom/%s%s' % (github, fn, linespec)
