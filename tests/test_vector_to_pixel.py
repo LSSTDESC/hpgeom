@@ -42,3 +42,10 @@ def test_vector_to_pixel_scalar():
 
     assert isinstance(pix_hpgeom, np.int64)
     assert not isinstance(pix_hpgeom, np.ndarray)
+
+
+def test_vector_to_pixel_zerolength():
+    """Test vector_to_pixel, zero length."""
+    pix = hpgeom.vector_to_pixel(1024, [], [], [])
+
+    assert len(pix) == 0

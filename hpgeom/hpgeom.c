@@ -146,40 +146,43 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         scheme = RING;
     }
 
-    int64_t *nside;
-    double *a, *b;
-    int64_t *outpix;
-    int64_t last_nside = -1;
-    bool started = false;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        a = (double *)dataptrarray[1];
-        b = (double *)dataptrarray[2];
-        outpix = (int64_t *)dataptrarray[3];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        double *a, *b;
+        int64_t *outpix;
+        int64_t last_nside = -1;
+        bool started = false;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            a = (double *)dataptrarray[1];
+            b = (double *)dataptrarray[2];
+            outpix = (int64_t *)dataptrarray[3];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, scheme, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, scheme);
+                started = true;
             }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
-        if (lonlat) {
-            if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+            if (lonlat) {
+                if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+            } else {
+                if (!hpgeom_check_theta_phi(*a, *b, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                theta = *a;
+                phi = *b;
             }
-        } else {
-            if (!hpgeom_check_theta_phi(*a, *b, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
-            }
-            theta = *a;
-            phi = *b;
-        }
-        *outpix = ang2pix(&hpx, theta, phi);
-    } while (iternext(iter));
+            *outpix = ang2pix(&hpx, theta, phi);
+        } while (iternext(iter));
+    }
 
     // The reference to the automatically generated output array is owned
     // by the iterator, so we must explicitly increase the reference
@@ -293,39 +296,42 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
         scheme = RING;
     }
 
-    int64_t *nside;
-    int64_t *pix;
-    double *outa, *outb;
-    int64_t last_nside = -1;
-    bool started = false;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        pix = (int64_t *)dataptrarray[1];
-        outa = (double *)dataptrarray[2];
-        outb = (double *)dataptrarray[3];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        int64_t *pix;
+        double *outa, *outb;
+        int64_t last_nside = -1;
+        bool started = false;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            pix = (int64_t *)dataptrarray[1];
+            outa = (double *)dataptrarray[2];
+            outb = (double *)dataptrarray[3];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, scheme, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, scheme);
+                started = true;
+            }
+            if (!hpgeom_check_pixel(&hpx, *pix, err)) {
                 PyErr_SetString(PyExc_ValueError, err);
                 goto fail;
             }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
-        if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        pix2ang(&hpx, *pix, &theta, &phi);
-        if (lonlat) {
-            // We can skip error checking since theta/phi will always be
-            // within range on output.
-            hpgeom_thetaphi_to_lonlat(theta, phi, outa, outb, (bool)degrees, false, err);
-        } else {
-            *outa = theta;
-            *outb = phi;
-        }
-    } while (iternext(iter));
+            pix2ang(&hpx, *pix, &theta, &phi);
+            if (lonlat) {
+                // We can skip error checking since theta/phi will always be
+                // within range on output.
+                hpgeom_thetaphi_to_lonlat(theta, phi, outa, outb, (bool)degrees, false, err);
+            } else {
+                *outa = theta;
+                *outb = phi;
+            }
+        } while (iternext(iter));
+    }
 
     a_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
     Py_INCREF(a_arr);
@@ -1115,30 +1121,33 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
     iternext = NpyIter_GetIterNext(iter, NULL);
     dataptrarray = NpyIter_GetDataPtrArray(iter);
 
-    int64_t *nside;
-    int64_t *nest_pix;
-    int64_t *ring_pix;
-    int64_t last_nside = -1;
-    bool started = false;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        nest_pix = (int64_t *)dataptrarray[1];
-        ring_pix = (int64_t *)dataptrarray[2];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        int64_t *nest_pix;
+        int64_t *ring_pix;
+        int64_t last_nside = -1;
+        bool started = false;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            nest_pix = (int64_t *)dataptrarray[1];
+            ring_pix = (int64_t *)dataptrarray[2];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, NEST, err)) {
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, NEST, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, NEST);
+                started = true;
+            }
+            if (!hpgeom_check_pixel(&hpx, *nest_pix, err)) {
                 PyErr_SetString(PyExc_ValueError, err);
                 goto fail;
             }
-            hpx = healpix_info_from_nside(*nside, NEST);
-            started = true;
-        }
-        if (!hpgeom_check_pixel(&hpx, *nest_pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        *ring_pix = nest2ring(&hpx, *nest_pix);
-    } while (iternext(iter));
+            *ring_pix = nest2ring(&hpx, *nest_pix);
+        } while (iternext(iter));
+    }
 
     ring_pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
     Py_INCREF(ring_pix_arr);
@@ -1234,30 +1243,33 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
     iternext = NpyIter_GetIterNext(iter, NULL);
     dataptrarray = NpyIter_GetDataPtrArray(iter);
 
-    int64_t *nside;
-    int64_t *ring_pix;
-    int64_t *nest_pix;
-    int64_t last_nside = -1;
-    bool started = false;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        ring_pix = (int64_t *)dataptrarray[1];
-        nest_pix = (int64_t *)dataptrarray[2];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        int64_t *ring_pix;
+        int64_t *nest_pix;
+        int64_t last_nside = -1;
+        bool started = false;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            ring_pix = (int64_t *)dataptrarray[1];
+            nest_pix = (int64_t *)dataptrarray[2];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, NEST, err)) {
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, NEST, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, NEST);
+                started = true;
+            }
+            if (!hpgeom_check_pixel(&hpx, *ring_pix, err)) {
                 PyErr_SetString(PyExc_ValueError, err);
                 goto fail;
             }
-            hpx = healpix_info_from_nside(*nside, NEST);
-            started = true;
-        }
-        if (!hpgeom_check_pixel(&hpx, *ring_pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        *nest_pix = ring2nest(&hpx, *ring_pix);
-    } while (iternext(iter));
+            *nest_pix = ring2nest(&hpx, *ring_pix);
+        } while (iternext(iter));
+    }
 
     nest_pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
     Py_INCREF(nest_pix_arr);
@@ -1405,49 +1417,52 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         goto fail;
     }
 
-    int64_t *nside;
-    int64_t *pix;
-    int64_t last_nside = -1;
-    bool started = false;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        pix = (int64_t *)dataptrarray[1];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        int64_t *pix;
+        int64_t last_nside = -1;
+        bool started = false;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            pix = (int64_t *)dataptrarray[1];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, scheme, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, scheme);
+                started = true;
+            }
+
+            if (!hpgeom_check_pixel(&hpx, *pix, err)) {
                 PyErr_SetString(PyExc_ValueError, err);
                 goto fail;
             }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
 
-        if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-
-        boundaries(&hpx, *pix, step, ptg_arr, &status);
-        if (!status) {
-            PyErr_SetString(PyExc_RuntimeError, "Fatal programming error in boundaries.");
-            goto fail;
-        }
-
-        size_t index;
-        for (size_t i = 0; i < ptg_arr->size; i++) {
-            index = ptg_arr->size * NpyIter_GetIterIndex(iter) + i;
-            if (lonlat) {
-                // We can skip error checking since theta/phi will always be
-                // within range on output.
-                hpgeom_thetaphi_to_lonlat(ptg_arr->data[i].theta, ptg_arr->data[i].phi,
-                                          &as[index], &bs[index], (bool)degrees, false, err);
-            } else {
-                as[index] = ptg_arr->data[i].theta;
-                bs[index] = ptg_arr->data[i].phi;
+            boundaries(&hpx, *pix, step, ptg_arr, &status);
+            if (!status) {
+                PyErr_SetString(PyExc_RuntimeError, "Fatal programming error in boundaries.");
+                goto fail;
             }
-        }
 
-    } while (iternext(iter));
+            size_t index;
+            for (size_t i = 0; i < ptg_arr->size; i++) {
+                index = ptg_arr->size * NpyIter_GetIterIndex(iter) + i;
+                if (lonlat) {
+                    // We can skip error checking since theta/phi will always be
+                    // within range on output.
+                    hpgeom_thetaphi_to_lonlat(ptg_arr->data[i].theta, ptg_arr->data[i].phi,
+                                              &as[index], &bs[index], (bool)degrees, false, err);
+                } else {
+                    as[index] = ptg_arr->data[i].theta;
+                    bs[index] = ptg_arr->data[i].phi;
+                }
+            }
+
+        } while (iternext(iter));
+    }
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
@@ -1563,32 +1578,35 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
         scheme = RING;
     }
 
-    int64_t *nside;
-    double *x, *y, *z;
-    int64_t *outpix;
-    int64_t last_nside = -1;
-    bool started = false;
-    vec3 vec;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        x = (double *)dataptrarray[1];
-        y = (double *)dataptrarray[2];
-        z = (double *)dataptrarray[3];
-        outpix = (int64_t *)dataptrarray[4];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        double *x, *y, *z;
+        int64_t *outpix;
+        int64_t last_nside = -1;
+        bool started = false;
+        vec3 vec;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            x = (double *)dataptrarray[1];
+            y = (double *)dataptrarray[2];
+            z = (double *)dataptrarray[3];
+            outpix = (int64_t *)dataptrarray[4];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, scheme, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, scheme);
+                started = true;
             }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
-        vec.x = *x;
-        vec.y = *y;
-        vec.z = *z;
-        *outpix = vec2pix(&hpx, &vec);
-    } while (iternext(iter));
+            vec.x = *x;
+            vec.y = *y;
+            vec.z = *z;
+            *outpix = vec2pix(&hpx, &vec);
+        } while (iternext(iter));
+    }
 
     pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[4];
     Py_INCREF(pix_arr);
@@ -1705,36 +1723,39 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
         scheme = RING;
     }
 
-    int64_t *nside;
-    int64_t *pix;
-    double *x, *y, *z;
-    int64_t last_nside = -1;
-    bool started = false;
-    vec3 vec;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        pix = (int64_t *)dataptrarray[1];
-        x = (double *)dataptrarray[2];
-        y = (double *)dataptrarray[3];
-        z = (double *)dataptrarray[4];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        int64_t *pix;
+        double *x, *y, *z;
+        int64_t last_nside = -1;
+        bool started = false;
+        vec3 vec;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            pix = (int64_t *)dataptrarray[1];
+            x = (double *)dataptrarray[2];
+            y = (double *)dataptrarray[3];
+            z = (double *)dataptrarray[4];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, scheme, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, scheme);
+                started = true;
+            }
+            if (!hpgeom_check_pixel(&hpx, *pix, err)) {
                 PyErr_SetString(PyExc_ValueError, err);
                 goto fail;
             }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
-        if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        vec = pix2vec(&hpx, *pix);
-        *x = vec.x;
-        *y = vec.y;
-        *z = vec.z;
-    } while (iternext(iter));
+            vec = pix2vec(&hpx, *pix);
+            *x = vec.x;
+            *y = vec.y;
+            *z = vec.z;
+        } while (iternext(iter));
+    }
 
     x_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
     Py_INCREF(x_arr);
@@ -1883,35 +1904,38 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         goto fail;
     }
 
-    int64_t *nside;
-    int64_t *pix;
-    int64_t last_nside = -1;
-    bool started = false;
-    size_t index;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        pix = (int64_t *)dataptrarray[1];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        int64_t *pix;
+        int64_t last_nside = -1;
+        bool started = false;
+        size_t index;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            pix = (int64_t *)dataptrarray[1];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, scheme, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, scheme);
+                started = true;
+            }
+
+            if (!hpgeom_check_pixel(&hpx, *pix, err)) {
                 PyErr_SetString(PyExc_ValueError, err);
                 goto fail;
             }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
+            neighbors(&hpx, *pix, neigh, &status, err);
 
-        if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        neighbors(&hpx, *pix, neigh, &status, err);
-
-        for (size_t i = 0; i < neigh->size; i++) {
-            index = neigh->size * NpyIter_GetIterIndex(iter) + i;
-            neighbor_pixels[index] = neigh->data[i];
-        }
-    } while (iternext(iter));
+            for (size_t i = 0; i < neigh->size; i++) {
+                index = neigh->size * NpyIter_GetIterIndex(iter) + i;
+                neighbor_pixels[index] = neigh->data[i];
+            }
+        } while (iternext(iter));
+    }
 
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
@@ -1998,26 +2022,29 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
     iternext = NpyIter_GetIterNext(iter, NULL);
     dataptrarray = NpyIter_GetDataPtrArray(iter);
 
-    int64_t *nside;
-    double *pixrad;
-    int64_t last_nside = -1;
-    bool started = false;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        pixrad = (double *)dataptrarray[1];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        double *pixrad;
+        int64_t last_nside = -1;
+        bool started = false;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            pixrad = (double *)dataptrarray[1];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, RING, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, RING, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, RING);
+                started = true;
             }
-            hpx = healpix_info_from_nside(*nside, RING);
-            started = true;
-        }
-        *pixrad = max_pixrad(&hpx);
-        if (degrees) *pixrad *= HPG_R2D;
+            *pixrad = max_pixrad(&hpx);
+            if (degrees) *pixrad *= HPG_R2D;
 
-    } while (iternext(iter));
+        } while (iternext(iter));
+    }
 
     pixrad_arr = (PyObject *)NpyIter_GetOperandArray(iter)[1];
     Py_INCREF(pixrad_arr);
@@ -2154,40 +2181,43 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         scheme = RING;
     }
 
-    int64_t *nside;
-    double *a, *b;
-    double theta, phi;
-    int64_t last_nside = -1;
-    bool started = false;
-    do {
-        nside = (int64_t *)dataptrarray[0];
-        a = (double *)dataptrarray[1];
-        b = (double *)dataptrarray[2];
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        int64_t *nside;
+        double *a, *b;
+        double theta, phi;
+        int64_t last_nside = -1;
+        bool started = false;
+        do {
+            nside = (int64_t *)dataptrarray[0];
+            a = (double *)dataptrarray[1];
+            b = (double *)dataptrarray[2];
 
-        if ((!started) || (*nside != last_nside)) {
-            if (!hpgeom_check_nside(*nside, scheme, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+            if ((!started) || (*nside != last_nside)) {
+                if (!hpgeom_check_nside(*nside, scheme, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                hpx = healpix_info_from_nside(*nside, scheme);
+                started = true;
             }
-            hpx = healpix_info_from_nside(*nside, scheme);
-            started = true;
-        }
-        if (lonlat) {
-            if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+            if (lonlat) {
+                if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+            } else {
+                if (!hpgeom_check_theta_phi(*a, *b, err)) {
+                    PyErr_SetString(PyExc_ValueError, err);
+                    goto fail;
+                }
+                theta = *a;
+                phi = *b;
             }
-        } else {
-            if (!hpgeom_check_theta_phi(*a, *b, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
-            }
-            theta = *a;
-            phi = *b;
-        }
-        size_t index = 4 * NpyIter_GetIterIndex(iter);
-        get_interpol(&hpx, theta, phi, &pixels[index], &weights[index]);
-    } while (iternext(iter));
+            size_t index = 4 * NpyIter_GetIterIndex(iter);
+            get_interpol(&hpx, theta, phi, &pixels[index], &weights[index]);
+        } while (iternext(iter));
+    }
 
     Py_DECREF(nside_arr);
     Py_DECREF(a_arr);
@@ -2283,17 +2313,20 @@ static PyObject *pixel_ranges_to_pixels(PyObject *dummy, PyObject *args, PyObjec
     npy_intp dims[1];
     dims[0] = 0;
 
-    do {
-        int64_t *data = (int64_t *)*dataptr;
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        do {
+            int64_t *data = (int64_t *)*dataptr;
 
-        if (*(data + 1) < *data) {
-            PyErr_SetString(PyExc_ValueError,
-                            "pixel_ranges[:, 0] must all be <= pixel_ranges[:, 1]");
-            goto fail;
-        }
+            if (*(data + 1) < *data) {
+                PyErr_SetString(PyExc_ValueError,
+                                "pixel_ranges[:, 0] must all be <= pixel_ranges[:, 1]");
+                goto fail;
+            }
 
-        dims[0] += (*(data + 1) - *data) + inclusive;
-    } while (iternext(iter));
+            dims[0] += (*(data + 1) - *data) + inclusive;
+        } while (iternext(iter));
+    }
 
     // Create the output array
     pix_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
@@ -2306,13 +2339,16 @@ static PyObject *pixel_ranges_to_pixels(PyObject *dummy, PyObject *args, PyObjec
 
     size_t counter = 0;
 
-    do {
-        int64_t *data = (int64_t *)*dataptr;
+    // Check for zero-size before entering loop.
+    if (NpyIter_GetIterSize(iter) > 0) {
+        do {
+            int64_t *data = (int64_t *)*dataptr;
 
-        for (int64_t pix = *data; pix < (*(data + 1) + inclusive); pix++) {
-            pix_data[counter++] = pix;
-        }
-    } while (iternext(iter));
+            for (int64_t pix = *data; pix < (*(data + 1) + inclusive); pix++) {
+                pix_data[counter++] = pix;
+            }
+        } while (iternext(iter));
+    }
 
 succeed:
 
