@@ -135,6 +135,14 @@ def test_interpolation_multiple_nside():
     assert interp_wgt3.shape == (2, 4)
 
 
+def test_interpolation_zerolength():
+    """Test interpolation, zero length."""
+    interp_pix, interp_wgt = hpgeom.get_interpolation_weights(1024, [], [])
+
+    assert len(interp_pix) == 0
+    assert len(interp_wgt) == 0
+
+
 def test_interpolation_mismatched_dims():
     """Test get_interpolation_weights when dimensions are mismatched."""
     np.random.seed(12345)

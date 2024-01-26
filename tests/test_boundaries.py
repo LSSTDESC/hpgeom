@@ -123,6 +123,14 @@ def test_boundaries_multiple_nside():
     assert lat3.shape == (2, 4)
 
 
+def test_boundaries_zerolength():
+    """Test boundaries for a zero-length array."""
+    lon, lat = hpgeom.boundaries(1024, [])
+
+    assert len(lon) == 0
+    assert len(lat) == 0
+
+
 def test_boundaries_bad_inputs():
     """Test boundaries with bad inputs."""
 

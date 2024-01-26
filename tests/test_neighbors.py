@@ -53,6 +53,13 @@ def test_neighbors_multiple_nside():
     assert neighbors3.shape == (2, 8)
 
 
+def test_neighbors_zerolength():
+    """Test neighbors, zero length."""
+    neighbors = hpgeom.neighbors(1024, [])
+
+    assert len(neighbors) == 0
+
+
 def test_neighbors_bad_input():
     """Test neighbors, bad input."""
     with pytest.raises(ValueError, match=r"Pixel value .* out of range"):

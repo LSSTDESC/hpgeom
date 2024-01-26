@@ -45,6 +45,13 @@ def test_max_pixel_radius_scalar():
     assert not isinstance(radius_scalar, np.ndarray)
 
 
+def test_max_pixel_radius_zerolength():
+    """Test max_pixel_radius for zero-length nsides."""
+    radii = hpgeom.max_pixel_radius([])
+
+    assert len(radii) == 0
+
+
 def test_max_pixel_radius_badinputs():
     """Test max_pixel_radius with bad inputs."""
     with pytest.raises(ValueError, match=r"nside .* must be positive"):

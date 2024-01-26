@@ -49,6 +49,14 @@ def test_pixel_to_vector_scalar(nside):
     assert not isinstance(z_scalar, np.ndarray)
 
 
+def test_pixel_to_vector_zerolength():
+    x, y, z = hpgeom.pixel_to_vector(1024, [])
+
+    assert len(x) == 0
+    assert len(y) == 0
+    assert len(z) == 0
+
+
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
 def test_pixel_to_vector_bad_pix(nside):
     """Test pixel_to_angle errors when given bad pixel"""

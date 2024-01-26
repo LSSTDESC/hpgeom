@@ -54,6 +54,13 @@ def test_nest_to_ring_scalar(nside):
     assert not isinstance(ring_scalar2, np.ndarray)
 
 
+def test_nest_to_ring_zerolength():
+    """Test nest_to_ring zero-length."""
+    pix = hpgeom.nest_to_ring(1024, [])
+
+    assert len(pix) == 0
+
+
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
 def test_nest_to_ring_bad_pix(nside):
     """Test nest_to_ring errors when given bad pixel"""
