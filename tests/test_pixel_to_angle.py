@@ -103,6 +103,14 @@ def test_pixel_to_angle_scalar(nside):
     assert not isinstance(lat_scalar2, np.ndarray)
 
 
+def test_pixel_to_angle_zerolength():
+    """Test pixel_to_angle for a zero-length pixel array."""
+    ra, dec = hpgeom.pixel_to_angle(1024, [])
+
+    assert len(ra) == 0
+    assert len(dec) == 0
+
+
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
 def test_pixel_to_angle_bad_pix(nside):
     """Test pixel_to_angle errors when given bad pixel"""

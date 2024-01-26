@@ -105,6 +105,13 @@ def test_angle_to_pixel_scalar(nside):
     assert pix_scalar2 == pix_arr[0]
 
 
+def test_angle_to_pixel_zerolength():
+    """Test angle_to_pixel for a zero-length lon/lat array."""
+    pix = hpgeom.angle_to_pixel(1024, [], [])
+
+    assert len(pix) == 0
+
+
 def test_angle_to_pixel_mismatched_dims():
     """Test angle_to_pixel errors when dimensions are mismatched."""
     np.random.seed(12345)
