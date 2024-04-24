@@ -48,6 +48,8 @@ __all__ = [
     'get_interpolation_weights',
     'pixel_ranges_to_pixels',
     'reorder',
+    'upgrade_pixels',
+    'upgrade_pixel_ranges',
     'UNSEEN',
 ]
 
@@ -458,3 +460,97 @@ def reorder(map_in, ring_to_nest=True):
             map_out[convert_nest_to_ring(nside, pixels)] = map_in[pixels]
 
     return map_out
+
+
+def upgrade_pixel_ranges(nside, pixel_ranges, nside_upgrade):
+    """Upgrade nest pixel ranges from one resolution to another.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside for input pixel ranges.
+    pixel_ranges : `np.ndarray` (N, 2)
+        Input HEALPix pixel ranges (nest ordering only).
+    nside_upgrade : `int`
+        Output HEALPix nside, must be >= nside.
+
+    Returns
+    -------
+    pixel_ranges_upgrade : `np.ndarray` (N, 2)
+        Upgraded pixel ranges.
+
+    Raises
+    ------
+    ValueError
+        If nside_upgrade is less than nside, or if either nside is not
+        a power of two.
+    """
+    import numbers
+
+    if not isinstance(nside, numbers.Integral) or not isinstance(nside_upgrade, numbers.Integral):
+        raise ValueError("Input nside and nside_upgrade must be integers.")
+
+    if nside_upgrade < nside:
+        raise ValueError("The value for nside_upgrade must be >= nside.")
+
+    if (nside & (nside - 1)) > 0:
+        raise ValueError("Input nside must be a power of two.")
+    if (nside_upgrade & (nside_upgrade - 1)) > 0:
+        raise ValueError("Output nside_upgrade must be a power of two.")
+
+    _pixel_ranges = np.atleast_2d(pixel_ranges).astype(np.int64)
+    if _pixel_ranges.ndim != 2 or _pixel_ranges.shape[1] != 2:
+        raise ValueError("Input pixel_ranges must be of shape (N, 2).")
+
+    if np.min(pixel_ranges.ravel()) < 0 or np.max(pixel_ranges.ravel()) >= nside_to_npixel(nside):
+        raise ValueError("Input pixels/ranges out of range.")
+
+    bit_shift = 2*int(np.round(np.log2(nside_upgrade / nside)))
+
+    _pixel_ranges <<= bit_shift
+
+    return _pixel_ranges
+
+
+def upgrade_pixels(nside, pixels, nside_upgrade, nest=True):
+    """Upgrade pixels from one resolution to another.
+
+    Parameters
+    ----------
+    nside : `int`
+        HEALPix nside for input pixels.
+    pixels : `int` or `np.ndarray` (N,)
+        HEALPix pixel numbers.
+    nside_upgrade : `int`
+        Output HEALPix nside, must be >= nside. This is a complete set
+        of higher resolution pixels overlapping the input pixels.
+    nest : `bool`, optional
+        Use nest ordering scheme? (Performance is much better for
+        upgrading nest pixels.)
+
+    Returns
+    -------
+    pixels_upgrade : `np.ndarray` (M,)
+        Upgraded list of pixels.
+
+    Raises
+    ------
+    ValueError
+        If nside_upgrade is less than nside, or if either nside is not
+        a power of two.
+    """
+    # Datatype checks are done in upgrade_pixel_ranges() called below.
+    _pixels = np.atleast_1d(pixels).astype(np.int64)
+
+    if not nest:
+        _pixels = ring_to_nest(nside, _pixels)
+
+    pixel_ranges = np.vstack((_pixels, _pixels + 1)).T
+    pixel_ranges = upgrade_pixel_ranges(nside, pixel_ranges, nside_upgrade)
+    pixels_upgrade = pixel_ranges_to_pixels(pixel_ranges)
+
+    if not nest:
+        pixels_upgrade = nest_to_ring(nside_upgrade, pixels_upgrade)
+        pixels_upgrade.sort()
+
+    return pixels_upgrade
