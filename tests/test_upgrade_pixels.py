@@ -63,6 +63,8 @@ def test_upgrade_pixels(nsides, nest):
     m_upgrade = hp.ud_grade(m, nside_upgrade, order_in=order, order_out=order)
     m_upgrade_pixels, = np.where(m_upgrade > hpgeom.UNSEEN)
 
+    if not nest:
+        pixels_upgrade = np.sort(pixels_upgrade)
     np.testing.assert_array_equal(pixels_upgrade, m_upgrade_pixels)
 
 

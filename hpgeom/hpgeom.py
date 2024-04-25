@@ -525,8 +525,9 @@ def upgrade_pixels(nside, pixels, nside_upgrade, nest=True):
         Output HEALPix nside, must be >= nside. This is a complete set
         of higher resolution pixels overlapping the input pixels.
     nest : `bool`, optional
-        Use nest ordering scheme? (Performance is much better for
-        upgrading nest pixels.)
+        Use nest ordering scheme? Performance is much better for
+        upgrading nest pixels. Note that when nest=False the
+        returned pixels will not be sorted.
 
     Returns
     -------
@@ -551,6 +552,5 @@ def upgrade_pixels(nside, pixels, nside_upgrade, nest=True):
 
     if not nest:
         pixels_upgrade = nest_to_ring(nside_upgrade, pixels_upgrade)
-        pixels_upgrade.sort()
 
     return pixels_upgrade
