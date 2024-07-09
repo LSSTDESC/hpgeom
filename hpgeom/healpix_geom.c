@@ -743,9 +743,8 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
             i64rangeset_append(pixset, sp, hpx->npix, status, err);
             if (!*status) goto cleanup_ring;
         }
-    cleanup_ring:
-        ;
-    } else {                     // schema == NEST
+    cleanup_ring:;
+    } else {  // schema == NEST
         i64stack *stk = NULL;
         if (radius >= HPG_PI) {  // disk covers the whole sphere
             i64rangeset_append(pixset, 0, hpx->npix, status, err);
@@ -1121,12 +1120,13 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
                 double x = (cosrbig->data[j] - z * z0->data[j]) * xa->data[j];
                 double ysq = 1. - z * z - x * x;
                 if (ysq > 0) {
-                    double dphi = atan2(sqrt(ysq),x);
+                    double dphi = atan2(sqrt(ysq), x);
                     int64_t ip_lo =
-                        (int64_t)floor((nr * HPG_INV_TWOPI) * (ptg->data[j].phi - dphi) - shift) +
+                        (int64_t)floor((nr * HPG_INV_TWOPI) * (ptg->data[j].phi - dphi) -
+                                       shift) +
                         1;
-                    int64_t ip_hi =
-                        (int64_t)floor((nr * HPG_INV_TWOPI) * (ptg->data[j].phi + dphi) - shift);
+                    int64_t ip_hi = (int64_t)floor(
+                        (nr * HPG_INV_TWOPI) * (ptg->data[j].phi + dphi) - shift);
                     if (fct > 1) {
                         while ((ip_lo <= ip_hi) &&
                                check_pixel_ring(hpx, &hpx2, ip_lo, nr, ipix1, fct, z0->data[j],
@@ -1144,9 +1144,11 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
                         ip_hi -= nr;
                     }
                     if (ip_lo < 0) {
-                        i64rangeset_remove(tr, ipix1 + ip_hi + 1, ipix1 + ip_lo + nr, status, err);
+                        i64rangeset_remove(tr, ipix1 + ip_hi + 1, ipix1 + ip_lo + nr, status,
+                                           err);
                     } else {
-                        i64rangeset_intersect(tr, ipix1 + ip_lo, ipix1 + ip_hi + 1, status, err);
+                        i64rangeset_intersect(tr, ipix1 + ip_lo, ipix1 + ip_hi + 1, status,
+                                              err);
                     }
                 }
                 if (!*status) goto cleanup_ring;
@@ -1328,7 +1330,8 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
     }
 
     if ((semi_major <= 0) || (semi_minor <= 0) || (semi_major < semi_minor)) {
-        snprintf(err, ERR_SIZE, "query_ellipse must have semi_major and semi_minor positive "
+        snprintf(err, ERR_SIZE,
+                 "query_ellipse must have semi_major and semi_minor positive "
                  "and semi_major >= semi_minor.");
         *status = 0;
         return;
@@ -1444,7 +1447,7 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
             if (!*status) goto cleanup;
         }
     }
- cleanup:
+cleanup:
     if (stk != NULL) i64stack_delete(stk);
 }
 
@@ -1569,7 +1572,7 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
             if (!*status) goto cleanup;
         }
     }
- cleanup:
+cleanup:
     if (stk != NULL) i64stack_delete(stk);
 }
 
