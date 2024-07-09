@@ -1454,7 +1454,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
                     // We can skip error checking since theta/phi will always be
                     // within range on output.
                     hpgeom_thetaphi_to_lonlat(ptg_arr->data[i].theta, ptg_arr->data[i].phi,
-                                              &as[index], &bs[index], (bool)degrees, false, err);
+                                              &as[index], &bs[index], (bool)degrees, false,
+                                              err);
                 } else {
                     as[index] = ptg_arr->data[i].theta;
                     bs[index] = ptg_arr->data[i].phi;
