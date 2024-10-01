@@ -238,6 +238,44 @@ def test_query_box_full_longitude(nside, lat):
     assert sub1.size == pixels_all_box.size
 
 
+@pytest.mark.parametrize("nside_radius", [(2**10, 1.0),
+                                          (2**20, 0.01)])
+@pytest.mark.parametrize("lon", [350.0, 10.0])
+@pytest.mark.parametrize("lat", [-1.0, 0.0, 1.0])
+def test_query_box_equat350(nside_radius, lon, lat):
+    """Test query_box near 0."""
+    nside = nside_radius[0]
+    radius = nside_radius[1]
+
+    box = [lon - radius, lon + radius, lat, lat + radius]
+
+    pixels = hpgeom.query_box(nside, *box)
+
+    pixels_circle = hpgeom.query_circle(nside, lon, lat, radius*2.5)
+    lon_circle, lat_circle = hpgeom.pixel_to_angle(nside, pixels_circle)
+    inside = _pos_in_box(lon_circle, lat_circle, *box)
+
+    np.testing.assert_array_equal(pixels, pixels_circle[inside])
+
+    # Do inclusive
+    pixels_box = hpgeom.query_box(nside, *box, inclusive=True)
+
+    # Ensure all the inner pixels are in the inclusive pixels
+    sub1, sub2 = match_arrays(pixels_box, pixels)
+    assert sub2.size == pixels.size
+
+    # Look at boundaries of the pixels, check if any are included.
+    pixels_circle = hpgeom.query_circle(nside, lon, lat, radius*2.5)
+    boundaries_lon, boundaries_lat = hpgeom.boundaries(nside, pixels_circle, step=4)
+    cut = _pos_in_box(boundaries_lon.ravel(), boundaries_lat.ravel(), *box)
+    test = cut.reshape(boundaries_lon.shape).sum(axis=1)
+    pixels_circle_box = pixels_circle[test > 0]
+
+    # Ensure all these pixels are in the inclusive list
+    sub1, sub2 = match_arrays(pixels_circle_box, pixels_box)
+    assert sub1.size == pixels_circle_box.size
+
+
 @pytest.mark.parametrize("fact", [1, 2, 4, 8])
 def test_query_box_fact(fact):
     """Test query_box, use other fact values."""
