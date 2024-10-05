@@ -1470,11 +1470,19 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
     if (ptg_theta0 == ptg_theta1) goto cleanup;
     if (ptg_phi0 == ptg_phi1 && !full_lon) goto cleanup;
 
-    if (inclusive && !full_lon) {
-        // This ensures that pixels which wrap around the edge are included
-        if (ptg_phi0 == 0.0) ptg_phi0 = HPG_TWO_PI;
+    // This is the rotation angle to center the phi range and pi radians,
+    // thus normalizing the box. There are two different computations,
+    // depending on whether the box needs an additional pi rotation to
+    // avoid the zero angle.
+    double ptg_phi_rot_angle = 0.0;
+    if (ptg_phi0 < ptg_phi1) {
+        ptg_phi_rot_angle = fmodulo(HPG_PI - (ptg_phi0 + ptg_phi1)/2., HPG_TWO_PI);
+    } else {
+        ptg_phi_rot_angle = fmodulo(-(ptg_phi0 + ptg_phi1)/2., HPG_TWO_PI);
     }
 
+    double ptg_phi0_rot = fmodulo(ptg_phi0 + ptg_phi_rot_angle, HPG_TWO_PI);
+    double ptg_phi1_rot = fmodulo(ptg_phi1 + ptg_phi_rot_angle, HPG_TWO_PI);
     int oplus = 0;
     if (inclusive) {
         oplus = ilog2(fact);
@@ -1518,12 +1526,13 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
         int zone_theta = 0, zone_phi = 0;
 
         /* Check in the colatitude (theta) direction */
+        /* Note that the Box shape is inclusive of boundaries. */
         double tmdr = pix_theta - dr[o], tpdr = pix_theta + dr[o];
-        if (tpdr >= (ptg_theta0 - HPG_EPSILON) && tmdr < ptg_theta1) {
+        if (tpdr >= (ptg_theta0 - HPG_EPSILON) && tmdr <= (ptg_theta1 + HPG_EPSILON)) {
             // Check if completely inside
-            if (tmdr >= (ptg_theta0 - HPG_EPSILON) && tpdr < ptg_theta1) {
+            if (tmdr >= (ptg_theta0 - HPG_EPSILON) && tpdr <= (ptg_theta1 + HPG_EPSILON)) {
                 zone_theta = 3;
-            } else if (pix_theta >= (ptg_theta0 - HPG_EPSILON) && pix_theta < ptg_theta1) {
+            } else if (pix_theta >= (ptg_theta0 - HPG_EPSILON) && pix_theta <= (ptg_theta1 + HPG_EPSILON)) {
                 zone_theta = 2;
             } else {
                 zone_theta = 1;
@@ -1534,33 +1543,25 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
         if (full_lon) {  // This has the full longitude range, always zone 3.
             zone_phi = 3;
         } else if (zone_theta > 0) {
-            double stheta = sin(pix_theta);
-            double pmdr = pix_phi - dr[o] / stheta;
-            double ppdr = pix_phi + dr[o] / stheta;
+            // We need to rotate the pixel to match the rotation of the phi box.
+            // After that, we can trust that the pixel +/- dr will have the
+            // correct "winding" because the pixel itself will never have a
+            // radius larger than ~pi/4.
+            double pix_phi_rot = fmodulo(pix_phi + ptg_phi_rot_angle, HPG_TWO_PI);
 
-            if (ptg_phi0 < ptg_phi1) {
-                // Regular orientation
-                if (ppdr >= (ptg_phi0 - HPG_EPSILON) && pmdr < ptg_phi1) {
-                    // Check if completely inside
-                    if (pmdr >= (ptg_phi0 - HPG_EPSILON) && ppdr < ptg_phi1) {
-                        zone_phi = 3;
-                    } else if (pix_phi >= (ptg_phi0 - HPG_EPSILON) && pix_phi < ptg_phi1) {
-                        zone_phi = 2;
-                    } else {
-                        zone_phi = 1;
-                    }
-                }
-            } else {
-                // Reverse orientation
-                if (pmdr < ptg_phi1 || ppdr >= (ptg_phi0 - HPG_EPSILON)) {
-                    // Check if completely inside
-                    if (ppdr < ptg_phi1 || pmdr >= (ptg_phi0 - HPG_EPSILON)) {
-                        zone_phi = 3;
-                    } else if (pix_phi < ptg_phi1 || pix_phi >= (ptg_phi0 - HPG_EPSILON)) {
-                        zone_phi = 2;
-                    } else {
-                        zone_phi = 1;
-                    }
+            double stheta = sin(pix_theta);
+            double pmdr_rot = pix_phi_rot - dr[o] / stheta;
+            double ppdr_rot = pix_phi_rot + dr[o] / stheta;
+
+            /* Note that the Box shape is inclusive of boundaries. */
+            if (ppdr_rot >= (ptg_phi0_rot - HPG_EPSILON) && pmdr_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
+                // Check if completely inside
+                if (pmdr_rot >= (ptg_phi0_rot - HPG_EPSILON) && ppdr_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
+                    zone_phi = 3;
+                } else if (pix_phi_rot >= (ptg_phi0_rot - HPG_EPSILON) && pix_phi_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
+                    zone_phi = 2;
+                } else {
+                    zone_phi = 1;
                 }
             }
         }
