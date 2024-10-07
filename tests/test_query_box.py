@@ -272,7 +272,6 @@ def test_query_box_equat350(nside_radius, lon, lat):
     nside = nside_radius[0]
     radius = nside_radius[1]
 
-    # FIXME also reverse!
     box = [lon - radius, lon + radius, lat, lat + radius]
 
     pixels = hpgeom.query_box(nside, *box)
