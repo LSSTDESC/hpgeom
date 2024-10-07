@@ -1477,9 +1477,9 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
     // avoid the zero angle.
     double ptg_phi_rot_angle = 0.0;
     if (ptg_phi0 < ptg_phi1) {
-        ptg_phi_rot_angle = fmodulo(HPG_PI - (ptg_phi0 + ptg_phi1)/2., HPG_TWO_PI);
+        ptg_phi_rot_angle = fmodulo(HPG_PI - (ptg_phi0 + ptg_phi1) / 2., HPG_TWO_PI);
     } else {
-        ptg_phi_rot_angle = fmodulo(-(ptg_phi0 + ptg_phi1)/2., HPG_TWO_PI);
+        ptg_phi_rot_angle = fmodulo(-(ptg_phi0 + ptg_phi1) / 2., HPG_TWO_PI);
     }
 
     double ptg_phi0_rot = fmodulo(ptg_phi0 + ptg_phi_rot_angle, HPG_TWO_PI);
@@ -1533,7 +1533,8 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
             // Check if completely inside
             if (tmdr >= (ptg_theta0 - HPG_EPSILON) && tpdr <= (ptg_theta1 + HPG_EPSILON)) {
                 zone_theta = 3;
-            } else if (pix_theta >= (ptg_theta0 - HPG_EPSILON) && pix_theta <= (ptg_theta1 + HPG_EPSILON)) {
+            } else if (pix_theta >= (ptg_theta0 - HPG_EPSILON) &&
+                       pix_theta <= (ptg_theta1 + HPG_EPSILON)) {
                 zone_theta = 2;
             } else {
                 zone_theta = 1;
@@ -1555,11 +1556,14 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
             double ppdr_rot = pix_phi_rot + dr[o] / stheta;
 
             /* Note that the Box shape is inclusive of boundaries. */
-            if (ppdr_rot >= (ptg_phi0_rot - HPG_EPSILON) && pmdr_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
+            if (ppdr_rot >= (ptg_phi0_rot - HPG_EPSILON) &&
+                pmdr_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
                 // Check if completely inside
-                if (pmdr_rot >= (ptg_phi0_rot - HPG_EPSILON) && ppdr_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
+                if (pmdr_rot >= (ptg_phi0_rot - HPG_EPSILON) &&
+                    ppdr_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
                     zone_phi = 3;
-                } else if (pix_phi_rot >= (ptg_phi0_rot - HPG_EPSILON) && pix_phi_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
+                } else if (pix_phi_rot >= (ptg_phi0_rot - HPG_EPSILON) &&
+                           pix_phi_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
                     zone_phi = 2;
                 } else {
                     zone_phi = 1;
