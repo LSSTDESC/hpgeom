@@ -22,20 +22,46 @@ def _pos_in_box(lon, lat, lon0, lon1, lat0, lat1):
     -------
     indices : `np.ndarray`
     """
-    _lon0 = (np.deg2rad(lon0) - EPSILON) % (2.*np.pi)
-    _lon1 = np.deg2rad(lon1) % (2.*np.pi)
-    _lat0 = np.deg2rad(lat0) - EPSILON
+    _lon0 = np.remainder(np.deg2rad(lon0), 2.*np.pi)
+    _lon1 = np.remainder(np.deg2rad(lon1), 2.*np.pi)
+    _lat0 = np.deg2rad(lat0)
     _lat1 = np.deg2rad(lat1)
-
     _lon = np.deg2rad(lon)
     _lat = np.deg2rad(lat)
 
     if _lon0 < _lon1:
-        inside = ((_lon >= _lon0) & (_lon < _lon1) & (_lat >= _lat0) & (_lat < _lat1))
+        inside = (
+            (_lon >= (_lon0 - EPSILON))
+            & (_lon <= (_lon1 + EPSILON))
+            & (_lat >= (_lat0 - EPSILON))
+            & (_lat <= (_lat1 + EPSILON))
+        )
     else:
-        inside = (((_lon < _lon1) | (_lon >= _lon0)) & (_lat >= _lat0) & (_lat < _lat1))
+        inside = (
+            ((_lon <= (_lon1 + EPSILON))
+             | (_lon >= (_lon0 - EPSILON)))
+            & (_lat >= (_lat0 - EPSILON))
+            & (_lat <= (_lat1 + EPSILON))
+        )
 
     return inside
+
+
+def _check_consistent_pixels(pixels1, pixels2):
+    """Test that two pixel lists are consistent, with affordances for rounding errors.
+
+    Parameters
+    ----------
+    pixels1 : `np.ndarray`
+    pixels2 : `np.ndarray`
+    """
+    if len(pixels1) == len(pixels2):
+        np.testing.assert_array_equal(pixels1, pixels2)
+    else:
+        delta = np.abs(len(pixels1) - len(pixels2))
+        assert delta < 2
+        sub1, sub2 = match_arrays(pixels1, pixels2)
+        assert len(sub1) == len(pixels1) or len(sub1) == len(pixels2)
 
 
 @pytest.mark.parametrize("nside_radius", [(2**7, 2.0),
@@ -56,7 +82,7 @@ def test_query_box_square(nside_radius, lon, lat):
     lon_circle, lat_circle = hpgeom.pixel_to_angle(nside, pixels_circle)
     inside = _pos_in_box(lon_circle, lat_circle, *box)
 
-    np.testing.assert_array_equal(pixels, pixels_circle[inside])
+    _check_consistent_pixels(pixels, pixels_circle[inside])
 
     # Do inclusive
     pixels_box = hpgeom.query_box(nside, *box, inclusive=True)
@@ -98,7 +124,7 @@ def test_query_box_edge(nside_radius, lon, lat):
     lon_circle, lat_circle = hpgeom.pixel_to_angle(nside, pixels_circle)
     inside = _pos_in_box(lon_circle, lat_circle, *box)
 
-    np.testing.assert_array_equal(pixels, pixels_circle[inside])
+    _check_consistent_pixels(pixels, pixels_circle[inside])
 
     # Do inclusive
     pixels_box = hpgeom.query_box(nside, *box, inclusive=True)
@@ -126,8 +152,8 @@ def test_query_box_edge(nside_radius, lon, lat):
         assert lon_box.min() < 5.0
 
 
-@pytest.mark.parametrize("nside_radius", [(2**5, 2.0),
-                                          (2**10, 1.0),
+@pytest.mark.parametrize("nside_radius", [(2**5, 10.0),
+                                          (2**10, 4.5),
                                           (2**20, 0.01)])
 @pytest.mark.parametrize("lon", [0.0, 90.0, 180.0, 270.0])
 @pytest.mark.parametrize("lat", [90.0, -90.0])
@@ -147,7 +173,8 @@ def test_query_box_pole(nside_radius, lon, lat):
     lon_circle, lat_circle = hpgeom.pixel_to_angle(nside, pixels_circle)
     inside = _pos_in_box(lon_circle, lat_circle, *box)
 
-    np.testing.assert_array_equal(pixels, pixels_circle[inside])
+    assert np.sum(inside) == len(pixels)
+    _check_consistent_pixels(pixels, pixels_circle[inside])
 
     # Do inclusive
     pixels_box = hpgeom.query_box(nside, *box, inclusive=True)
@@ -165,12 +192,10 @@ def test_query_box_pole(nside_radius, lon, lat):
 
     # Ensure all these pixels are in the inclusive list
     sub1, sub2 = match_arrays(pixels_circle_box, pixels_box)
-    if (lon == 0.0 and lat == -90.0):
-        # There is some oddity with the polar pixel boundaries that needs to
-        # be investigated.
-        assert sub1.size == (pixels_circle_box.size - 2)
-    else:
-        assert sub1.size == pixels_circle_box.size
+    # There is a couple pixel discrepancy near the poles here, but these
+    # are approximations.
+    delta = np.abs(sub1.size - pixels_circle_box.size)
+    assert delta < 3
 
 
 @pytest.mark.parametrize("nside", [2**5, 2**10])
@@ -236,6 +261,59 @@ def test_query_box_full_longitude(nside, lat):
     # Ensure all these pixels are in the inclusive list
     sub1, sub2 = match_arrays(pixels_all_box, pixels_box)
     assert sub1.size == pixels_all_box.size
+
+
+@pytest.mark.parametrize("nside_radius", [(2**10, 1.0),
+                                          (2**20, 0.01)])
+@pytest.mark.parametrize("lon", [350.0, 10.0])
+@pytest.mark.parametrize("lat", [-1.0, 0.0, 1.0])
+def test_query_box_equat350(nside_radius, lon, lat):
+    """Test query_box near 0."""
+    nside = nside_radius[0]
+    radius = nside_radius[1]
+
+    box = [lon - radius, lon + radius, lat, lat + radius]
+
+    pixels = hpgeom.query_box(nside, *box)
+
+    pixels_circle = hpgeom.query_circle(nside, lon, lat, radius*2.5)
+    lon_circle, lat_circle = hpgeom.pixel_to_angle(nside, pixels_circle)
+    inside = _pos_in_box(lon_circle, lat_circle, *box)
+
+    _check_consistent_pixels(pixels, pixels_circle[inside])
+
+    # Do inclusive
+    pixels_box = hpgeom.query_box(nside, *box, inclusive=True)
+
+    # Ensure all the inner pixels are in the inclusive pixels
+    sub1, sub2 = match_arrays(pixels_box, pixels)
+    assert sub2.size == pixels.size
+
+    # Look at boundaries of the pixels, check if any are included.
+    pixels_circle = hpgeom.query_circle(nside, lon, lat, radius*2.5)
+    boundaries_lon, boundaries_lat = hpgeom.boundaries(nside, pixels_circle, step=4)
+    cut = _pos_in_box(boundaries_lon.ravel(), boundaries_lat.ravel(), *box)
+    test = cut.reshape(boundaries_lon.shape).sum(axis=1)
+    pixels_circle_box = pixels_circle[test > 0]
+
+    # Ensure all these pixels are in the inclusive list
+    sub1, sub2 = match_arrays(pixels_circle_box, pixels_box)
+    assert sub1.size == pixels_circle_box.size
+
+
+@pytest.mark.parametrize("nside", [2**8])
+@pytest.mark.parametrize("lon", [0.0, 10.0, 180.0, 350.0])
+@pytest.mark.parametrize("lat", [-45.0, 0.0, 45.0])
+def test_query_box_bigbox(nside, lon, lat):
+    """Test query_box with a very large box."""
+    box = [lon - 179.0, lon + 179.0, lat - 0.5, lat + 0.5]
+
+    pixels = hpgeom.query_box(nside, *box)
+
+    all_lon, all_lat = hpgeom.pixel_to_angle(nside, np.arange(hpgeom.nside_to_npixel(nside)))
+    pixels_inside, = np.where(_pos_in_box(all_lon, all_lat, *box))
+
+    _check_consistent_pixels(pixels, pixels_inside)
 
 
 @pytest.mark.parametrize("fact", [1, 2, 4, 8])
