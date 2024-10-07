@@ -301,6 +301,21 @@ def test_query_box_equat350(nside_radius, lon, lat):
     assert sub1.size == pixels_circle_box.size
 
 
+@pytest.mark.parametrize("nside", [2**8])
+@pytest.mark.parametrize("lon", [0.0, 10.0, 180.0, 350.0])
+@pytest.mark.parametrize("lat", [-45.0, 0.0, 45.0])
+def test_query_box_bigbox(nside, lon, lat):
+    """Test query_box with a very large box."""
+    box = [lon - 179.0, lon + 179.0, lat - 0.5, lat + 0.5]
+
+    pixels = hpgeom.query_box(nside, *box)
+
+    all_lon, all_lat = hpgeom.pixel_to_angle(nside, np.arange(hpgeom.nside_to_npixel(nside)))
+    pixels_inside, = np.where(_pos_in_box(all_lon, all_lat, *box))
+
+    _check_consistent_pixels(pixels, pixels_inside)
+
+
 @pytest.mark.parametrize("fact", [1, 2, 4, 8])
 def test_query_box_fact(fact):
     """Test query_box, use other fact values."""
