@@ -110,6 +110,7 @@ static inline double safe_atan2(double y, double x) {
 }
 
 double fmodulo(double v1, double v2) {
+    // modulus function that returns values in range [0, v2)
     if (v1 >= 0) return (v1 < v2) ? v1 : fmod(v1, v2);
     double tmp = fmod(v1, v2) + v2;
     return (tmp == v2) ? 0. : tmp;
