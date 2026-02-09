@@ -310,5 +310,3 @@ def test_query_polygon_lsstcam_region():
                          [0.49159976, 0.69982473, -0.51824224]],
                         )
     pixels = hpgeom.query_polygon_vec(1024, vertices)
-
-    
