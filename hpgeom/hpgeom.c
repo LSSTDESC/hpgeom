@@ -94,6 +94,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     double theta, phi;
     healpix_info hpx;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|ppp", kwlist, &nside_obj, &a_obj,
                                      &b_obj, &lonlat, &nest, &degrees))
@@ -146,6 +147,8 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         scheme = RING;
     }
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -161,27 +164,34 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, scheme);
                 started = true;
             }
             if (lonlat) {
                 if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
             } else {
                 if (!hpgeom_check_theta_phi(*a, *b, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 theta = *a;
                 phi = *b;
             }
             *outpix = ang2pix(&hpx, theta, phi);
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     // The reference to the automatically generated output array is owned
@@ -246,6 +256,7 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
     double theta, phi;
     healpix_info hpx;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|ppp", kwlist, &nside_obj, &pix_obj,
                                      &lonlat, &nest, &degrees))
@@ -296,6 +307,8 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
         scheme = RING;
     }
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -311,15 +324,15 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, scheme);
                 started = true;
             }
             if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+                loop_failed = true;
+                break;
             }
             pix2ang(&hpx, *pix, &theta, &phi);
             if (lonlat) {
@@ -331,6 +344,13 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
                 *outb = phi;
             }
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     a_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
@@ -527,7 +547,12 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
             goto fail;
         }
     }
+
+    NPY_BEGIN_ALLOW_THREADS
+
     query_disc(&hpx, theta, phi, radius, fact, pixset, &status, err);
+
+    NPY_END_ALLOW_THREADS
 
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
@@ -704,7 +729,12 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
         vertices->size--;
     }
 
+    NPY_BEGIN_ALLOW_THREADS
+
     query_polygon(&hpx, vertices, fact, pixset, &status, err);
+
+    NPY_END_ALLOW_THREADS
+
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
         goto fail;
@@ -863,7 +893,12 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
             goto fail;
         }
     }
+
+    NPY_BEGIN_ALLOW_THREADS
+
     query_ellipse(&hpx, theta, phi, semi_major, semi_minor, alpha, fact, pixset, &status, err);
+
+    NPY_END_ALLOW_THREADS
 
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
@@ -1031,7 +1066,12 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
             goto fail;
         }
     }
+
+    NPY_BEGIN_ALLOW_THREADS
+
     query_box(&hpx, theta0, theta1, phi0, phi1, full_lon, fact, pixset, &status, err);
+
+    NPY_END_ALLOW_THREADS
 
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
@@ -1081,6 +1121,7 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
 
     healpix_info hpx;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &nside_obj, &nest_pix_obj))
         goto fail;
@@ -1121,6 +1162,8 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
     iternext = NpyIter_GetIterNext(iter, NULL);
     dataptrarray = NpyIter_GetDataPtrArray(iter);
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -1135,18 +1178,25 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, NEST, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, NEST);
                 started = true;
             }
             if (!hpgeom_check_pixel(&hpx, *nest_pix, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+                loop_failed = true;
+                break;
             }
             *ring_pix = nest2ring(&hpx, *nest_pix);
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     ring_pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
@@ -1203,6 +1253,7 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
 
     healpix_info hpx;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &nside_obj, &ring_pix_obj))
         goto fail;
@@ -1243,6 +1294,8 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
     iternext = NpyIter_GetIterNext(iter, NULL);
     dataptrarray = NpyIter_GetDataPtrArray(iter);
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -1257,18 +1310,25 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, NEST, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, NEST);
                 started = true;
             }
             if (!hpgeom_check_pixel(&hpx, *ring_pix, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+                loop_failed = true;
+                break;
             }
             *nest_pix = ring2nest(&hpx, *ring_pix);
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     nest_pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
@@ -1337,6 +1397,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
     healpix_info hpx;
     int status;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Lppp", kwlist, &nside_obj, &pix_obj,
                                      &step, &lonlat, &nest, &degrees))
@@ -1417,6 +1478,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         goto fail;
     }
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -1429,22 +1492,22 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, scheme);
                 started = true;
             }
 
             if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+                loop_failed = true;
+                break;
             }
 
             boundaries(&hpx, *pix, step, ptg_arr, &status);
             if (!status) {
-                PyErr_SetString(PyExc_RuntimeError, "Fatal programming error in boundaries.");
-                goto fail;
+                loop_failed = true;
+                break;
             }
 
             size_t index;
@@ -1463,6 +1526,13 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
             }
 
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     Py_DECREF(nside_arr);
@@ -1521,6 +1591,7 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
 
     healpix_info hpx;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO|p", kwlist, &nside_obj, &x_obj,
                                      &y_obj, &z_obj, &nest))
@@ -1579,6 +1650,8 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
         scheme = RING;
     }
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -1596,8 +1669,8 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, scheme);
                 started = true;
@@ -1607,6 +1680,13 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
             vec.z = *z;
             *outpix = vec2pix(&hpx, &vec);
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[4];
@@ -1671,6 +1751,7 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
 
     healpix_info hpx;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj, &pix_obj,
                                      &nest))
@@ -1724,6 +1805,8 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
         scheme = RING;
     }
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -1741,21 +1824,28 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, scheme);
                 started = true;
             }
             if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+                loop_failed = true;
+                break;
             }
             vec = pix2vec(&hpx, *pix);
             *x = vec.x;
             *y = vec.y;
             *z = vec.z;
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     x_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
@@ -1827,6 +1917,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     healpix_info hpx;
     int status;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj, &pix_obj,
                                      &nest))
@@ -1905,6 +1996,8 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         goto fail;
     }
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -1918,16 +2011,16 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, scheme);
                 started = true;
             }
 
             if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-                PyErr_SetString(PyExc_ValueError, err);
-                goto fail;
+                loop_failed = true;
+                break;
             }
             neighbors(&hpx, *pix, neigh, &status, err);
 
@@ -1936,6 +2029,13 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
                 neighbor_pixels[index] = neigh->data[i];
             }
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     Py_DECREF(nside_arr);
@@ -1989,6 +2089,7 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
 
     healpix_info hpx;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|p", kwlist, &nside_obj, &degrees))
         goto fail;
@@ -2023,6 +2124,8 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
     iternext = NpyIter_GetIterNext(iter, NULL);
     dataptrarray = NpyIter_GetDataPtrArray(iter);
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -2035,8 +2138,8 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, RING, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, RING);
                 started = true;
@@ -2045,6 +2148,13 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
             if (degrees) *pixrad *= HPG_R2D;
 
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     pixrad_arr = (PyObject *)NpyIter_GetOperandArray(iter)[1];
@@ -2103,6 +2213,7 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     double *weights = NULL;
     healpix_info hpx;
     char err[ERR_SIZE];
+    bool loop_failed = false;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|ppp", kwlist, &nside_obj, &a_obj,
                                      &b_obj, &lonlat, &nest, &degrees))
@@ -2182,6 +2293,8 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         scheme = RING;
     }
 
+    NPY_BEGIN_ALLOW_THREADS
+
     // Check for zero-size before entering loop.
     if (NpyIter_GetIterSize(iter) > 0) {
         int64_t *nside;
@@ -2196,21 +2309,21 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
 
             if ((!started) || (*nside != last_nside)) {
                 if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 hpx = healpix_info_from_nside(*nside, scheme);
                 started = true;
             }
             if (lonlat) {
                 if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
             } else {
                 if (!hpgeom_check_theta_phi(*a, *b, err)) {
-                    PyErr_SetString(PyExc_ValueError, err);
-                    goto fail;
+                    loop_failed = true;
+                    break;
                 }
                 theta = *a;
                 phi = *b;
@@ -2218,6 +2331,13 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
             size_t index = 4 * NpyIter_GetIterIndex(iter);
             get_interpol(&hpx, theta, phi, &pixels[index], &weights[index]);
         } while (iternext(iter));
+    }
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
     }
 
     Py_DECREF(nside_arr);
