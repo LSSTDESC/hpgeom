@@ -1236,7 +1236,7 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
                     } else {
                         crlim = crlimit2[o]->data[i];
                     }
-                    if (crad < crlim)
+                    if (crad < (crlim + HPG_EPSILON))
                         if ((zone = iz) == 0) goto bailout;
                 }
             }
@@ -1282,10 +1282,11 @@ void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset
     if (!*status) goto cleanup;
     int flip = 0;
     for (size_t i = 0; i < nv; i++) {
-        vec3_crossprod(&vv->data[i], &vv->data[(i + 1) % nv], &normal->data[i]);
+        vec3_robust_crossprod(&vv->data[i], &vv->data[(i + 1) % nv], &normal->data[i]);
         vec3_normalize(&normal->data[i]);
         double hnd = vec3_dotprod(&normal->data[i], &vv->data[(i + 2) % nv]);
-        if (fabs(hnd) < 1e-10) {
+        // Use double-precision floating point epsilon to check for degeneracy.
+        if (fabs(hnd) < HPG_EPSILON) {
             snprintf(err, ERR_SIZE, "Polygon has degenerate corner.");
             *status = 0;
             goto cleanup;
@@ -1293,7 +1294,7 @@ void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset
         if (i == 0)
             flip = (hnd < 0.) ? -1 : 1;
         else if (flip * hnd < 0) {
-            snprintf(err, ERR_SIZE, "Polygon is not convex.");
+            snprintf(err, ERR_SIZE, "Polygon is not convex (vertices %d, %d, %d).", i, (i + 1) % nv, (i + 2) % nv);
             *status = 0;
             goto cleanup;
         }

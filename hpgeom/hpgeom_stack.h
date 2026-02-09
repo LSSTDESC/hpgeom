@@ -99,6 +99,7 @@ void i64rangeset_intersect(i64rangeset *rangeset, int64_t v1, int64_t v2, int *s
                            char *err);
 
 void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod);
+void vec3_robust_crossprod(vec3 *v1, vec3 *v2, vec3 *prod);
 double vec3_dotprod(vec3 *v1, vec3 *v2);
 double vec3_length(vec3 *v);
 void vec3_add(vec3 *v1, vec3 *v2, vec3 *sum);

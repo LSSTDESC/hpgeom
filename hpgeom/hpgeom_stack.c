@@ -389,6 +389,18 @@ void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod) {
     prod->z = v1->x * v2->y - v1->y * v2->x;
 }
 
+void vec3_robust_crossprod(vec3 *v1, vec3 *v2, vec3 *prod) {
+    // The robust cross product is (v2 + v1) cross (v2 - v1) - twice
+    // the cross product of v1 and v2. The result is almost orthogonal
+    // to v1 and v2 even for nearly (anti-)parallel unit vectors.
+    // The idea comes from the Google S2 library and is adapted from
+    // lsst-sphgeom.
+    vec3 v2_plus_v1, v2_minus_v1;
+    vec3_add(v2, v1, &v2_plus_v1);
+    vec3_subtract(v2, v1, &v2_minus_v1);
+    vec3_crossprod(&v2_plus_v1, &v2_minus_v1, prod);
+}
+
 double vec3_dotprod(vec3 *v1, vec3 *v2) {
     return v1->x * v2->x + v1->y * v2->y + v1->z * v2->z;
 }
