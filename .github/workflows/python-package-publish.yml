@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.13"
           cache: "pip"
           cache-dependency-path: "setup.cfg"
 
@@ -45,7 +45,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.13"
           cache: "pip"
           cache-dependency-path: "setup.cfg"
 
@@ -62,11 +62,11 @@ jobs:
   pypi_wheel_build:
     strategy:
       matrix:
-        os: ["ubuntu-latest", "macOS-12", "windows-2019"]
+        os: ["ubuntu-latest", "macOS-15", "windows-2022"]
     runs-on: ${{ matrix.os }}
     needs: [build_and_test]
     env:
-      CIBW_BUILD: "cp3{9,10,11,12}-{manylinux_x86_64,macosx_arm64,macosx_x86_64,win_amd64}"
+      CIBW_BUILD: "cp3{10,11,12,13}-{manylinux_x86_64,macosx_arm64,macosx_x86_64,win_amd64}"
       CIBW_ARCHS_MACOS: "x86_64 arm64"
       CIBW_ARCHS_LINUX: "auto"
 
@@ -79,7 +79,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.13"
           cache: "pip"
           cache-dependency-path: "setup.cfg"
 
