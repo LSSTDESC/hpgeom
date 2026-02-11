@@ -15,25 +15,25 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest ]
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12', '3.13']
         include:
+          # This gives us x86
+          - os: macos-15-intel
+            python-version: "3.11"
           # This gives us arm64
           - os: macos-latest
-            python-version: "3.11"
-          # This gives us x86
-          - os: macos-13
-            python-version: "3.11"
+            python-version: "3.13"
           - os: windows-latest
-            python-version: "3.11"
+            python-version: "3.13"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         # Need to clone everything to determine version from git.
         fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
         cache: "pip"
