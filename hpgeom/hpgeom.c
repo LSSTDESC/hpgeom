@@ -61,8 +61,8 @@
     "    Return an array of pixel ranges instead of a list of pixels.\n"         \
     "    The ranges will be sorted, and each range is of the form [lo, high).\n" \
     "    This option is only compatible with nest ordering.\n"
-#define N_THREADS_PAR    \
-    "n_threads : `int`, optional\n"    \
+#define N_THREADS_PAR               \
+    "n_threads : `int`, optional\n" \
     "    Number of threads to use?\n"
 
 PyDoc_STRVAR(angle_to_pixel_doc,
@@ -155,7 +155,6 @@ static void *angle_to_pixel_worker(void *arg) {
     return NULL;
 }
 
-
 static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *a_obj = NULL, *b_obj = NULL;
     PyObject *nside_arr = NULL, *a_arr = NULL, *b_arr = NULL;
@@ -169,7 +168,8 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     int nest = 1;
     int degrees = 1;
     int n_threads = 1;
-    static char *kwlist[] = {"nside", "a", "b", "lonlat", "nest", "degrees", "n_threads", NULL};
+    static char *kwlist[] = {"nside", "a",       "b",         "lonlat",
+                             "nest",  "degrees", "n_threads", NULL};
 
     double theta, phi;
     healpix_info hpx;
@@ -211,13 +211,12 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK;
     if (n_threads > 1) {
-        iter_flags |= NPY_ITER_RANGED |
-                      NPY_ITER_BUFFERED | NPY_ITER_DELAY_BUFALLOC |
-                      NPY_ITER_GROWINNER;
+        iter_flags |=
+            NPY_ITER_RANGED | NPY_ITER_BUFFERED | NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(4, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(4, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
 
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
@@ -261,8 +260,8 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
-            thread_data[t].end_idx = thread_data[t].start_idx + chunk_size +
-                                     (t < remainder ? 1 : 0);
+            thread_data[t].end_idx =
+                thread_data[t].start_idx + chunk_size + (t < remainder ? 1 : 0);
             thread_data[t].lonlat = lonlat;
             thread_data[t].nest = nest;
             thread_data[t].degrees = degrees;
@@ -309,7 +308,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         }
     }
 
- cleanup:
+cleanup:
     // The reference to the automatically generated output array is owned
     // by the iterator, so we must explicitly increase the reference
     // count to keep it after deallocating the iterator. This is also the
@@ -364,8 +363,8 @@ PyDoc_STRVAR(pixel_to_angle_doc,
              "Convert pixels to angles.\n"
              "\n"
              "Parameters\n"
-             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
-                 DEGREES_DOC_PAR
+             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR
+                 LONLAT_DOC_PAR DEGREES_DOC_PAR
              "\n"
              "Returns\n"
              "-------\n" AB_DOC_PAR
@@ -580,8 +579,8 @@ PyDoc_STRVAR(query_circle_doc,
              "    If False, return the exact set of pixels whose pixel centers lie\n"
              "    within the circle. If True, return all pixels that overlap with\n"
              "    the circle. This is an approximation and may return a few extra\n"
-             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
-                 RETURN_PIXEL_RANGES_PAR
+             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
+                 DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -722,8 +721,8 @@ PyDoc_STRVAR(query_polygon_doc,
              "    If False, return the exact set of pixels whose pixel centers lie\n"
              "    within the polygon. If True, return all pixels that overlap with\n"
              "    the polygon. This is an approximation and may return a few extra\n"
-             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
-                 RETURN_PIXEL_RANGES_PAR
+             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
+                 DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -920,8 +919,8 @@ PyDoc_STRVAR(query_ellipse_doc,
              "    If False, return the exact set of pixels whose pixel centers lie\n"
              "    within the ellipse. If True, return all pixels that overlap with\n"
              "    the ellipse. This is an approximation and may return a few extra\n"
-             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
-                 RETURN_PIXEL_RANGES_PAR
+             "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
+                 DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -1073,8 +1072,8 @@ PyDoc_STRVAR(
     "    If False, return the exact set of pixels whose pixel centers lie\n"
     "    within the box. If True, return all pixels that overlap with\n"
     "    the box. This is an approximation and may return a few extra\n"
-    "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR
-        RETURN_PIXEL_RANGES_PAR
+    "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
+        DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
     "\n"
     "Returns\n"
     "-------\n"
@@ -1501,8 +1500,8 @@ PyDoc_STRVAR(boundaries_doc,
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR
              "step : `int`, optional\n"
-             "    Number of steps for each side of the pixel.\n" NEST_DOC_PAR LONLAT_DOC_PAR
-                 DEGREES_DOC_PAR
+             "    Number of steps for each side of the pixel.\n" NEST_DOC_PAR
+                 LONLAT_DOC_PAR DEGREES_DOC_PAR
              "\n"
              "Returns\n"
              "-------\n"
