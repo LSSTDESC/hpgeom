@@ -74,6 +74,36 @@ def test_pixel_to_angle_nest(nside):
     np.testing.assert_array_almost_equal(phi_hpgeom, phi_healpy)
 
 
+@pytest.mark.parametrize("n_threads", [2])
+def test_angle_to_pixel_threads(n_threads):
+    """Test angle_to_pixel multi-threaded."""
+    np.random.seed(12345)
+
+    nside = 2**15
+
+    pix = np.random.randint(low=0, high=12*nside*nside-1, size=10_000_000, dtype=np.int64)
+
+    lat_hpgeom_single, lon_hpgeom_single = hpgeom.pixel_to_angle(
+        nside,
+        pix,
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=1,
+    )
+    lat_hpgeom, lon_hpgeom = hpgeom.pixel_to_angle(
+        nside,
+        pix,
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=n_threads,
+    )
+
+    np.testing.assert_array_equal(lat_hpgeom, lat_hpgeom_single)
+    np.testing.assert_array_equal(lon_hpgeom, lon_hpgeom_single)
+
+
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
 def test_pixel_to_angle_scalar(nside):
     """Test pixel_to_angle for scalars."""
