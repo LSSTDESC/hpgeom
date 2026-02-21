@@ -169,8 +169,6 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     static char *kwlist[] = {"nside", "a",       "b",         "lonlat",
                              "nest",  "degrees", "n_threads", NULL};
 
-    double theta, phi;
-    healpix_info hpx;
     char err[ERR_SIZE];
     bool loop_failed = false;
 
@@ -191,8 +189,6 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     PyArrayObject *op[4];
     npy_uint32 op_flags[4];
     PyArray_Descr *op_dtypes[4];
-    NpyIter_IterNextFunc *iternext;
-    char **dataptrarray;
 
     op[0] = (PyArrayObject *)nside_arr;
     op_flags[0] = NPY_ITER_READONLY;
@@ -300,7 +296,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         }
 
     } else {
-        // Single-threaded path - use -1, -1 to indicate no range reset needed
+        // Single-threaded path: set to the full range 0, iter_size.
         NPY_BEGIN_ALLOW_THREADS
 
         loop_failed = !angle_to_pixel_iteration(iter, lonlat, nest, degrees, 0, iter_size, err);
@@ -369,7 +365,7 @@ PyDoc_STRVAR(pixel_to_angle_doc,
              "\n"
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR
-                 LONLAT_DOC_PAR DEGREES_DOC_PAR
+                 LONLAT_DOC_PAR DEGREES_DOC_PAR N_THREADS_PAR
              "\n"
              "Returns\n"
              "-------\n" AB_DOC_PAR
@@ -1229,6 +1225,7 @@ fail:
     return NULL;
 }
 
+// **** ADD THREADS ***
 PyDoc_STRVAR(nest_to_ring_doc,
              "nest_to_ring(nside, pix)\n"
              "--\n\n"
@@ -1361,6 +1358,7 @@ fail:
     return NULL;
 }
 
+// **** ADD THREADS ***
 PyDoc_STRVAR(ring_to_nest_doc,
              "ring_to_nest(nside, pix)\n"
              "--\n\n"
@@ -1493,6 +1491,7 @@ fail:
     return NULL;
 }
 
+// **** ADD THREADS ***
 PyDoc_STRVAR(boundaries_doc,
              "boundaries(nside, pix, step=1, nest=True, lonlat=True, degrees=True)\n"
              "--\n\n"
@@ -1701,6 +1700,7 @@ fail:
     return NULL;
 }
 
+// **** ADD THREADS ***
 PyDoc_STRVAR(vector_to_pixel_doc,
              "vector_to_pixel(nside, x, y, z, nest=True)\n"
              "--\n\n"
@@ -1855,6 +1855,7 @@ fail:
     return NULL;
 }
 
+// **** ADD THREADS ***
 PyDoc_STRVAR(pixel_to_vector_doc,
              "pixel_to_vector(nside, pix, nest=True)\n"
              "--\n\n"
@@ -2021,6 +2022,7 @@ fail:
     return NULL;
 }
 
+// **** ADD THREADS ***
 PyDoc_STRVAR(neighbors_doc,
              "neighbors(nside, pix, nest=True)\n"
              "--\n\n"
@@ -2201,6 +2203,7 @@ fail:
     return NULL;
 }
 
+// **** ADD THREADS ***
 PyDoc_STRVAR(max_pixel_radius_doc,
              "max_pixel_radius(nside, degrees=True)\n"
              "--\n\n"
@@ -2317,6 +2320,7 @@ fail:
     return NULL;
 }
 
+// **** ADD THREADS ***
 PyDoc_STRVAR(
     get_interpolation_weights_doc,
     "get_interpolation_weights(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
