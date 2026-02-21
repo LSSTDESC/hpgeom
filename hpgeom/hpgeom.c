@@ -63,7 +63,7 @@
     "    This option is only compatible with nest ordering.\n"
 #define N_THREADS_PAR               \
     "n_threads : `int`, optional\n" \
-    "    Number of threads to use?\n"
+    "    Number of threads to use. Any number < 1 will use 1 thread.\n"
 
 PyDoc_STRVAR(angle_to_pixel_doc,
              "angle_to_pixel(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
@@ -96,11 +96,9 @@ static bool angle_to_pixel_iteration(NpyIter *iter, int lonlat, int nest, int de
     enum Scheme scheme = nest ? NEST : RING;
 
     // For ranged iteration, reset to the specified range
-    if (start_idx >= 0 && end_idx >= 0) {
-        if (NpyIter_ResetToIterIndexRange(iter, start_idx, end_idx, &errmsg) != NPY_SUCCEED) {
-            snprintf(err, ERR_SIZE, "%s", errmsg);
-            return false;
-        }
+    if (NpyIter_ResetToIterIndexRange(iter, start_idx, end_idx, &errmsg) != NPY_SUCCEED) {
+        snprintf(err, ERR_SIZE, "%s", errmsg);
+        return false;
     }
 
     iternext = NpyIter_GetIterNext(iter, NULL);
@@ -209,10 +207,10 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
     op_flags[3] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
     op_dtypes[3] = PyArray_DescrFromType(NPY_INT64);
 
-    npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK;
+    npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK | NPY_ITER_RANGED | NPY_ITER_BUFFERED;
     if (n_threads > 1) {
         iter_flags |=
-            NPY_ITER_RANGED | NPY_ITER_BUFFERED | NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
+            NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
     iter = NpyIter_MultiNew(4, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
@@ -228,6 +226,13 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     if (iter_size == 0) {
         goto cleanup;
+    }
+
+    if (n_threads > 1) {
+        // Don't use threading if chunks would be too small
+        if (iter_size / n_threads < MIN_CHUNK_SIZE) {
+            n_threads = iter_size / MIN_CHUNK_SIZE;
+        }
     }
 
     if (n_threads > 1) {
@@ -298,7 +303,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         // Single-threaded path - use -1, -1 to indicate no range reset needed
         NPY_BEGIN_ALLOW_THREADS
 
-        loop_failed = !angle_to_pixel_iteration(iter, lonlat, nest, degrees, -1, -1, err);
+        loop_failed = !angle_to_pixel_iteration(iter, lonlat, nest, degrees, 0, iter_size, err);
 
         NPY_END_ALLOW_THREADS
 

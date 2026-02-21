@@ -30,6 +30,7 @@
 #include <stdint.h>
 
 #define ERR_SIZE 256
+#define MIN_CHUNK_SIZE 5000
 
 typedef struct {
     NpyIter *iter;
