@@ -188,8 +188,8 @@ def test_angle_to_pixel_bad_nside(n_threads):
     """Test angle_to_pixel errors when given a bad nside."""
     np.random.seed(12345)
 
-    lon = np.random.uniform(low=0.0, high=360.0, size=100)
-    lat = np.random.uniform(low=-90.0, high=90.0, size=100)
+    lon = np.random.uniform(low=0.0, high=360.0, size=20_000)
+    lat = np.random.uniform(low=-90.0, high=90.0, size=20_000)
 
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.angle_to_pixel(-10, lon, lat, nest=False, n_threads=n_threads)
@@ -209,24 +209,58 @@ def test_angle_to_pixel_bad_coords(n_threads):
     """Test angle_to_pixel errors when given bad coords."""
     with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Dec out of range
-        hpgeom.angle_to_pixel(2048, 0.0, 100.0, n_threads=n_threads)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, 100.0),
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Dec out of range
-        hpgeom.angle_to_pixel(2048, 0.0, -100.0, n_threads=n_threads)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, -100.0),
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
-        hpgeom.angle_to_pixel(2048, -0.1, 0.0, lonlat=False, n_threads=n_threads)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, -0.1),
+            np.full(20_000, 0.0),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
-        hpgeom.angle_to_pixel(2048, np.pi + 0.1, 0.0, lonlat=False, n_threads=n_threads)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, np.pi + 0.1),
+            np.full(20_000, 0.0),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
-        hpgeom.angle_to_pixel(2048, 0.0, -0.1, lonlat=False, n_threads=n_threads)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, -0.1),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
-        hpgeom.angle_to_pixel(2048, 0.0, 2*np.pi + 0.1, lonlat=False, n_threads=n_threads)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, 2*np.pi + 0.1),
+            lonlat=False,
+            n_threads=n_threads,
+        )

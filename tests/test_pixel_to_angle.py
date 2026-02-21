@@ -106,14 +106,22 @@ def test_angle_to_pixel_threads(size, n_threads):
 
 
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
-def test_pixel_to_angle_scalar(nside):
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_pixel_to_angle_scalar(nside, n_threads):
     """Test pixel_to_angle for scalars."""
     np.random.seed(12345)
 
     pix = np.random.randint(low=0, high=12*nside*nside-1, size=100, dtype=np.int64)
 
     lon_arr, lat_arr = hpgeom.pixel_to_angle(nside, pix, nest=True, lonlat=True, degrees=True)
-    lon_scalar1, lat_scalar1 = hpgeom.pixel_to_angle(nside, pix[0], nest=True, lonlat=True, degrees=True)
+    lon_scalar1, lat_scalar1 = hpgeom.pixel_to_angle(
+        nside,
+        pix[0],
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=n_threads,
+    )
 
     assert lon_scalar1 == lon_arr[0]
     assert lat_scalar1 == lat_arr[0]
@@ -125,7 +133,8 @@ def test_pixel_to_angle_scalar(nside):
         int(pix[0]),
         nest=True,
         lonlat=True,
-        degrees=True
+        degrees=True,
+        n_threads=n_threads,
     )
 
     assert lon_scalar2 == lon_arr[0]
@@ -134,30 +143,33 @@ def test_pixel_to_angle_scalar(nside):
     assert not isinstance(lat_scalar2, np.ndarray)
 
 
-def test_pixel_to_angle_zerolength():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_pixel_to_angle_zerolength(n_threads):
     """Test pixel_to_angle for a zero-length pixel array."""
-    ra, dec = hpgeom.pixel_to_angle(1024, [])
+    ra, dec = hpgeom.pixel_to_angle(1024, [], n_threads=n_threads)
 
     assert len(ra) == 0
     assert len(dec) == 0
 
 
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
-def test_pixel_to_angle_bad_pix(nside):
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_pixel_to_angle_bad_pix(nside, n_threads):
     """Test pixel_to_angle errors when given bad pixel"""
 
     with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
-        hpgeom.pixel_to_angle(nside, -1)
+        hpgeom.pixel_to_angle(nside, np.full(20_000, -1), n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
-        hpgeom.pixel_to_angle(nside, 12*nside*nside)
+        hpgeom.pixel_to_angle(nside, np.full(20_000, 12*nside*nside), n_threads=n_threads)
 
 
-def test_pixel_to_angle_bad_nside():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_pixel_to_angle_bad_nside(n_threads):
     """Test pixel_to_angle errors when given a bad nside."""
     np.random.seed(12345)
 
-    pix = np.random.randint(low=0, high=12*2048*2048-1, size=100, dtype=np.int64)
+    pix = np.random.randint(low=0, high=12*2048*2048-1, size=20_000, dtype=np.int64)
 
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
         hpgeom.pixel_to_angle(-10, pix, nest=False)
