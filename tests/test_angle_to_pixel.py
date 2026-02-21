@@ -77,15 +77,16 @@ def test_angle_to_pixel_nest(nside):
     np.testing.assert_array_equal(pix_hpgeom, pix_healpy)
 
 
+@pytest.mark.parametrize("size", [1_000, 10_000_000])
 @pytest.mark.parametrize("n_threads", [2])
-def test_angle_to_pixel_threads(n_threads):
+def test_angle_to_pixel_threads(size, n_threads):
     """Test angle_to_pixel multi-threaded."""
     np.random.seed(12345)
 
     nside = 2**15
 
-    lon = np.random.uniform(low=0.0, high=360.0, size=10_000_000)
-    lat = np.random.uniform(low=-90.0, high=90.0, size=10_000_000)
+    lon = np.random.uniform(low=0.0, high=360.0, size=size)
+    lat = np.random.uniform(low=-90.0, high=90.0, size=size)
 
     pix_hpgeom_single = hpgeom.angle_to_pixel(
         nside,
