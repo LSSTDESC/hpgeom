@@ -123,22 +123,53 @@ def test_boundaries_multiple_nside():
     assert lat3.shape == (2, 4)
 
 
-def test_boundaries_zerolength():
+@pytest.mark.parametrize("size", [1_000, 50_000])
+@pytest.mark.parametrize("n_threads", [2])
+def test_boundaries_threads(size, n_threads):
+    nside = 2**15
+
+    pixels = np.arange(size, dtype=np.int64)
+    lon_hpgeom_single, lat_hpgeom_single = hpgeom.boundaries(
+        nside,
+        pixels,
+        step=4,
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=1,
+    )
+    lon_hpgeom, lat_hpgeom = hpgeom.boundaries(
+        nside,
+        pixels,
+        step=4,
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=n_threads,
+    )
+
+    np.testing.assert_array_equal(lon_hpgeom, lon_hpgeom_single)
+    np.testing.assert_array_equal(lat_hpgeom, lat_hpgeom_single)
+
+
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_boundaries_zerolength(n_threads):
     """Test boundaries for a zero-length array."""
-    lon, lat = hpgeom.boundaries(1024, [])
+    lon, lat = hpgeom.boundaries(1024, [], n_threads=n_threads)
 
     assert len(lon) == 0
     assert len(lat) == 0
 
 
-def test_boundaries_bad_inputs():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_boundaries_bad_inputs(n_threads):
     """Test boundaries with bad inputs."""
 
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
-        hpgeom.boundaries(-1, 0)
+        hpgeom.boundaries(-1, np.full(20_000, 0), n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
-        hpgeom.boundaries(2**10, -1)
+        hpgeom.boundaries(2**10, np.full(20_000, -1), n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"nside .* must be power of 2"):
-        hpgeom.boundaries(2**10 - 2, -1, nest=True)
+        hpgeom.boundaries(2**10 - 2, np.full(20_000, -1), nest=True, n_threads=n_threads)
