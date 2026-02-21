@@ -58,12 +58,12 @@ def test_nest_to_ring_scalar(nside, n_threads):
 
     nest_pix = np.random.randint(low=0, high=12*nside*nside-1, size=100, dtype=np.int64)
     ring_arr = hpgeom.nest_to_ring(nside, nest_pix, n_threads=n_threads)
-    ring_scalar = hpgeom.nest_to_ring(nside, nest_pix[0])
+    ring_scalar = hpgeom.nest_to_ring(nside, nest_pix[0], n_threads=n_threads)
 
     assert ring_scalar == ring_arr[0]
     assert not isinstance(ring_scalar, np.ndarray)
 
-    ring_scalar2 = hpgeom.nest_to_ring(nside, int(nest_pix[0]))
+    ring_scalar2 = hpgeom.nest_to_ring(nside, int(nest_pix[0]), n_threads=n_threads)
 
     assert ring_scalar2 == ring_arr[0]
     assert not isinstance(ring_scalar2, np.ndarray)
