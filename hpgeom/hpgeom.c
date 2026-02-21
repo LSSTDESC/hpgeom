@@ -2241,10 +2241,71 @@ PyDoc_STRVAR(vector_to_pixel_doc,
              "y : `float` or `np.ndarray` (N,)\n"
              "    y coordinates for vectors.\n"
              "z : `float` or `np.ndarray` (N,)\n"
-             "    z coordinates for vectors.\n" NEST_DOC_PAR
+             "    z coordinates for vectors.\n" NEST_DOC_PAR N_THREADS_PAR
              "\n"
              "Returns\n"
              "-------\n" PIX_DOC_PAR);
+
+// Core processing logic for vector_to_pixel - used by both single and multi-threaded paths
+static bool vector_to_pixel_iteration(NpyIter *iter, int nest,
+                                      npy_intp start_idx, npy_intp end_idx, char *err) {
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+    char *errmsg;
+    healpix_info hpx;
+    int64_t last_nside = -1;
+    bool started = false;
+    enum Scheme scheme = nest ? NEST : RING;
+    vec3 vec;
+
+    // For ranged iteration, reset to the specified range
+    if (NpyIter_ResetToIterIndexRange(iter, start_idx, end_idx, &errmsg) != NPY_SUCCEED) {
+        snprintf(err, ERR_SIZE, "%s", errmsg);
+        return false;
+    }
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL) {
+        snprintf(err, ERR_SIZE, "Failed to get iterator next function");
+        return false;
+    }
+
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    do {
+        int64_t *nside = (int64_t *)dataptrarray[0];
+        double *x = (double *)dataptrarray[1];
+        double *y = (double *)dataptrarray[2];
+        double *z = (double *)dataptrarray[3];
+        int64_t *outpix = (int64_t *)dataptrarray[4];
+
+        // Re-initialize healpix_info when nside changes
+        if ((!started) || (*nside != last_nside)) {
+            if (!hpgeom_check_nside(*nside, scheme, err)) {
+                return false;
+            }
+            hpx = healpix_info_from_nside(*nside, scheme);
+            last_nside = *nside;
+            started = true;
+        }
+
+        vec.x = *x;
+        vec.y = *y;
+        vec.z = *z;
+        *outpix = vec2pix(&hpx, &vec);
+
+    } while (iternext(iter));
+
+    return true;
+}
+
+// Worker function for each thread (reuses ThreadData)
+static void *vector_to_pixel_worker(void *arg) {
+    ThreadData *td = (ThreadData *)arg;
+    td->failed = !vector_to_pixel_iteration(td->iter, td->nest,
+                                            td->start_idx, td->end_idx, td->err);
+    return NULL;
+}
 
 static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *x_obj = NULL, *y_obj = NULL, *z_obj = NULL;
@@ -2252,16 +2313,18 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     PyObject *pix_arr = NULL;
 
     NpyIter *iter = NULL;
+    thread_handle_t *threads = NULL;
+    ThreadData *thread_data = NULL;
 
     int nest = 1;
-    static char *kwlist[] = {"nside", "x", "y", "z", "nest", NULL};
+    int n_threads = 1;
+    static char *kwlist[] = {"nside", "x", "y", "z", "nest", "n_threads", NULL};
 
-    healpix_info hpx;
     char err[ERR_SIZE];
     bool loop_failed = false;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO|p", kwlist, &nside_obj, &x_obj,
-                                     &y_obj, &z_obj, &nest))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO|pi", kwlist, &nside_obj, &x_obj,
+                                     &y_obj, &z_obj, &nest, &n_threads))
         goto fail;
 
     nside_arr =
@@ -2280,8 +2343,6 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     PyArrayObject *op[5];
     npy_uint32 op_flags[5];
     PyArray_Descr *op_dtypes[5];
-    NpyIter_IterNextFunc *iternext;
-    char **dataptrarray;
 
     op[0] = (PyArrayObject *)nside_arr;
     op_flags[0] = NPY_ITER_READONLY;
@@ -2295,11 +2356,16 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
     op[3] = (PyArrayObject *)z_arr;
     op_flags[3] = NPY_ITER_READONLY;
     op_dtypes[3] = NULL;
-    op[4] = (PyArrayObject *)pix_arr;
+    op[4] = NULL;
     op_flags[4] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
     op_dtypes[4] = PyArray_DescrFromType(NPY_INT64);
 
-    iter = NpyIter_MultiNew(5, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING,
+    npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK | NPY_ITER_RANGED | NPY_ITER_BUFFERED;
+    if (n_threads > 1) {
+        iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
+    }
+
+    iter = NpyIter_MultiNew(5, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
                             op_flags, op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
@@ -2307,55 +2373,97 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
         goto fail;
     }
 
-    iternext = NpyIter_GetIterNext(iter, NULL);
-    dataptrarray = NpyIter_GetDataPtrArray(iter);
+    npy_intp iter_size = NpyIter_GetIterSize(iter);
 
-    enum Scheme scheme;
-    if (nest) {
-        scheme = NEST;
-    } else {
-        scheme = RING;
+    if (iter_size == 0) {
+        goto cleanup;
     }
 
-    NPY_BEGIN_ALLOW_THREADS
+    if (n_threads > 1) {
+        // Don't use threading if chunks would be too small
+        if (iter_size / n_threads < MIN_CHUNK_SIZE) {
+            n_threads = iter_size / MIN_CHUNK_SIZE;
+        }
+    }
 
-    // Check for zero-size before entering loop.
-    if (NpyIter_GetIterSize(iter) > 0) {
-        int64_t *nside;
-        double *x, *y, *z;
-        int64_t *outpix;
-        int64_t last_nside = -1;
-        bool started = false;
-        vec3 vec;
-        do {
-            nside = (int64_t *)dataptrarray[0];
-            x = (double *)dataptrarray[1];
-            y = (double *)dataptrarray[2];
-            z = (double *)dataptrarray[3];
-            outpix = (int64_t *)dataptrarray[4];
+    if (n_threads > 1) {
+        // Multi-threaded path
+        if (n_threads > iter_size) {
+            n_threads = iter_size;
+        }
 
-            if ((!started) || (*nside != last_nside)) {
-                if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    loop_failed = true;
-                    break;
-                }
-                hpx = healpix_info_from_nside(*nside, scheme);
-                started = true;
+        threads = malloc(n_threads * sizeof(thread_handle_t));
+        thread_data = malloc(n_threads * sizeof(ThreadData));
+
+        if (threads == NULL || thread_data == NULL) {
+            PyErr_SetString(PyExc_MemoryError, "Failed to allocate thread resources");
+            goto fail;
+        }
+
+        // Create iterator copies (with GIL held)
+        thread_data[0].iter = iter;
+        for (int t = 1; t < n_threads; t++) {
+            thread_data[t].iter = NpyIter_Copy(iter);
+            if (thread_data[t].iter == NULL) {
+                PyErr_SetString(PyExc_RuntimeError, "Failed to copy iterator for threading");
+                goto fail;
             }
-            vec.x = *x;
-            vec.y = *y;
-            vec.z = *z;
-            *outpix = vec2pix(&hpx, &vec);
-        } while (iternext(iter));
+        }
+
+        // Divide work among threads
+        npy_intp chunk_size = iter_size / n_threads;
+        npy_intp remainder = iter_size % n_threads;
+
+        for (int t = 0; t < n_threads; t++) {
+            thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
+            thread_data[t].end_idx =
+                thread_data[t].start_idx + chunk_size + (t < remainder ? 1 : 0);
+            thread_data[t].lonlat = 0;  // Unused
+            thread_data[t].nest = nest;
+            thread_data[t].degrees = 0;  // Unused
+            thread_data[t].failed = false;
+            thread_data[t].err[0] = '\0';
+        }
+
+        NPY_BEGIN_ALLOW_THREADS
+
+        for (int t = 0; t < n_threads; t++) {
+            if (thread_create(&threads[t], vector_to_pixel_worker, &thread_data[t]) != 0) {
+                thread_data[t].failed = true;
+                snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
+                threads[t] = NULL;
+            }
+        }
+
+        for (int t = 0; t < n_threads; t++) {
+            if (threads[t] != NULL) thread_join(threads[t]);
+        }
+
+        NPY_END_ALLOW_THREADS
+
+        // Check for errors
+        for (int t = 0; t < n_threads; t++) {
+            if (thread_data[t].failed) {
+                PyErr_SetString(PyExc_ValueError, thread_data[t].err);
+                goto fail;
+            }
+        }
+
+    } else {
+        // Single-threaded path: set to the full range 0, iter_size.
+        NPY_BEGIN_ALLOW_THREADS
+
+        loop_failed = !vector_to_pixel_iteration(iter, nest, 0, iter_size, err);
+
+        NPY_END_ALLOW_THREADS
+
+        if (loop_failed) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
     }
 
-    NPY_END_ALLOW_THREADS
-
-    if (loop_failed) {
-        PyErr_SetString(PyExc_ValueError, err);
-        goto fail;
-    }
-
+cleanup:
     pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[4];
     Py_INCREF(pix_arr);
 
@@ -2367,6 +2475,15 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
         iter = NULL;
         goto fail;
     }
+    if (thread_data != NULL) {
+        for (int t = 1; t < n_threads; t++) {
+            if (thread_data[t].iter != NULL) {
+                NpyIter_Deallocate(thread_data[t].iter);
+            }
+        }
+        free(thread_data);
+    }
+    if (threads != NULL) free(threads);
 
     return PyArray_Return((PyArrayObject *)pix_arr);
 
@@ -2379,6 +2496,16 @@ fail:
     if (iter != NULL) {
         NpyIter_Deallocate(iter);
     }
+
+    if (thread_data != NULL) {
+        for (int t = 1; t < n_threads; t++) {
+            if (thread_data[t].iter != NULL) {
+                NpyIter_Deallocate(thread_data[t].iter);
+            }
+        }
+        free(thread_data);
+    }
+    if (threads != NULL) free(threads);
 
     return NULL;
 }
