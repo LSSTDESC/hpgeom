@@ -1353,7 +1353,6 @@ fail:
     return NULL;
 }
 
-// **** ADD THREADS ***
 PyDoc_STRVAR(nest_to_ring_doc,
              "nest_to_ring(nside, pix)\n"
              "--\n\n"
@@ -1363,6 +1362,7 @@ PyDoc_STRVAR(nest_to_ring_doc,
              "----------\n" NSIDE_DOC_PAR
              "pix : `int` or `np.ndarray` (N,)\n"
              "    The pixel numbers in nest scheme.\n"
+             N_THREADS_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -1374,20 +1374,80 @@ PyDoc_STRVAR(nest_to_ring_doc,
              "ValueError\n"
              "    Pixel or nside values are out of range.\n");
 
+// Core processing logic for nest_to_ring - used by both single and multi-threaded paths
+static bool nest_to_ring_iteration(NpyIter *iter, npy_intp start_idx, npy_intp end_idx, 
+                                    char *err) {
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+    char *errmsg;
+    healpix_info hpx;
+    int64_t last_nside = -1;
+    bool started = false;
+
+    // For ranged iteration, reset to the specified range
+    if (NpyIter_ResetToIterIndexRange(iter, start_idx, end_idx, &errmsg) != NPY_SUCCEED) {
+        snprintf(err, ERR_SIZE, "%s", errmsg);
+        return false;
+    }
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL) {
+        snprintf(err, ERR_SIZE, "Failed to get iterator next function");
+        return false;
+    }
+
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    do {
+        int64_t *nside = (int64_t *)dataptrarray[0];
+        int64_t *nest_pix = (int64_t *)dataptrarray[1];
+        int64_t *ring_pix = (int64_t *)dataptrarray[2];
+
+        // Re-initialize healpix_info when nside changes
+        if ((!started) || (*nside != last_nside)) {
+            if (!hpgeom_check_nside(*nside, NEST, err)) {
+                return false;
+            }
+            hpx = healpix_info_from_nside(*nside, NEST);
+            last_nside = *nside;
+            started = true;
+        }
+
+        if (!hpgeom_check_pixel(&hpx, *nest_pix, err)) {
+            return false;
+        }
+
+        *ring_pix = nest2ring(&hpx, *nest_pix);
+
+    } while (iternext(iter));
+
+    return true;
+}
+
+// Worker function for each thread
+static void *nest_to_ring_worker(void *arg) {
+    ThreadData *td = (ThreadData *)arg;
+    td->failed = !nest_to_ring_iteration(td->iter, td->start_idx, td->end_idx, td->err);
+    return NULL;
+}
+
 static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *nest_pix_obj = NULL;
     PyObject *nside_arr = NULL, *nest_pix_arr = NULL;
     PyObject *ring_pix_arr = NULL;
 
     NpyIter *iter = NULL;
+    thread_handle_t *threads = NULL;
+    ThreadData *thread_data = NULL;
 
-    static char *kwlist[] = {"nside", "pix", NULL};
+    int n_threads = 1;
+    static char *kwlist[] = {"nside", "pix", "n_threads", NULL};
 
-    healpix_info hpx;
     char err[ERR_SIZE];
     bool loop_failed = false;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwlist, &nside_obj, &nest_pix_obj))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|i", kwlist, &nside_obj, &nest_pix_obj,
+                                     &n_threads))
         goto fail;
 
     nside_arr =
@@ -1402,8 +1462,6 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
     PyArrayObject *op[3];
     npy_uint32 op_flags[3];
     PyArray_Descr *op_dtypes[3];
-    NpyIter_IterNextFunc *iternext;
-    char **dataptrarray;
 
     op[0] = (PyArrayObject *)nside_arr;
     op_flags[0] = NPY_ITER_READONLY;
@@ -1411,11 +1469,16 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
     op[1] = (PyArrayObject *)nest_pix_arr;
     op_flags[1] = NPY_ITER_READONLY;
     op_dtypes[1] = NULL;
-    op[2] = (PyArrayObject *)ring_pix_arr;
+    op[2] = NULL;
     op_flags[2] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
     op_dtypes[2] = PyArray_DescrFromType(NPY_INT64);
 
-    iter = NpyIter_MultiNew(3, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING,
+    npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK | NPY_ITER_RANGED | NPY_ITER_BUFFERED;
+    if (n_threads > 1) {
+        iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
+    }
+
+    iter = NpyIter_MultiNew(3, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
                             op_flags, op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
@@ -1423,46 +1486,94 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
         goto fail;
     }
 
-    iternext = NpyIter_GetIterNext(iter, NULL);
-    dataptrarray = NpyIter_GetDataPtrArray(iter);
+    npy_intp iter_size = NpyIter_GetIterSize(iter);
 
-    NPY_BEGIN_ALLOW_THREADS
-
-    // Check for zero-size before entering loop.
-    if (NpyIter_GetIterSize(iter) > 0) {
-        int64_t *nside;
-        int64_t *nest_pix;
-        int64_t *ring_pix;
-        int64_t last_nside = -1;
-        bool started = false;
-        do {
-            nside = (int64_t *)dataptrarray[0];
-            nest_pix = (int64_t *)dataptrarray[1];
-            ring_pix = (int64_t *)dataptrarray[2];
-
-            if ((!started) || (*nside != last_nside)) {
-                if (!hpgeom_check_nside(*nside, NEST, err)) {
-                    loop_failed = true;
-                    break;
-                }
-                hpx = healpix_info_from_nside(*nside, NEST);
-                started = true;
-            }
-            if (!hpgeom_check_pixel(&hpx, *nest_pix, err)) {
-                loop_failed = true;
-                break;
-            }
-            *ring_pix = nest2ring(&hpx, *nest_pix);
-        } while (iternext(iter));
+    if (iter_size == 0) {
+        goto cleanup;
     }
 
-    NPY_END_ALLOW_THREADS
-
-    if (loop_failed) {
-        PyErr_SetString(PyExc_ValueError, err);
-        goto fail;
+    if (n_threads > 1) {
+        // Don't use threading if chunks would be too small
+        if (iter_size / n_threads < MIN_CHUNK_SIZE) {
+            n_threads = iter_size / MIN_CHUNK_SIZE;
+        }
     }
 
+    if (n_threads > 1) {
+        // Multi-threaded path
+        if (n_threads > iter_size) {
+            n_threads = iter_size;
+        }
+
+        threads = malloc(n_threads * sizeof(thread_handle_t));
+        thread_data = malloc(n_threads * sizeof(ThreadData));
+
+        if (threads == NULL || thread_data == NULL) {
+            PyErr_SetString(PyExc_MemoryError, "Failed to allocate thread resources");
+            goto fail;
+        }
+
+        // Create iterator copies (with GIL held)
+        thread_data[0].iter = iter;
+        for (int t = 1; t < n_threads; t++) {
+            thread_data[t].iter = NpyIter_Copy(iter);
+            if (thread_data[t].iter == NULL) {
+                PyErr_SetString(PyExc_RuntimeError, "Failed to copy iterator for threading");
+                goto fail;
+            }
+        }
+
+        // Divide work among threads
+        npy_intp chunk_size = iter_size / n_threads;
+        npy_intp remainder = iter_size % n_threads;
+
+        for (int t = 0; t < n_threads; t++) {
+            thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
+            thread_data[t].end_idx =
+                thread_data[t].start_idx + chunk_size + (t < remainder ? 1 : 0);
+            thread_data[t].failed = false;
+            thread_data[t].err[0] = '\0';
+        }
+
+        NPY_BEGIN_ALLOW_THREADS
+
+        for (int t = 0; t < n_threads; t++) {
+            if (thread_create(&threads[t], nest_to_ring_worker, &thread_data[t]) != 0) {
+                thread_data[t].failed = true;
+                snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
+                threads[t] = NULL;
+            }
+        }
+
+        for (int t = 0; t < n_threads; t++) {
+            if (threads[t] != NULL) thread_join(threads[t]);
+        }
+
+        NPY_END_ALLOW_THREADS
+
+        // Check for errors
+        for (int t = 0; t < n_threads; t++) {
+            if (thread_data[t].failed) {
+                PyErr_SetString(PyExc_ValueError, thread_data[t].err);
+                goto fail;
+            }
+        }
+
+    } else {
+        // Single-threaded path: set to the full range 0, iter_size.
+        NPY_BEGIN_ALLOW_THREADS
+
+        loop_failed = !nest_to_ring_iteration(iter, 0, iter_size, err);
+
+        NPY_END_ALLOW_THREADS
+
+        if (loop_failed) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+    }
+
+cleanup:
     ring_pix_arr = (PyObject *)NpyIter_GetOperandArray(iter)[2];
     Py_INCREF(ring_pix_arr);
 
@@ -1472,6 +1583,15 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
         iter = NULL;
         goto fail;
     }
+    if (thread_data != NULL) {
+        for (int t = 1; t < n_threads; t++) {
+            if (thread_data[t].iter != NULL) {
+                NpyIter_Deallocate(thread_data[t].iter);
+            }
+        }
+        free(thread_data);
+    }
+    if (threads != NULL) free(threads);
 
     return PyArray_Return((PyArrayObject *)ring_pix_arr);
 
@@ -1482,6 +1602,16 @@ fail:
     if (iter != NULL) {
         NpyIter_Deallocate(iter);
     }
+
+    if (thread_data != NULL) {
+        for (int t = 1; t < n_threads; t++) {
+            if (thread_data[t].iter != NULL) {
+                NpyIter_Deallocate(thread_data[t].iter);
+            }
+        }
+        free(thread_data);
+    }
+    if (threads != NULL) free(threads);
 
     return NULL;
 }
