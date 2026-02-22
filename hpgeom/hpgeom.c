@@ -66,7 +66,7 @@
     "    Number of threads to use. Any number < 1 will use 1 thread.\n"
 
 PyDoc_STRVAR(angle_to_pixel_doc,
-             "angle_to_pixel(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
+             "angle_to_pixel(nside, a, b, nest=True, lonlat=True, degrees=True, n_threads=1)\n"
              "--\n\n"
              "Convert angles to pixels.\n"
              "\n"
@@ -359,7 +359,7 @@ fail:
 }
 
 PyDoc_STRVAR(pixel_to_angle_doc,
-             "pixel_to_angle(nside, pix, nest=True, lonlat=True, degrees=True)\n"
+             "pixel_to_angle(nside, pix, nest=True, lonlat=True, degrees=True, n_threads=1)\n"
              "--\n\n"
              "Convert pixels to angles.\n"
              "\n"
@@ -1355,7 +1355,7 @@ fail:
 }
 
 PyDoc_STRVAR(nest_to_ring_doc,
-             "nest_to_ring(nside, pix)\n"
+             "nest_to_ring(nside, pix, n_threads=1)\n"
              "--\n\n"
              "Convert pixel number from nest to ring ordering.\n"
              "\n"
@@ -1617,7 +1617,7 @@ fail:
 }
 
 PyDoc_STRVAR(ring_to_nest_doc,
-             "ring_to_nest(nside, pix)\n"
+             "ring_to_nest(nside, pix, n_threads=1)\n"
              "--\n\n"
              "Convert pixel number from ring to nest ordering.\n"
              "\n"
@@ -1883,30 +1883,31 @@ fail:
     return NULL;
 }
 
-PyDoc_STRVAR(boundaries_doc,
-             "boundaries(nside, pix, step=1, nest=True, lonlat=True, degrees=True)\n"
-             "--\n\n"
-             "Returns an array containing lon/lat or colatitude/longitude to the\n"
-             "boundary of the given pixel(s).\n"
-             "\n"
-             "The returned arrays have the shape (4*step) or (npixel, 4*step).\n"
-             "In order to get coordinates for just the corners, specify step=1.\n"
-             "\n"
-             "Parameters\n"
-             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR
-             "step : `int`, optional\n"
-             "    Number of steps for each side of the pixel.\n" NEST_DOC_PAR LONLAT_DOC_PAR
-                 DEGREES_DOC_PAR N_THREADS_PAR
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "a, b : `np.ndarray` (4*step,) or (N, 4*step,)\n" AB_DOC_DESCR
-             "\n"
-             "Raises\n"
-             "------\n"
-             "ValueError\n"
-             "    If pixel values are out of range, or nside, pix arrays are not\n"
-             "    compatible, or step is not positive.\n");
+PyDoc_STRVAR(
+    boundaries_doc,
+    "boundaries(nside, pix, step=1, nest=True, lonlat=True, degrees=True, n_threads=1)\n"
+    "--\n\n"
+    "Returns an array containing lon/lat or colatitude/longitude to the\n"
+    "boundary of the given pixel(s).\n"
+    "\n"
+    "The returned arrays have the shape (4*step) or (npixel, 4*step).\n"
+    "In order to get coordinates for just the corners, specify step=1.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR
+    "step : `int`, optional\n"
+    "    Number of steps for each side of the pixel.\n" NEST_DOC_PAR LONLAT_DOC_PAR
+        DEGREES_DOC_PAR N_THREADS_PAR
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "a, b : `np.ndarray` (4*step,) or (N, 4*step,)\n" AB_DOC_DESCR
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If pixel values are out of range, or nside, pix arrays are not\n"
+    "    compatible, or step is not positive.\n");
 
 // Core processing logic for boundaries - used by both single and multi-threaded paths
 static bool boundaries_iteration(NpyIter *iter, int lonlat, int nest, int degrees, long step,
@@ -2227,7 +2228,7 @@ fail:
 }
 
 PyDoc_STRVAR(vector_to_pixel_doc,
-             "vector_to_pixel(nside, x, y, z, nest=True)\n"
+             "vector_to_pixel(nside, x, y, z, nest=True, n_threads=1)\n"
              "--\n\n"
              "Convert vectors to pixels.\n"
              "\n"
@@ -2508,7 +2509,7 @@ fail:
 }
 
 PyDoc_STRVAR(pixel_to_vector_doc,
-             "pixel_to_vector(nside, pix, nest=True)\n"
+             "pixel_to_vector(nside, pix, nest=True, n_threads=1)\n"
              "--\n\n"
              "Convert pixels to vectors.\n"
              "\n"
@@ -2801,7 +2802,7 @@ fail:
 }
 
 PyDoc_STRVAR(neighbors_doc,
-             "neighbors(nside, pix, nest=True)\n"
+             "neighbors(nside, pix, nest=True, n_threads=1)\n"
              "--\n\n"
              "Return 8 nearest neighbors for given pixels.\n"
              "\n"
@@ -3112,7 +3113,7 @@ fail:
 }
 
 PyDoc_STRVAR(max_pixel_radius_doc,
-             "max_pixel_radius(nside, degrees=True)\n"
+             "max_pixel_radius(nside, degrees=True, n_threads=1)\n"
              "--\n\n"
              "Compute maximum angular distance between any pixel center and its corners.\n"
              "\n"
@@ -3362,7 +3363,8 @@ fail:
 
 PyDoc_STRVAR(
     get_interpolation_weights_doc,
-    "get_interpolation_weights(nside, a, b, nest=True, lonlat=True, degrees=True)\n"
+    "get_interpolation_weights(nside, a, b, nest=True, lonlat=True, degrees=True, "
+    "n_threads=1)\n"
     "--\n\n"
     "Return the 4 closest pixels and weights to perform bilinear interpolation along\n"
     "latitude and longitude.\n"
