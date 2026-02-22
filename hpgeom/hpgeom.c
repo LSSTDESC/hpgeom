@@ -205,8 +205,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK | NPY_ITER_RANGED | NPY_ITER_BUFFERED;
     if (n_threads > 1) {
-        iter_flags |=
-            NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
+        iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
     iter = NpyIter_MultiNew(4, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
@@ -299,7 +298,8 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         // Single-threaded path: set to the full range 0, iter_size.
         NPY_BEGIN_ALLOW_THREADS
 
-        loop_failed = !angle_to_pixel_iteration(iter, lonlat, nest, degrees, 0, iter_size, err);
+        loop_failed =
+            !angle_to_pixel_iteration(iter, lonlat, nest, degrees, 0, iter_size, err);
 
         NPY_END_ALLOW_THREADS
 
@@ -364,8 +364,8 @@ PyDoc_STRVAR(pixel_to_angle_doc,
              "Convert pixels to angles.\n"
              "\n"
              "Parameters\n"
-             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR
-                 LONLAT_DOC_PAR DEGREES_DOC_PAR N_THREADS_PAR
+             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
+                 DEGREES_DOC_PAR N_THREADS_PAR
              "\n"
              "Returns\n"
              "-------\n" AB_DOC_PAR
@@ -498,8 +498,8 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(4, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(4, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -586,7 +586,8 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
         // Single-threaded path: set to the full range 0, iter_size.
         NPY_BEGIN_ALLOW_THREADS
 
-        loop_failed = !pixel_to_angle_iteration(iter, lonlat, nest, degrees, 0, iter_size, err);
+        loop_failed =
+            !pixel_to_angle_iteration(iter, lonlat, nest, degrees, 0, iter_size, err);
 
         NPY_END_ALLOW_THREADS
 
@@ -1361,8 +1362,7 @@ PyDoc_STRVAR(nest_to_ring_doc,
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR
              "pix : `int` or `np.ndarray` (N,)\n"
-             "    The pixel numbers in nest scheme.\n"
-             N_THREADS_PAR
+             "    The pixel numbers in nest scheme.\n" N_THREADS_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -1375,8 +1375,8 @@ PyDoc_STRVAR(nest_to_ring_doc,
              "    Pixel or nside values are out of range.\n");
 
 // Core processing logic for nest_to_ring - used by both single and multi-threaded paths
-static bool nest_to_ring_iteration(NpyIter *iter, npy_intp start_idx, npy_intp end_idx, 
-                                    char *err) {
+static bool nest_to_ring_iteration(NpyIter *iter, npy_intp start_idx, npy_intp end_idx,
+                                   char *err) {
     NpyIter_IterNextFunc *iternext;
     char **dataptrarray;
     char *errmsg;
@@ -1478,8 +1478,8 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(3, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(3, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -1624,8 +1624,7 @@ PyDoc_STRVAR(ring_to_nest_doc,
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR
              "pix : `int` or `np.ndarray` (N,)\n"
-             "    The pixel numbers in ring scheme.\n"
-             N_THREADS_PAR
+             "    The pixel numbers in ring scheme.\n" N_THREADS_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -1639,7 +1638,7 @@ PyDoc_STRVAR(ring_to_nest_doc,
 
 // Core processing logic for ring_to_nest - used by both single and multi-threaded paths
 static bool ring_to_nest_iteration(NpyIter *iter, npy_intp start_idx, npy_intp end_idx,
-                                    char *err) {
+                                   char *err) {
     NpyIter_IterNextFunc *iternext;
     char **dataptrarray;
     char *errmsg;
@@ -1741,8 +1740,8 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(3, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(3, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -1896,8 +1895,8 @@ PyDoc_STRVAR(boundaries_doc,
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR
              "step : `int`, optional\n"
-             "    Number of steps for each side of the pixel.\n" NEST_DOC_PAR
-                 LONLAT_DOC_PAR DEGREES_DOC_PAR N_THREADS_PAR
+             "    Number of steps for each side of the pixel.\n" NEST_DOC_PAR LONLAT_DOC_PAR
+                 DEGREES_DOC_PAR N_THREADS_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -1910,9 +1909,9 @@ PyDoc_STRVAR(boundaries_doc,
              "    compatible, or step is not positive.\n");
 
 // Core processing logic for boundaries - used by both single and multi-threaded paths
-static bool boundaries_iteration(NpyIter *iter, int lonlat, int nest, int degrees,
-                                 long step, double *as, double *bs,
-                                 npy_intp start_idx, npy_intp end_idx, char *err) {
+static bool boundaries_iteration(NpyIter *iter, int lonlat, int nest, int degrees, long step,
+                                 double *as, double *bs, npy_intp start_idx, npy_intp end_idx,
+                                 char *err) {
     NpyIter_IterNextFunc *iternext;
     char **dataptrarray;
     char *errmsg;
@@ -1978,8 +1977,7 @@ static bool boundaries_iteration(NpyIter *iter, int lonlat, int nest, int degree
                 // We can skip error checking since theta/phi will always be
                 // within range on output.
                 hpgeom_thetaphi_to_lonlat(ptg_arr->data[i].theta, ptg_arr->data[i].phi,
-                                          &as[index], &bs[index], (bool)degrees, false,
-                                          err);
+                                          &as[index], &bs[index], (bool)degrees, false, err);
             } else {
                 as[index] = ptg_arr->data[i].theta;
                 bs[index] = ptg_arr->data[i].phi;
@@ -1995,9 +1993,9 @@ static bool boundaries_iteration(NpyIter *iter, int lonlat, int nest, int degree
 // Worker function for each thread
 static void *boundaries_worker(void *arg) {
     ThreadData *td = (ThreadData *)arg;
-    td->failed = !boundaries_iteration(td->iter, td->lonlat, td->nest, td->degrees,
-                                       td->step, (double *) td->data0, (double *) td->data1,
-                                       td->start_idx, td->end_idx, td->err);
+    td->failed = !boundaries_iteration(td->iter, td->lonlat, td->nest, td->degrees, td->step,
+                                       (double *)td->data0, (double *)td->data1, td->start_idx,
+                                       td->end_idx, td->err);
     return NULL;
 }
 
@@ -2015,7 +2013,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
     int degrees = 1;
     long step = 1;
     int n_threads = 1;
-    static char *kwlist[] = {"nside", "pix", "step", "lonlat", "nest", "degrees", "n_threads", NULL};
+    static char *kwlist[] = {"nside", "pix",     "step",      "lonlat",
+                             "nest",  "degrees", "n_threads", NULL};
 
     double *as = NULL, *bs = NULL;
     char err[ERR_SIZE];
@@ -2059,8 +2058,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(2, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(2, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -2137,8 +2136,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
             thread_data[t].nest = nest;
             thread_data[t].degrees = degrees;
             thread_data[t].step = step;
-            thread_data[t].data0 = (void *) as;
-            thread_data[t].data1 = (void *) bs;
+            thread_data[t].data0 = (void *)as;
+            thread_data[t].data1 = (void *)bs;
             thread_data[t].failed = false;
             thread_data[t].err[0] = '\0';
         }
@@ -2171,8 +2170,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         // Single-threaded path
         NPY_BEGIN_ALLOW_THREADS
 
-        loop_failed = !boundaries_iteration(iter, lonlat, nest, degrees, step, as, bs,
-                                           0, iter_size, err);
+        loop_failed = !boundaries_iteration(iter, lonlat, nest, degrees, step, as, bs, 0,
+                                            iter_size, err);
 
         NPY_END_ALLOW_THREADS
 
@@ -2245,8 +2244,8 @@ PyDoc_STRVAR(vector_to_pixel_doc,
              "-------\n" PIX_DOC_PAR);
 
 // Core processing logic for vector_to_pixel - used by both single and multi-threaded paths
-static bool vector_to_pixel_iteration(NpyIter *iter, int nest,
-                                      npy_intp start_idx, npy_intp end_idx, char *err) {
+static bool vector_to_pixel_iteration(NpyIter *iter, int nest, npy_intp start_idx,
+                                      npy_intp end_idx, char *err) {
     NpyIter_IterNextFunc *iternext;
     char **dataptrarray;
     char *errmsg;
@@ -2300,8 +2299,8 @@ static bool vector_to_pixel_iteration(NpyIter *iter, int nest,
 // Worker function for each thread (reuses ThreadData)
 static void *vector_to_pixel_worker(void *arg) {
     ThreadData *td = (ThreadData *)arg;
-    td->failed = !vector_to_pixel_iteration(td->iter, td->nest,
-                                            td->start_idx, td->end_idx, td->err);
+    td->failed =
+        !vector_to_pixel_iteration(td->iter, td->nest, td->start_idx, td->end_idx, td->err);
     return NULL;
 }
 
@@ -2363,8 +2362,8 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(5, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(5, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, x, y, z arrays could not be broadcast together.");
@@ -2532,8 +2531,8 @@ PyDoc_STRVAR(pixel_to_vector_doc,
              "    compatible.\n");
 
 // Core processing logic for pixel_to_vector - used by both single and multi-threaded paths
-static bool pixel_to_vector_iteration(NpyIter *iter, int nest,
-                                      npy_intp start_idx, npy_intp end_idx, char *err) {
+static bool pixel_to_vector_iteration(NpyIter *iter, int nest, npy_intp start_idx,
+                                      npy_intp end_idx, char *err) {
     NpyIter_IterNextFunc *iternext;
     char **dataptrarray;
     char *errmsg;
@@ -2591,8 +2590,8 @@ static bool pixel_to_vector_iteration(NpyIter *iter, int nest,
 // Worker function for each thread (reuses ThreadData)
 static void *pixel_to_vector_worker(void *arg) {
     ThreadData *td = (ThreadData *)arg;
-    td->failed = !pixel_to_vector_iteration(td->iter, td->nest,
-                                            td->start_idx, td->end_idx, td->err);
+    td->failed =
+        !pixel_to_vector_iteration(td->iter, td->nest, td->start_idx, td->end_idx, td->err);
     return NULL;
 }
 
@@ -2649,8 +2648,8 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(5, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(5, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -2901,8 +2900,8 @@ static bool neighbors_iteration(NpyIter *iter, int nest, int64_t *neighbor_pixel
 // Worker function for each thread
 static void *neighbors_worker(void *arg) {
     ThreadData *td = (ThreadData *)arg;
-    td->failed = !neighbors_iteration(td->iter, td->nest, (int64_t *) td->data0,
-                                      td->start_idx, td->end_idx, td->err);
+    td->failed = !neighbors_iteration(td->iter, td->nest, (int64_t *)td->data0, td->start_idx,
+                                      td->end_idx, td->err);
     return NULL;
 }
 
@@ -2960,8 +2959,8 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(2, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(2, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, pix arrays could not be broadcast together.");
@@ -3029,7 +3028,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
             thread_data[t].end_idx =
                 thread_data[t].start_idx + chunk_size + (t < remainder ? 1 : 0);
             thread_data[t].nest = nest;
-            thread_data[t].data0 = (void *) neighbor_pixels;
+            thread_data[t].data0 = (void *)neighbor_pixels;
             thread_data[t].failed = false;
             thread_data[t].err[0] = '\0';
         }
@@ -3128,8 +3127,8 @@ PyDoc_STRVAR(max_pixel_radius_doc,
              "    Angular distance(s) (in degrees or radians).\n");
 
 // Core processing logic for max_pixel_radius - used by both single and multi-threaded paths
-static bool max_pixel_radius_iteration(NpyIter *iter, int degrees,
-                                       npy_intp start_idx, npy_intp end_idx, char *err) {
+static bool max_pixel_radius_iteration(NpyIter *iter, int degrees, npy_intp start_idx,
+                                       npy_intp end_idx, char *err) {
     NpyIter_IterNextFunc *iternext;
     char **dataptrarray;
     char *errmsg;
@@ -3176,8 +3175,8 @@ static bool max_pixel_radius_iteration(NpyIter *iter, int degrees,
 // Worker function for each thread (reuses ThreadData)
 static void *max_pixel_radius_worker(void *arg) {
     ThreadData *td = (ThreadData *)arg;
-    td->failed = !max_pixel_radius_iteration(td->iter, td->degrees,
-                                             td->start_idx, td->end_idx, td->err);
+    td->failed = !max_pixel_radius_iteration(td->iter, td->degrees, td->start_idx, td->end_idx,
+                                             td->err);
     return NULL;
 }
 
@@ -3223,11 +3222,10 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(2, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(2, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
-        PyErr_SetString(PyExc_ValueError,
-                        "nside array could not be processed.");
+        PyErr_SetString(PyExc_ValueError, "nside array could not be processed.");
         goto fail;
     }
 
@@ -3276,8 +3274,8 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
             thread_data[t].end_idx =
                 thread_data[t].start_idx + chunk_size + (t < remainder ? 1 : 0);
-            thread_data[t].lonlat = 0;   // Unused
-            thread_data[t].nest = 0;     // Unused
+            thread_data[t].lonlat = 0;  // Unused
+            thread_data[t].nest = 0;    // Unused
             thread_data[t].degrees = degrees;
             thread_data[t].failed = false;
             thread_data[t].err[0] = '\0';
@@ -3370,7 +3368,8 @@ PyDoc_STRVAR(
     "latitude and longitude.\n"
     "\n"
     "Parameters\n"
-    "----------\n" NSIDE_DOC_PAR AB_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR DEGREES_DOC_PAR N_THREADS_PAR
+    "----------\n" NSIDE_DOC_PAR AB_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
+        DEGREES_DOC_PAR N_THREADS_PAR
     "\n"
     "Returns\n"
     "-------\n"
@@ -3380,10 +3379,12 @@ PyDoc_STRVAR(
     "weights : `np.ndarray` (N, 4)\n"
     "    Array of weiaghts (`np.float64`), each set of 4 corresponds with the pixels.\n");
 
-// Core processing logic for get_interpolation_weights - used by both single and multi-threaded paths
-static bool get_interpolation_weights_iteration(NpyIter *iter, int lonlat, int nest, int degrees,
-                                                int64_t *pixels, double *weights,
-                                                npy_intp start_idx, npy_intp end_idx, char *err) {
+// Core processing logic for get_interpolation_weights - used by both single and multi-threaded
+// paths
+static bool get_interpolation_weights_iteration(NpyIter *iter, int lonlat, int nest,
+                                                int degrees, int64_t *pixels, double *weights,
+                                                npy_intp start_idx, npy_intp end_idx,
+                                                char *err) {
     NpyIter_IterNextFunc *iternext;
     char **dataptrarray;
     char *errmsg;
@@ -3447,9 +3448,9 @@ static bool get_interpolation_weights_iteration(NpyIter *iter, int lonlat, int n
 // Worker function for each thread
 static void *get_interpolation_weights_worker(void *arg) {
     ThreadData *td = (ThreadData *)arg;
-    td->failed = !get_interpolation_weights_iteration(td->iter, td->lonlat, td->nest, td->degrees,
-                                                      (int64_t *) td->data0, (double *) td->data1,
-                                                      td->start_idx, td->end_idx, td->err);
+    td->failed = !get_interpolation_weights_iteration(
+        td->iter, td->lonlat, td->nest, td->degrees, (int64_t *)td->data0, (double *)td->data1,
+        td->start_idx, td->end_idx, td->err);
     return NULL;
 }
 
@@ -3467,7 +3468,8 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
     int nest = 1;
     int degrees = 1;
     int n_threads = 1;
-    static char *kwlist[] = {"nside", "a", "b", "lonlat", "nest", "degrees", "n_threads", NULL};
+    static char *kwlist[] = {"nside", "a",       "b",         "lonlat",
+                             "nest",  "degrees", "n_threads", NULL};
 
     int64_t *pixels = NULL;
     double *weights = NULL;
@@ -3517,8 +3519,8 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
     }
 
-    iter = NpyIter_MultiNew(3, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
-                            op_flags, op_dtypes);
+    iter = NpyIter_MultiNew(3, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
                         "nside, a, b arrays could not be broadcast together.");
@@ -3594,8 +3596,8 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
             thread_data[t].lonlat = lonlat;
             thread_data[t].nest = nest;
             thread_data[t].degrees = degrees;
-            thread_data[t].data0 = (void *) pixels;
-            thread_data[t].data1 = (void *) weights;
+            thread_data[t].data0 = (void *)pixels;
+            thread_data[t].data1 = (void *)weights;
             thread_data[t].failed = false;
             thread_data[t].err[0] = '\0';
         }
@@ -3603,7 +3605,8 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         NPY_BEGIN_ALLOW_THREADS
 
         for (int t = 0; t < n_threads; t++) {
-            if (thread_create(&threads[t], get_interpolation_weights_worker, &thread_data[t]) != 0) {
+            if (thread_create(&threads[t], get_interpolation_weights_worker,
+                              &thread_data[t]) != 0) {
                 thread_data[t].failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
                 threads[t] = NULL;
@@ -3628,8 +3631,8 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         // Single-threaded path
         NPY_BEGIN_ALLOW_THREADS
 
-        loop_failed = !get_interpolation_weights_iteration(iter, lonlat, nest, degrees,
-                                                           pixels, weights, 0, iter_size, err);
+        loop_failed = !get_interpolation_weights_iteration(iter, lonlat, nest, degrees, pixels,
+                                                           weights, 0, iter_size, err);
 
         NPY_END_ALLOW_THREADS
 
