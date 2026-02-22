@@ -34,25 +34,40 @@ def test_max_pixel_radius(degrees):
     np.testing.assert_almost_equal(radius_hpgeom, radius_healpy)
 
 
-def test_max_pixel_radius_scalar():
+@pytest.mark.parametrize("size", [1_000, 10_000_001])
+@pytest.mark.parametrize("n_threads", [2])
+def test_max_pixel_radius_threads(size, n_threads):
+    """Test max_pixel_radius with threads."""
+    nsides = 2**np.random.choice(20, size=size)
+
+    radii_single = hpgeom.max_pixel_radius(nsides, n_threads=1)
+    radii = hpgeom.max_pixel_radius(nsides, n_threads=n_threads)
+
+    np.testing.assert_array_equal(radii, radii_single)
+
+
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_max_pixel_radius_scalar(n_threads):
     """Test max_pixel_radius with a scalar."""
     nsides = 2**np.arange(29)
 
-    radii_arr = hpgeom.max_pixel_radius(nsides)
-    radius_scalar = hpgeom.max_pixel_radius(nsides[0])
+    radii_arr = hpgeom.max_pixel_radius(nsides, n_threads=n_threads)
+    radius_scalar = hpgeom.max_pixel_radius(nsides[0], n_threads=n_threads)
 
     assert radius_scalar == radii_arr[0]
     assert not isinstance(radius_scalar, np.ndarray)
 
 
-def test_max_pixel_radius_zerolength():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_max_pixel_radius_zerolength(n_threads):
     """Test max_pixel_radius for zero-length nsides."""
-    radii = hpgeom.max_pixel_radius([])
+    radii = hpgeom.max_pixel_radius([], n_threads=n_threads)
 
     assert len(radii) == 0
 
 
-def test_max_pixel_radius_badinputs():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_max_pixel_radius_badinputs(n_threads):
     """Test max_pixel_radius with bad inputs."""
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
-        hpgeom.max_pixel_radius(-10)
+        hpgeom.max_pixel_radius(np.full(20_000, -10), n_threads=n_threads)

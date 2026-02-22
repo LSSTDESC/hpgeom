@@ -3119,7 +3119,7 @@ PyDoc_STRVAR(max_pixel_radius_doc,
              "Compute maximum angular distance between any pixel center and its corners.\n"
              "\n"
              "Parameters\n"
-             "----------\n" NSIDE_DOC_PAR
+             "----------\n" NSIDE_DOC_PAR N_THREADS_PAR
              "degrees : `bool`, optional\n"
              "    If True, returns pixel radius in degrees, otherwise radians.\n"
              "\n"
@@ -3128,21 +3128,78 @@ PyDoc_STRVAR(max_pixel_radius_doc,
              "radii : `np.ndarray` (N, ) or `float`\n"
              "    Angular distance(s) (in degrees or radians).\n");
 
+// Core processing logic for max_pixel_radius - used by both single and multi-threaded paths
+static bool max_pixel_radius_iteration(NpyIter *iter, int degrees,
+                                       npy_intp start_idx, npy_intp end_idx, char *err) {
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+    char *errmsg;
+    healpix_info hpx;
+    int64_t last_nside = -1;
+    bool started = false;
+
+    // For ranged iteration, reset to the specified range
+    if (NpyIter_ResetToIterIndexRange(iter, start_idx, end_idx, &errmsg) != NPY_SUCCEED) {
+        snprintf(err, ERR_SIZE, "%s", errmsg);
+        return false;
+    }
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL) {
+        snprintf(err, ERR_SIZE, "Failed to get iterator next function");
+        return false;
+    }
+
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    do {
+        int64_t *nside = (int64_t *)dataptrarray[0];
+        double *pixrad = (double *)dataptrarray[1];
+
+        // Re-initialize healpix_info when nside changes
+        if ((!started) || (*nside != last_nside)) {
+            if (!hpgeom_check_nside(*nside, RING, err)) {
+                return false;
+            }
+            hpx = healpix_info_from_nside(*nside, RING);
+            last_nside = *nside;
+            started = true;
+        }
+
+        *pixrad = max_pixrad(&hpx);
+        if (degrees) *pixrad *= HPG_R2D;
+
+    } while (iternext(iter));
+
+    return true;
+}
+
+// Worker function for each thread (reuses ThreadData)
+static void *max_pixel_radius_worker(void *arg) {
+    ThreadData *td = (ThreadData *)arg;
+    td->failed = !max_pixel_radius_iteration(td->iter, td->degrees,
+                                             td->start_idx, td->end_idx, td->err);
+    return NULL;
+}
+
 static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL;
     PyObject *nside_arr = NULL;
     PyObject *pixrad_arr = NULL;
 
     NpyIter *iter = NULL;
+    thread_handle_t *threads = NULL;
+    ThreadData *thread_data = NULL;
 
     int degrees = 1;
-    static char *kwlist[] = {"nside", "degrees", NULL};
+    int n_threads = 1;
+    static char *kwlist[] = {"nside", "degrees", "n_threads", NULL};
 
-    healpix_info hpx;
     char err[ERR_SIZE];
     bool loop_failed = false;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|p", kwlist, &nside_obj, &degrees))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|pi", kwlist, &nside_obj, &degrees,
+                                     &n_threads))
         goto fail;
 
     nside_arr =
@@ -3154,8 +3211,6 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
     PyArrayObject *op[2];
     npy_uint32 op_flags[2];
     PyArray_Descr *op_dtypes[2];
-    NpyIter_IterNextFunc *iternext;
-    char **dataptrarray;
 
     op[0] = (PyArrayObject *)nside_arr;
     op_flags[0] = NPY_ITER_READONLY;
@@ -3164,50 +3219,110 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
     op_flags[1] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
     op_dtypes[1] = PyArray_DescrFromType(NPY_DOUBLE);
 
-    iter = NpyIter_MultiNew(2, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING,
+    npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK | NPY_ITER_RANGED | NPY_ITER_BUFFERED;
+    if (n_threads > 1) {
+        iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
+    }
+
+    iter = NpyIter_MultiNew(2, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
                             op_flags, op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
-                        "nside, a, b arrays could not be broadcast together.");
+                        "nside array could not be processed.");
         goto fail;
     }
 
-    iternext = NpyIter_GetIterNext(iter, NULL);
-    dataptrarray = NpyIter_GetDataPtrArray(iter);
+    npy_intp iter_size = NpyIter_GetIterSize(iter);
 
-    NPY_BEGIN_ALLOW_THREADS
+    if (iter_size == 0) {
+        goto cleanup;
+    }
 
-    // Check for zero-size before entering loop.
-    if (NpyIter_GetIterSize(iter) > 0) {
-        int64_t *nside;
-        double *pixrad;
-        int64_t last_nside = -1;
-        bool started = false;
-        do {
-            nside = (int64_t *)dataptrarray[0];
-            pixrad = (double *)dataptrarray[1];
+    if (n_threads > 1) {
+        // Don't use threading if chunks would be too small
+        if (iter_size / n_threads < MIN_CHUNK_SIZE) {
+            n_threads = iter_size / MIN_CHUNK_SIZE;
+        }
+    }
 
-            if ((!started) || (*nside != last_nside)) {
-                if (!hpgeom_check_nside(*nside, RING, err)) {
-                    loop_failed = true;
-                    break;
-                }
-                hpx = healpix_info_from_nside(*nside, RING);
-                started = true;
+    if (n_threads > 1) {
+        // Multi-threaded path
+        if (n_threads > iter_size) {
+            n_threads = iter_size;
+        }
+
+        threads = malloc(n_threads * sizeof(thread_handle_t));
+        thread_data = malloc(n_threads * sizeof(ThreadData));
+
+        if (threads == NULL || thread_data == NULL) {
+            PyErr_SetString(PyExc_MemoryError, "Failed to allocate thread resources");
+            goto fail;
+        }
+
+        // Create iterator copies (with GIL held)
+        thread_data[0].iter = iter;
+        for (int t = 1; t < n_threads; t++) {
+            thread_data[t].iter = NpyIter_Copy(iter);
+            if (thread_data[t].iter == NULL) {
+                PyErr_SetString(PyExc_RuntimeError, "Failed to copy iterator for threading");
+                goto fail;
             }
-            *pixrad = max_pixrad(&hpx);
-            if (degrees) *pixrad *= HPG_R2D;
+        }
 
-        } while (iternext(iter));
+        // Divide work among threads
+        npy_intp chunk_size = iter_size / n_threads;
+        npy_intp remainder = iter_size % n_threads;
+
+        for (int t = 0; t < n_threads; t++) {
+            thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
+            thread_data[t].end_idx =
+                thread_data[t].start_idx + chunk_size + (t < remainder ? 1 : 0);
+            thread_data[t].lonlat = 0;   // Unused
+            thread_data[t].nest = 0;     // Unused
+            thread_data[t].degrees = degrees;
+            thread_data[t].failed = false;
+            thread_data[t].err[0] = '\0';
+        }
+
+        NPY_BEGIN_ALLOW_THREADS
+
+        for (int t = 0; t < n_threads; t++) {
+            if (thread_create(&threads[t], max_pixel_radius_worker, &thread_data[t]) != 0) {
+                thread_data[t].failed = true;
+                snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
+                threads[t] = NULL;
+            }
+        }
+
+        for (int t = 0; t < n_threads; t++) {
+            if (threads[t] != NULL) thread_join(threads[t]);
+        }
+
+        NPY_END_ALLOW_THREADS
+
+        // Check for errors
+        for (int t = 0; t < n_threads; t++) {
+            if (thread_data[t].failed) {
+                PyErr_SetString(PyExc_ValueError, thread_data[t].err);
+                goto fail;
+            }
+        }
+
+    } else {
+        // Single-threaded path: set to the full range 0, iter_size.
+        NPY_BEGIN_ALLOW_THREADS
+
+        loop_failed = !max_pixel_radius_iteration(iter, degrees, 0, iter_size, err);
+
+        NPY_END_ALLOW_THREADS
+
+        if (loop_failed) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
     }
 
-    NPY_END_ALLOW_THREADS
-
-    if (loop_failed) {
-        PyErr_SetString(PyExc_ValueError, err);
-        goto fail;
-    }
-
+cleanup:
     pixrad_arr = (PyObject *)NpyIter_GetOperandArray(iter)[1];
     Py_INCREF(pixrad_arr);
 
@@ -3216,6 +3331,15 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
         iter = NULL;
         goto fail;
     }
+    if (thread_data != NULL) {
+        for (int t = 1; t < n_threads; t++) {
+            if (thread_data[t].iter != NULL) {
+                NpyIter_Deallocate(thread_data[t].iter);
+            }
+        }
+        free(thread_data);
+    }
+    if (threads != NULL) free(threads);
 
     return PyArray_Return((PyArrayObject *)pixrad_arr);
 
@@ -3225,6 +3349,16 @@ fail:
     if (iter != NULL) {
         NpyIter_Deallocate(iter);
     }
+
+    if (thread_data != NULL) {
+        for (int t = 1; t < n_threads; t++) {
+            if (thread_data[t].iter != NULL) {
+                NpyIter_Deallocate(thread_data[t].iter);
+            }
+        }
+        free(thread_data);
+    }
+    if (threads != NULL) free(threads);
 
     return NULL;
 }
