@@ -2801,14 +2801,13 @@ fail:
     return NULL;
 }
 
-// **** ADD THREADS ***
 PyDoc_STRVAR(neighbors_doc,
              "neighbors(nside, pix, nest=True)\n"
              "--\n\n"
              "Return 8 nearest neighbors for given pixels.\n"
              "\n"
              "Parameters\n"
-             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR
+             "----------\n" NSIDE_DOC_PAR PIX_DOC_PAR NEST_DOC_PAR N_THREADS_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -2822,25 +2821,110 @@ PyDoc_STRVAR(neighbors_doc,
              "ValueError\n"
              "    If pixel is out of range, or nside, pix arrays are not compatible.\n");
 
+// Core processing logic for neighbors - used by both single and multi-threaded paths
+static bool neighbors_iteration(NpyIter *iter, int nest, int64_t *neighbor_pixels,
+                                npy_intp start_idx, npy_intp end_idx, char *err) {
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+    char *errmsg;
+    healpix_info hpx;
+    int64_t last_nside = -1;
+    bool started = false;
+    enum Scheme scheme = nest ? NEST : RING;
+    i64stack *neigh = NULL;
+    int status;
+
+    // Allocate i64stack for this thread
+    neigh = i64stack_new(8, &status, err);
+    if (!status) {
+        return false;
+    }
+    i64stack_resize(neigh, 8, &status, err);
+    if (!status) {
+        i64stack_delete(neigh);
+        return false;
+    }
+
+    // For ranged iteration, reset to the specified range
+    if (NpyIter_ResetToIterIndexRange(iter, start_idx, end_idx, &errmsg) != NPY_SUCCEED) {
+        snprintf(err, ERR_SIZE, "%s", errmsg);
+        i64stack_delete(neigh);
+        return false;
+    }
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL) {
+        snprintf(err, ERR_SIZE, "Failed to get iterator next function");
+        i64stack_delete(neigh);
+        return false;
+    }
+
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    do {
+        int64_t *nside = (int64_t *)dataptrarray[0];
+        int64_t *pix = (int64_t *)dataptrarray[1];
+
+        // Re-initialize healpix_info when nside changes
+        if ((!started) || (*nside != last_nside)) {
+            if (!hpgeom_check_nside(*nside, scheme, err)) {
+                i64stack_delete(neigh);
+                return false;
+            }
+            hpx = healpix_info_from_nside(*nside, scheme);
+            last_nside = *nside;
+            started = true;
+        }
+
+        if (!hpgeom_check_pixel(&hpx, *pix, err)) {
+            i64stack_delete(neigh);
+            return false;
+        }
+
+        neighbors(&hpx, *pix, neigh, &status, err);
+        if (!status) {
+            i64stack_delete(neigh);
+            return false;
+        }
+
+        for (size_t i = 0; i < neigh->size; i++) {
+            size_t index = neigh->size * NpyIter_GetIterIndex(iter) + i;
+            neighbor_pixels[index] = neigh->data[i];
+        }
+
+    } while (iternext(iter));
+
+    i64stack_delete(neigh);
+    return true;
+}
+
+// Worker function for each thread
+static void *neighbors_worker(void *arg) {
+    NeighborsThreadData *td = (NeighborsThreadData *)arg;
+    td->failed = !neighbors_iteration(td->iter, td->nest, td->neighbor_pixels,
+                                      td->start_idx, td->end_idx, td->err);
+    return NULL;
+}
+
 static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     PyObject *nside_obj = NULL, *pix_obj = NULL;
     PyObject *nside_arr = NULL, *pix_arr = NULL;
     PyObject *neighbor_arr = NULL;
 
     NpyIter *iter = NULL;
+    thread_handle_t *threads = NULL;
+    NeighborsThreadData *thread_data = NULL;
 
     int nest = 1;
-    static char *kwlist[] = {"nside", "pix", "nest", NULL};
+    int n_threads = 1;
+    static char *kwlist[] = {"nside", "pix", "nest", "n_threads", NULL};
 
-    i64stack *neigh = NULL;
-    int64_t *neighbor_pixels;
-    healpix_info hpx;
-    int status;
+    int64_t *neighbor_pixels = NULL;
     char err[ERR_SIZE];
     bool loop_failed = false;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", kwlist, &nside_obj, &pix_obj,
-                                     &nest))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|pi", kwlist, &nside_obj, &pix_obj,
+                                     &nest, &n_threads))
         goto fail;
 
     nside_arr =
@@ -2863,8 +2947,6 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     PyArrayObject *op[2];
     npy_uint32 op_flags[2];
     PyArray_Descr *op_dtypes[2];
-    NpyIter_IterNextFunc *iternext;
-    char **dataptrarray;
 
     op[0] = (PyArrayObject *)nside_arr;
     op_flags[0] = NPY_ITER_READONLY;
@@ -2873,7 +2955,12 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     op_flags[1] = NPY_ITER_READONLY;
     op_dtypes[1] = NULL;
 
-    iter = NpyIter_MultiNew(2, op, NPY_ITER_ZEROSIZE_OK, NPY_KEEPORDER, NPY_NO_CASTING,
+    npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK | NPY_ITER_RANGED | NPY_ITER_BUFFERED;
+    if (n_threads > 1) {
+        iter_flags |= NPY_ITER_DELAY_BUFALLOC | NPY_ITER_GROWINNER;
+    }
+
+    iter = NpyIter_MultiNew(2, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING,
                             op_flags, op_dtypes);
     if (iter == NULL) {
         PyErr_SetString(PyExc_ValueError,
@@ -2881,90 +2968,126 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         goto fail;
     }
 
-    iternext = NpyIter_GetIterNext(iter, NULL);
-    dataptrarray = NpyIter_GetDataPtrArray(iter);
-
+    npy_intp iter_size = NpyIter_GetIterSize(iter);
     int ndims = NpyIter_GetNDim(iter);
+
+    // Allocate output array
     if (ndims == 0) {
         npy_intp dims[1];
         dims[0] = 8;
         neighbor_arr = PyArray_SimpleNew(1, dims, NPY_INT64);
     } else {
         npy_intp dims[2];
-        dims[0] = NpyIter_GetIterSize(iter);
+        dims[0] = iter_size;
         dims[1] = 8;
         neighbor_arr = PyArray_SimpleNew(2, dims, NPY_INT64);
     }
     if (neighbor_arr == NULL) goto fail;
     neighbor_pixels = (int64_t *)PyArray_DATA((PyArrayObject *)neighbor_arr);
 
-    enum Scheme scheme;
-    if (nest) {
-        scheme = NEST;
+    if (iter_size == 0) {
+        goto cleanup;
+    }
+
+    if (n_threads > 1) {
+        // Don't use threading if chunks would be too small
+        if (iter_size / n_threads < MIN_CHUNK_SIZE) {
+            n_threads = iter_size / MIN_CHUNK_SIZE;
+        }
+    }
+
+    if (n_threads > 1) {
+        // Multi-threaded path
+        if (n_threads > iter_size) {
+            n_threads = iter_size;
+        }
+
+        threads = malloc(n_threads * sizeof(thread_handle_t));
+        thread_data = malloc(n_threads * sizeof(NeighborsThreadData));
+
+        if (threads == NULL || thread_data == NULL) {
+            PyErr_SetString(PyExc_MemoryError, "Failed to allocate thread resources");
+            goto fail;
+        }
+
+        // Create iterator copies (with GIL held)
+        thread_data[0].iter = iter;
+        for (int t = 1; t < n_threads; t++) {
+            thread_data[t].iter = NpyIter_Copy(iter);
+            if (thread_data[t].iter == NULL) {
+                PyErr_SetString(PyExc_RuntimeError, "Failed to copy iterator for threading");
+                goto fail;
+            }
+        }
+
+        // Divide work among threads
+        npy_intp chunk_size = iter_size / n_threads;
+        npy_intp remainder = iter_size % n_threads;
+
+        for (int t = 0; t < n_threads; t++) {
+            thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
+            thread_data[t].end_idx =
+                thread_data[t].start_idx + chunk_size + (t < remainder ? 1 : 0);
+            thread_data[t].nest = nest;
+            thread_data[t].neighbor_pixels = neighbor_pixels;
+            thread_data[t].failed = false;
+            thread_data[t].err[0] = '\0';
+        }
+
+        NPY_BEGIN_ALLOW_THREADS
+
+        for (int t = 0; t < n_threads; t++) {
+            if (thread_create(&threads[t], neighbors_worker, &thread_data[t]) != 0) {
+                thread_data[t].failed = true;
+                snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
+                threads[t] = NULL;
+            }
+        }
+
+        for (int t = 0; t < n_threads; t++) {
+            if (threads[t] != NULL) thread_join(threads[t]);
+        }
+
+        NPY_END_ALLOW_THREADS
+
+        // Check for errors
+        for (int t = 0; t < n_threads; t++) {
+            if (thread_data[t].failed) {
+                PyErr_SetString(PyExc_ValueError, thread_data[t].err);
+                goto fail;
+            }
+        }
+
     } else {
-        scheme = RING;
+        // Single-threaded path
+        NPY_BEGIN_ALLOW_THREADS
+
+        loop_failed = !neighbors_iteration(iter, nest, neighbor_pixels, 0, iter_size, err);
+
+        NPY_END_ALLOW_THREADS
+
+        if (loop_failed) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
     }
 
-    neigh = i64stack_new(8, &status, err);
-    if (!status) {
-        PyErr_SetString(PyExc_RuntimeError, err);
-        goto fail;
-    }
-    i64stack_resize(neigh, 8, &status, err);
-    if (!status) {
-        PyErr_SetString(PyExc_RuntimeError, err);
-        goto fail;
-    }
-
-    NPY_BEGIN_ALLOW_THREADS
-
-    // Check for zero-size before entering loop.
-    if (NpyIter_GetIterSize(iter) > 0) {
-        int64_t *nside;
-        int64_t *pix;
-        int64_t last_nside = -1;
-        bool started = false;
-        size_t index;
-        do {
-            nside = (int64_t *)dataptrarray[0];
-            pix = (int64_t *)dataptrarray[1];
-
-            if ((!started) || (*nside != last_nside)) {
-                if (!hpgeom_check_nside(*nside, scheme, err)) {
-                    loop_failed = true;
-                    break;
-                }
-                hpx = healpix_info_from_nside(*nside, scheme);
-                started = true;
-            }
-
-            if (!hpgeom_check_pixel(&hpx, *pix, err)) {
-                loop_failed = true;
-                break;
-            }
-            neighbors(&hpx, *pix, neigh, &status, err);
-
-            for (size_t i = 0; i < neigh->size; i++) {
-                index = neigh->size * NpyIter_GetIterIndex(iter) + i;
-                neighbor_pixels[index] = neigh->data[i];
-            }
-        } while (iternext(iter));
-    }
-
-    NPY_END_ALLOW_THREADS
-
-    if (loop_failed) {
-        PyErr_SetString(PyExc_ValueError, err);
-        goto fail;
-    }
-
+cleanup:
     Py_DECREF(nside_arr);
     Py_DECREF(pix_arr);
     if (NpyIter_Deallocate(iter) != NPY_SUCCEED) {
         iter = NULL;
         goto fail;
     }
-    i64stack_delete(neigh);
+    if (thread_data != NULL) {
+        for (int t = 1; t < n_threads; t++) {
+            if (thread_data[t].iter != NULL) {
+                NpyIter_Deallocate(thread_data[t].iter);
+            }
+        }
+        free(thread_data);
+    }
+    if (threads != NULL) free(threads);
 
     return PyArray_Return((PyArrayObject *)neighbor_arr);
 
@@ -2972,12 +3095,19 @@ fail:
     Py_XDECREF(nside_arr);
     Py_XDECREF(pix_arr);
     Py_XDECREF(neighbor_arr);
-    if (neigh != NULL) {
-        i64stack_delete(neigh);
-    }
     if (iter != NULL) {
         NpyIter_Deallocate(iter);
     }
+
+    if (thread_data != NULL) {
+        for (int t = 1; t < n_threads; t++) {
+            if (thread_data[t].iter != NULL) {
+                NpyIter_Deallocate(thread_data[t].iter);
+            }
+        }
+        free(thread_data);
+    }
+    if (threads != NULL) free(threads);
 
     return NULL;
 }

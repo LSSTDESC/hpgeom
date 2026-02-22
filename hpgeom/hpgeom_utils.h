@@ -57,6 +57,16 @@ typedef struct {
     bool failed;
 } BoundariesThreadData;
 
+typedef struct {
+    NpyIter *iter;
+    npy_intp start_idx;
+    npy_intp end_idx;
+    int nest;
+    int64_t *neighbor_pixels;
+    char err[ERR_SIZE];
+    bool failed;
+} NeighborsThreadData;
+
 int hpgeom_check_nside(int64_t nside, Scheme scheme, char *err);
 int hpgeom_check_theta_phi(double theta, double phi, char *err);
 int hpgeom_check_pixel(healpix_info *hpx, int64_t pix, char *err);
