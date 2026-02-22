@@ -36,7 +36,7 @@ def test_ring_to_nest_samplepix(nside):
     np.testing.assert_array_equal(nest_pix_hpgeom, nest_pix_healpy)
 
 
-@pytest.mark.parametrize("size", [1_000, 10_000_000])
+@pytest.mark.parametrize("size", [1_000, 10_000_001])
 @pytest.mark.parametrize("n_threads", [2])
 def test_ring_to_nest_threads(size, n_threads):
     """Test ring_to_nest multi-threaded."""

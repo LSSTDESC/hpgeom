@@ -123,7 +123,7 @@ def test_boundaries_multiple_nside():
     assert lat3.shape == (2, 4)
 
 
-@pytest.mark.parametrize("size", [1_000, 50_000])
+@pytest.mark.parametrize("size", [1_000, 50_001])
 @pytest.mark.parametrize("n_threads", [2])
 def test_boundaries_threads(size, n_threads):
     nside = 2**15
