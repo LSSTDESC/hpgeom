@@ -24,7 +24,7 @@
             free(wd);
             f(a);
             return 0;
-        }
+        };
         struct wrapper_data *wd = malloc(sizeof(*wd));
         if (!wd) return -1;
         wd->func = func;
