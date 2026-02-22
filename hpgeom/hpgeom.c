@@ -236,7 +236,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
             n_threads = iter_size;
         }
 
-        threads = malloc(n_threads * sizeof(pthread_t));
+        threads = malloc(n_threads * sizeof(thread_handle_t));
         thread_data = malloc(n_threads * sizeof(ThreadData));
 
         if (threads == NULL || thread_data == NULL) {
