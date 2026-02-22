@@ -39,46 +39,12 @@ typedef struct {
     int lonlat;
     int nest;
     int degrees;
+    int step;
+    void *data0;
+    void *data1;
     char err[ERR_SIZE];
     bool failed;
 } ThreadData;
-
-typedef struct {
-    NpyIter *iter;
-    npy_intp start_idx;
-    npy_intp end_idx;
-    int lonlat;
-    int nest;
-    int degrees;
-    long step;
-    double *as;
-    double *bs;
-    char err[ERR_SIZE];
-    bool failed;
-} BoundariesThreadData;
-
-typedef struct {
-    NpyIter *iter;
-    npy_intp start_idx;
-    npy_intp end_idx;
-    int nest;
-    int64_t *neighbor_pixels;
-    char err[ERR_SIZE];
-    bool failed;
-} NeighborsThreadData;
-
-typedef struct {
-    NpyIter *iter;
-    npy_intp start_idx;
-    npy_intp end_idx;
-    int lonlat;
-    int nest;
-    int degrees;
-    int64_t *pixels;  // Pre-allocated output array
-    double *weights;  // Pre-allocated output array
-    char err[ERR_SIZE];
-    bool failed;
-} InterpolThreadData;
 
 int hpgeom_check_nside(int64_t nside, Scheme scheme, char *err);
 int hpgeom_check_theta_phi(double theta, double phi, char *err);

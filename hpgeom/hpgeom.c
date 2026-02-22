@@ -1994,9 +1994,9 @@ static bool boundaries_iteration(NpyIter *iter, int lonlat, int nest, int degree
 
 // Worker function for each thread
 static void *boundaries_worker(void *arg) {
-    BoundariesThreadData *td = (BoundariesThreadData *)arg;
+    ThreadData *td = (ThreadData *)arg;
     td->failed = !boundaries_iteration(td->iter, td->lonlat, td->nest, td->degrees,
-                                       td->step, td->as, td->bs,
+                                       td->step, (double *) td->data0, (double *) td->data1,
                                        td->start_idx, td->end_idx, td->err);
     return NULL;
 }
@@ -2008,7 +2008,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
 
     NpyIter *iter = NULL;
     thread_handle_t *threads = NULL;
-    BoundariesThreadData *thread_data = NULL;
+    ThreadData *thread_data = NULL;
 
     int lonlat = 1;
     int nest = 1;
@@ -2108,7 +2108,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         }
 
         threads = malloc(n_threads * sizeof(thread_handle_t));
-        thread_data = malloc(n_threads * sizeof(BoundariesThreadData));
+        thread_data = malloc(n_threads * sizeof(ThreadData));
 
         if (threads == NULL || thread_data == NULL) {
             PyErr_SetString(PyExc_MemoryError, "Failed to allocate thread resources");
@@ -2137,8 +2137,8 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
             thread_data[t].nest = nest;
             thread_data[t].degrees = degrees;
             thread_data[t].step = step;
-            thread_data[t].as = as;
-            thread_data[t].bs = bs;
+            thread_data[t].data0 = (void *) as;
+            thread_data[t].data1 = (void *) bs;
             thread_data[t].failed = false;
             thread_data[t].err[0] = '\0';
         }
@@ -2900,8 +2900,8 @@ static bool neighbors_iteration(NpyIter *iter, int nest, int64_t *neighbor_pixel
 
 // Worker function for each thread
 static void *neighbors_worker(void *arg) {
-    NeighborsThreadData *td = (NeighborsThreadData *)arg;
-    td->failed = !neighbors_iteration(td->iter, td->nest, td->neighbor_pixels,
+    ThreadData *td = (ThreadData *)arg;
+    td->failed = !neighbors_iteration(td->iter, td->nest, (int64_t *) td->data0,
                                       td->start_idx, td->end_idx, td->err);
     return NULL;
 }
@@ -2913,7 +2913,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     NpyIter *iter = NULL;
     thread_handle_t *threads = NULL;
-    NeighborsThreadData *thread_data = NULL;
+    ThreadData *thread_data = NULL;
 
     int nest = 1;
     int n_threads = 1;
@@ -3003,7 +3003,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         }
 
         threads = malloc(n_threads * sizeof(thread_handle_t));
-        thread_data = malloc(n_threads * sizeof(NeighborsThreadData));
+        thread_data = malloc(n_threads * sizeof(ThreadData));
 
         if (threads == NULL || thread_data == NULL) {
             PyErr_SetString(PyExc_MemoryError, "Failed to allocate thread resources");
@@ -3029,7 +3029,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
             thread_data[t].end_idx =
                 thread_data[t].start_idx + chunk_size + (t < remainder ? 1 : 0);
             thread_data[t].nest = nest;
-            thread_data[t].neighbor_pixels = neighbor_pixels;
+            thread_data[t].data0 = (void *) neighbor_pixels;
             thread_data[t].failed = false;
             thread_data[t].err[0] = '\0';
         }
@@ -3446,9 +3446,9 @@ static bool get_interpolation_weights_iteration(NpyIter *iter, int lonlat, int n
 
 // Worker function for each thread
 static void *get_interpolation_weights_worker(void *arg) {
-    InterpolThreadData *td = (InterpolThreadData *)arg;
+    ThreadData *td = (ThreadData *)arg;
     td->failed = !get_interpolation_weights_iteration(td->iter, td->lonlat, td->nest, td->degrees,
-                                                      td->pixels, td->weights,
+                                                      (int64_t *) td->data0, (double *) td->data1,
                                                       td->start_idx, td->end_idx, td->err);
     return NULL;
 }
@@ -3461,7 +3461,7 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
 
     NpyIter *iter = NULL;
     thread_handle_t *threads = NULL;
-    InterpolThreadData *thread_data = NULL;
+    ThreadData *thread_data = NULL;
 
     int lonlat = 1;
     int nest = 1;
@@ -3566,7 +3566,7 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         }
 
         threads = malloc(n_threads * sizeof(thread_handle_t));
-        thread_data = malloc(n_threads * sizeof(InterpolThreadData));
+        thread_data = malloc(n_threads * sizeof(ThreadData));
 
         if (threads == NULL || thread_data == NULL) {
             PyErr_SetString(PyExc_MemoryError, "Failed to allocate thread resources");
@@ -3594,8 +3594,8 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
             thread_data[t].lonlat = lonlat;
             thread_data[t].nest = nest;
             thread_data[t].degrees = degrees;
-            thread_data[t].pixels = pixels;
-            thread_data[t].weights = weights;
+            thread_data[t].data0 = (void *) pixels;
+            thread_data[t].data1 = (void *) weights;
             thread_data[t].failed = false;
             thread_data[t].err[0] = '\0';
         }
