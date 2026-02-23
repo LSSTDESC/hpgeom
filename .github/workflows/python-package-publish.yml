@@ -91,9 +91,8 @@ jobs:
           python -m cibuildwheel --output-dir dist
       - uses: actions/upload-artifact@v6
         with:
-          name: wheels-${{ matrix.os }}
+          name: hpgeom-${{ matrix.os }}
           path: dist/*
-
   pypi_upload:
     needs: [pypi_sdist_build, pypi_wheel_build]
     runs-on: ubuntu-latest
@@ -101,8 +100,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v7
         with:
-          name: artifact
           path: dist
+          pattern: hpgeom-*
+          merge-multiple: true
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
