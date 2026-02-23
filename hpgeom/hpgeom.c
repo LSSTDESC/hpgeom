@@ -257,6 +257,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -273,17 +274,23 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], angle_to_pixel_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+           thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -546,6 +553,7 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -562,17 +570,23 @@ static PyObject *pixel_to_angle(PyObject *dummy, PyObject *args, PyObject *kwarg
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], pixel_to_angle_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -1526,6 +1540,7 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -1539,17 +1554,24 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], nest_to_ring_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -1788,6 +1810,7 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -1806,17 +1829,23 @@ static PyObject *ring_to_nest(PyObject *dummy, PyObject *args, PyObject *kwargs)
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], ring_to_nest_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -2128,6 +2157,7 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -2147,17 +2177,23 @@ static PyObject *boundaries_meth(PyObject *dummy, PyObject *args, PyObject *kwar
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], boundaries_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -2411,6 +2447,7 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -2427,17 +2464,23 @@ static PyObject *vector_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwar
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], vector_to_pixel_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -2697,6 +2740,7 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -2713,17 +2757,23 @@ static PyObject *pixel_to_vector(PyObject *dummy, PyObject *args, PyObject *kwar
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], pixel_to_vector_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -3023,6 +3073,7 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -3038,17 +3089,23 @@ static PyObject *neighbors_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], neighbors_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -3270,6 +3327,7 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -3286,17 +3344,23 @@ static PyObject *max_pixel_radius(PyObject *dummy, PyObject *args, PyObject *kwa
 
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], max_pixel_radius_worker, &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
@@ -3590,6 +3654,7 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         // Divide work among threads
         npy_intp chunk_size = iter_size / n_threads;
         npy_intp remainder = iter_size % n_threads;
+        bool thread_creation_failed = false;
 
         for (int t = 0; t < n_threads; t++) {
             thread_data[t].start_idx = t * chunk_size + (t < remainder ? t : remainder);
@@ -3609,17 +3674,23 @@ static PyObject *get_interpolation_weights(PyObject *dummy, PyObject *args, PyOb
         for (int t = 0; t < n_threads; t++) {
             if (thread_create(&threads[t], get_interpolation_weights_worker,
                               &thread_data[t]) != 0) {
-                thread_data[t].failed = true;
+                thread_creation_failed = true;
                 snprintf(thread_data[t].err, ERR_SIZE, "Failed to create thread %d", t);
-                threads[t] = NULL;
+                n_threads = t;
+                break;
             }
         }
 
         for (int t = 0; t < n_threads; t++) {
-            if (threads[t] != NULL) thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
+
+        if (thread_creation_failed) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            goto fail;
+        }
 
         // Check for errors
         for (int t = 0; t < n_threads; t++) {
