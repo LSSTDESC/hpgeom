@@ -3,6 +3,15 @@ import numpy
 import sys
 
 
+libraries = []
+if sys.platform == 'win32':
+    # Windows: no pthread library needed, use native threads
+    pass
+else:
+    # Linux/macOS: link with pthread
+    libraries.append('pthread')
+
+
 ext = Extension(
     "hpgeom._hpgeom",
     [
@@ -11,18 +20,11 @@ ext = Extension(
         "hpgeom/healpix_geom.c",
         "hpgeom/hpgeom.c",
     ],
+    include_dirs=[numpy.get_include()],
+    libraries=libraries,
 )
 
-extra_link_args = []
-if sys.platform == 'win32':
-    # Windows: no pthread library needed, use native threads
-    pass
-else:
-    # Linux/macOS: link with pthread
-    extra_link_args.append('-pthread')
 
 setup(
     ext_modules=[ext],
-    include_dirs=numpy.get_include(),
-    extra_link_args=extra_link_args,
 )
