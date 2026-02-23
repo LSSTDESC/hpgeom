@@ -9,6 +9,7 @@ The `HPGeom` package addresses multiple issues in the default healpy_ routines.
 
 * `HPGeom` is lightweight, with no plotting or i/o routines.  Therefore it is fast to load with no dependencies on matplotlib_ or cfitsio_.
 * `HPGeom` only depends on python, numpy_ and a working C compiler.
+* As of version 1.5, `HPGeom` conversions can be run multi-threaded for improved performance in some contexts.
 
 The code is hosted in GitHub_.
 Please use the `issue tracker <https://github.com/lsstdesc/hpgeom/issues>`_ to let us know about any problems or questions with the code.

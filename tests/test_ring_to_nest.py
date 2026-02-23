@@ -36,47 +36,65 @@ def test_ring_to_nest_samplepix(nside):
     np.testing.assert_array_equal(nest_pix_hpgeom, nest_pix_healpy)
 
 
+@pytest.mark.parametrize("size", [1_000, 10_000_001])
+@pytest.mark.parametrize("n_threads", [2])
+def test_ring_to_nest_threads(size, n_threads):
+    """Test ring_to_nest multi-threaded."""
+    nside = 2**15
+
+    ring_pix = np.random.randint(low=0, high=12*nside*nside - 1, size=size, dtype=np.int64)
+
+    nest_pix_single = hpgeom.ring_to_nest(nside, ring_pix, n_threads=1)
+    nest_pix = hpgeom.ring_to_nest(nside, ring_pix, n_threads=n_threads)
+
+    np.testing.assert_array_equal(nest_pix, nest_pix_single)
+
+
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
-def test_ring_to_nest_scalar(nside):
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_ring_to_nest_scalar(nside, n_threads):
     """Test ring_to_nest for scalars."""
     np.random.seed(12345)
 
     ring_pix = np.random.randint(low=0, high=12*nside*nside-1, size=100, dtype=np.int64)
-    nest_arr = hpgeom.ring_to_nest(nside, ring_pix)
-    nest_scalar = hpgeom.ring_to_nest(nside, ring_pix[0])
+    nest_arr = hpgeom.ring_to_nest(nside, ring_pix, n_threads=n_threads)
+    nest_scalar = hpgeom.ring_to_nest(nside, ring_pix[0], n_threads=n_threads)
 
     assert nest_scalar == nest_arr[0]
     assert not isinstance(nest_scalar, np.ndarray)
 
-    nest_scalar2 = hpgeom.ring_to_nest(nside, int(ring_pix[0]))
+    nest_scalar2 = hpgeom.ring_to_nest(nside, int(ring_pix[0]), n_threads=n_threads)
 
     assert nest_scalar2 == nest_arr[0]
     assert not isinstance(nest_scalar2, np.ndarray)
 
 
-def test_ring_to_nest_zerolength():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_ring_to_nest_zerolength(n_threads):
     """Test ring_to_nest for zero-length."""
-    pix = hpgeom.ring_to_nest(1024, [])
+    pix = hpgeom.ring_to_nest(1024, [], n_threads=n_threads)
 
     assert len(pix) == 0
 
 
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
-def test_ring_to_nest_bad_pix(nside):
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_ring_to_nest_bad_pix(nside, n_threads):
     """Test ring_to_nest errors when given bad pixel"""
 
     with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
-        hpgeom.ring_to_nest(nside, -1)
+        hpgeom.ring_to_nest(nside, np.full(20_000, -1), n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"Pixel value .* out of range"):
-        hpgeom.ring_to_nest(nside, 12*nside*nside)
+        hpgeom.ring_to_nest(nside, np.full(20_000, 12*nside*nside), n_threads=n_threads)
 
 
-def test_ring_to_nest_bad_nside():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_ring_to_nest_bad_nside(n_threads):
     """test ring_to_nest errors when given a bad nside."""
 
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
-        hpgeom.ring_to_nest(-10, 100)
+        hpgeom.ring_to_nest(-10, np.full(20_000, 100), n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"nside .* must be power of 2"):
-        hpgeom.ring_to_nest(1020, 100)
+        hpgeom.ring_to_nest(1020, np.full(20_000, 100), n_threads=n_threads)

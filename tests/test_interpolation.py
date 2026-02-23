@@ -113,6 +113,40 @@ def test_interpolation_scalar(nside):
     np.testing.assert_array_almost_equal(interp_wgt_scalar, interp_wgt[0, :])
 
 
+@pytest.mark.parametrize("size", [1_000, 100_001])
+@pytest.mark.parametrize("n_threads", [2])
+def test_interpolation_threads(size, n_threads):
+    """Test interpolation, multiple threads."""
+    np.random.seed(12345)
+
+    nside = 2**15
+
+    lon = np.random.uniform(low=0.0, high=360.0, size=size)
+    lat = np.random.uniform(low=-90.0, high=90.0, size=size)
+
+    interp_pix_single, interp_wgt_single = hpgeom.get_interpolation_weights(
+        nside,
+        lon,
+        lat,
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=1,
+    )
+    interp_pix, interp_wgt = hpgeom.get_interpolation_weights(
+        nside,
+        lon,
+        lat,
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=n_threads,
+    )
+
+    np.testing.assert_array_equal(interp_pix, interp_pix_single)
+    np.testing.assert_array_equal(interp_wgt, interp_wgt_single)
+
+
 def test_interpolation_multiple_nside():
     """Test interpolation, multiple nside."""
     interp_pix, interp_wgt = hpgeom.get_interpolation_weights(
@@ -135,82 +169,120 @@ def test_interpolation_multiple_nside():
     assert interp_wgt3.shape == (2, 4)
 
 
-def test_interpolation_zerolength():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_interpolation_zerolength(n_threads):
     """Test interpolation, zero length."""
-    interp_pix, interp_wgt = hpgeom.get_interpolation_weights(1024, [], [])
+    interp_pix, interp_wgt = hpgeom.get_interpolation_weights(1024, [], [], n_threads=n_threads)
 
     assert len(interp_pix) == 0
     assert len(interp_wgt) == 0
 
 
-def test_interpolation_mismatched_dims():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_interpolation_mismatched_dims(n_threads):
     """Test get_interpolation_weights when dimensions are mismatched."""
     np.random.seed(12345)
 
-    lon = np.random.uniform(low=0.0, high=360.0, size=100)
-    lat = np.random.uniform(low=-90.0, high=90.0, size=100)
+    lon = np.random.uniform(low=0.0, high=360.0, size=10_000)
+    lat = np.random.uniform(low=-90.0, high=90.0, size=10_000)
 
     with pytest.raises(ValueError, match=r"must have same number of dimensions"):
-        hpgeom.get_interpolation_weights([2048, 4096], lon[0], lat)
+        hpgeom.get_interpolation_weights([2048, 4096], lon[0], lat, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"must have same number of dimensions"):
-        hpgeom.get_interpolation_weights([2048, 4096], lon, lat[0])
+        hpgeom.get_interpolation_weights([2048, 4096], lon, lat[0], n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
-        hpgeom.get_interpolation_weights(2048, lon[0: 5], lat)
+        hpgeom.get_interpolation_weights(2048, lon[0: 5], lat, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
-        hpgeom.get_interpolation_weights(2048, lon, lat[0: 5])
+        hpgeom.get_interpolation_weights(2048, lon, lat[0: 5], n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"array must be at most 1D"):
-        hpgeom.get_interpolation_weights(2048, lon.reshape((10, 10)), lat)
+        hpgeom.get_interpolation_weights(2048, lon.reshape((100, 100)), lat, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"must have same number of dimensions"):
-        hpgeom.get_interpolation_weights(2048, lon, lat.reshape((10, 10)))
+        hpgeom.get_interpolation_weights(2048, lon, lat.reshape((100, 100)), n_threads=n_threads)
 
 
-def test_interpolation_bad_nside():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_interpolation_bad_nside(n_threads):
     """Test get_interpolation_weights when given a bad nside."""
     np.random.seed(12345)
 
-    lon = np.random.uniform(low=0.0, high=360.0, size=100)
-    lat = np.random.uniform(low=-90.0, high=90.0, size=100)
+    lon = np.random.uniform(low=0.0, high=360.0, size=10_000)
+    lat = np.random.uniform(low=-90.0, high=90.0, size=10_000)
 
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
-        hpgeom.get_interpolation_weights(-10, lon, lat, nest=False)
+        hpgeom.get_interpolation_weights(-10, lon, lat, nest=False, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
-        hpgeom.get_interpolation_weights(-10, lon, lat, nest=True)
+        hpgeom.get_interpolation_weights(-10, lon, lat, nest=True, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"nside .* must be power of 2"):
-        hpgeom.get_interpolation_weights(2040, lon, lat, nest=True)
+        hpgeom.get_interpolation_weights(2040, lon, lat, nest=True, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"nside .* must not be greater"):
-        hpgeom.get_interpolation_weights(2**30, lon, lat, nest=True)
+        hpgeom.get_interpolation_weights(2**30, lon, lat, nest=True, n_threads=n_threads)
 
 
-def test_interpolation_bad_coords():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_interpolation_bad_coords(n_threads):
     """Test get_interpolation_weights when given bad coords."""
     with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Dec out of range
-        hpgeom.get_interpolation_weights(2048, 0.0, 100.0)
+        hpgeom.get_interpolation_weights(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, 100.0),
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Dec out of range
-        hpgeom.get_interpolation_weights(2048, 0.0, -100.0)
+        hpgeom.get_interpolation_weights(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, -100.0),
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
-        hpgeom.get_interpolation_weights(2048, -0.1, 0.0, lonlat=False)
+        hpgeom.get_interpolation_weights(
+            2048,
+            np.full(20_000, -0.1),
+            np.full(20_000, 0.0),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
-        hpgeom.get_interpolation_weights(2048, np.pi + 0.1, 0.0, lonlat=False)
+        hpgeom.get_interpolation_weights(
+            2048,
+            np.full(20_000, np.pi + 0.1),
+            np.full(20_000, 0.0),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
-        hpgeom.get_interpolation_weights(2048, 0.0, -0.1, lonlat=False)
+        hpgeom.get_interpolation_weights(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, -0.1),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
-        hpgeom.get_interpolation_weights(2048, 0.0, 2*np.pi + 0.1, lonlat=False)
+        hpgeom.get_interpolation_weights(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, 2*np.pi + 0.1),
+            lonlat=False,
+            n_threads=n_threads,
+        )

@@ -255,6 +255,17 @@ As with the other routines, the returned ordering is :code:`(N, 4)`, a transpose
     pixels, weights = hpg.get_interpolation_weights(2048, 12.234, 45.3445)
 
 
+Multi-Threading Support
+-----------------------
+
+All `HPGeom` pixel conversion routines, as well as boundaries and weights, support multi-threading.
+This can be turned on with the :code:`n_threads` keyword.
+If the array to be converted is small (the smallest chunk-size is 5000 computations) then the code will automatically fall back to single-threading because the overhead is not worth it.
+However, for large arrays it is possible to approach :code:`x n_threads` performance.
+
+The query functions do not support multi-threading within `HPGeom`.
+However, as they do not interface with Python directly, they do release the GIL and therefore multiple simultaneous queries are fully supported by Python multi-threading (via, e.g. :code:`concurrent.futures.ThreadPoolExecutor`).
+
 
 Healpy Compatibility Module
 ---------------------------

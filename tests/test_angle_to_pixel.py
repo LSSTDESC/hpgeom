@@ -77,8 +77,42 @@ def test_angle_to_pixel_nest(nside):
     np.testing.assert_array_equal(pix_hpgeom, pix_healpy)
 
 
+@pytest.mark.parametrize("size", [1_000, 10_000_001])
+@pytest.mark.parametrize("n_threads", [2])
+def test_angle_to_pixel_threads(size, n_threads):
+    """Test angle_to_pixel multi-threaded."""
+    np.random.seed(12345)
+
+    nside = 2**15
+
+    lon = np.random.uniform(low=0.0, high=360.0, size=size)
+    lat = np.random.uniform(low=-90.0, high=90.0, size=size)
+
+    pix_hpgeom_single = hpgeom.angle_to_pixel(
+        nside,
+        lon,
+        lat,
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=1,
+    )
+    pix_hpgeom = hpgeom.angle_to_pixel(
+        nside,
+        lon,
+        lat,
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=n_threads,
+    )
+
+    np.testing.assert_array_equal(pix_hpgeom, pix_hpgeom_single)
+
+
 @pytest.mark.parametrize("nside", [2**0, 2**5, 2**10, 2**15, 2**20, 2**25, 2**29])
-def test_angle_to_pixel_scalar(nside):
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_angle_to_pixel_scalar(nside, n_threads):
     """Test angle_to_pixel for scalars."""
     np.random.seed(12345)
 
@@ -87,7 +121,15 @@ def test_angle_to_pixel_scalar(nside):
 
     pix_arr = hpgeom.angle_to_pixel(nside, lon, lat, nest=True, lonlat=True, degrees=True)
 
-    pix_scalar1 = hpgeom.angle_to_pixel(nside, lon[0], lat[0], nest=True, lonlat=True, degrees=True)
+    pix_scalar1 = hpgeom.angle_to_pixel(
+        nside,
+        lon[0],
+        lat[0],
+        nest=True,
+        lonlat=True,
+        degrees=True,
+        n_threads=n_threads,
+    )
 
     assert pix_scalar1 == pix_arr[0]
     assert not isinstance(pix_scalar1, np.ndarray)
@@ -98,21 +140,24 @@ def test_angle_to_pixel_scalar(nside):
         float(lat[0]),
         nest=True,
         lonlat=True,
-        degrees=True
+        degrees=True,
+        n_threads=n_threads,
     )
 
     assert not isinstance(pix_scalar2, np.ndarray)
     assert pix_scalar2 == pix_arr[0]
 
 
-def test_angle_to_pixel_zerolength():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_angle_to_pixel_zerolength(n_threads):
     """Test angle_to_pixel for a zero-length lon/lat array."""
-    pix = hpgeom.angle_to_pixel(1024, [], [])
+    pix = hpgeom.angle_to_pixel(1024, [], [], n_threads=n_threads)
 
     assert len(pix) == 0
 
 
-def test_angle_to_pixel_mismatched_dims():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_angle_to_pixel_mismatched_dims(n_threads):
     """Test angle_to_pixel errors when dimensions are mismatched."""
     np.random.seed(12345)
 
@@ -120,66 +165,102 @@ def test_angle_to_pixel_mismatched_dims():
     lat = np.random.uniform(low=-90.0, high=90.0, size=100)
 
     with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
-        hpgeom.angle_to_pixel([2048, 4096], lon[0], lat)
+        hpgeom.angle_to_pixel([2048, 4096], lon[0], lat, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
-        hpgeom.angle_to_pixel([2048, 4096], lon, lat[0])
+        hpgeom.angle_to_pixel([2048, 4096], lon, lat[0], n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
-        hpgeom.angle_to_pixel(2048, lon[0: 5], lat)
+        hpgeom.angle_to_pixel(2048, lon[0: 5], lat, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
-        hpgeom.angle_to_pixel(2048, lon, lat[0: 5])
+        hpgeom.angle_to_pixel(2048, lon, lat[0: 5], n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
-        hpgeom.angle_to_pixel(2048, lon.reshape((10, 10)), lat)
+        hpgeom.angle_to_pixel(2048, lon.reshape((10, 10)), lat, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"arrays could not be broadcast together"):
-        hpgeom.angle_to_pixel(2048, lon, lat.reshape((10, 10)))
+        hpgeom.angle_to_pixel(2048, lon, lat.reshape((10, 10)), n_threads=n_threads)
 
 
-def test_angle_to_pixel_bad_nside():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_angle_to_pixel_bad_nside(n_threads):
     """Test angle_to_pixel errors when given a bad nside."""
     np.random.seed(12345)
 
-    lon = np.random.uniform(low=0.0, high=360.0, size=100)
-    lat = np.random.uniform(low=-90.0, high=90.0, size=100)
+    lon = np.random.uniform(low=0.0, high=360.0, size=20_000)
+    lat = np.random.uniform(low=-90.0, high=90.0, size=20_000)
 
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
-        hpgeom.angle_to_pixel(-10, lon, lat, nest=False)
+        hpgeom.angle_to_pixel(-10, lon, lat, nest=False, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"nside .* must be positive"):
-        hpgeom.angle_to_pixel(-10, lon, lat, nest=True)
+        hpgeom.angle_to_pixel(-10, lon, lat, nest=True, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"nside .* must be power of 2"):
-        hpgeom.angle_to_pixel(2040, lon, lat, nest=True)
+        hpgeom.angle_to_pixel(2040, lon, lat, nest=True, n_threads=n_threads)
 
     with pytest.raises(ValueError, match=r"nside .* must not be greater"):
-        hpgeom.angle_to_pixel(2**30, lon, lat, nest=True)
+        hpgeom.angle_to_pixel(2**30, lon, lat, nest=True, n_threads=n_threads)
 
 
-def test_angle_to_pixel_bad_coords():
+@pytest.mark.parametrize("n_threads", [1, 2])
+def test_angle_to_pixel_bad_coords(n_threads):
     """Test angle_to_pixel errors when given bad coords."""
     with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Dec out of range
-        hpgeom.angle_to_pixel(2048, 0.0, 100.0)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, 100.0),
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"lat .* out of range"):
         # Dec out of range
-        hpgeom.angle_to_pixel(2048, 0.0, -100.0)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, -100.0),
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
-        hpgeom.angle_to_pixel(2048, -0.1, 0.0, lonlat=False)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, -0.1),
+            np.full(20_000, 0.0),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"colatitude \(theta\) .* out of range"):
         # theta out of range
-        hpgeom.angle_to_pixel(2048, np.pi + 0.1, 0.0, lonlat=False)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, np.pi + 0.1),
+            np.full(20_000, 0.0),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
-        hpgeom.angle_to_pixel(2048, 0.0, -0.1, lonlat=False)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, -0.1),
+            lonlat=False,
+            n_threads=n_threads,
+        )
 
     with pytest.raises(ValueError, match=r"longitude \(phi\) .* out of range"):
         # phi out of range
-        hpgeom.angle_to_pixel(2048, 0.0, 2*np.pi + 0.1, lonlat=False)
+        hpgeom.angle_to_pixel(
+            2048,
+            np.full(20_000, 0.0),
+            np.full(20_000, 2*np.pi + 0.1),
+            lonlat=False,
+            n_threads=n_threads,
+        )
