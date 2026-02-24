@@ -23,6 +23,8 @@
 #ifndef _HPGEOM_UTILS_H
 #define _HPGEOM_UTILS_H
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+
 #include <numpy/arrayobject.h>
 
 #include "healpix_geom.h"
