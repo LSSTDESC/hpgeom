@@ -23,30 +23,12 @@
 #ifndef _HPGEOM_UTILS_H
 #define _HPGEOM_UTILS_H
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-
-#include <numpy/arrayobject.h>
-
 #include "healpix_geom.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 #define ERR_SIZE 256
 #define MIN_CHUNK_SIZE 5000
-
-typedef struct {
-    NpyIter *iter;
-    npy_intp start_idx;
-    npy_intp end_idx;
-    int lonlat;
-    int nest;
-    int degrees;
-    int step;
-    void *data0;
-    void *data1;
-    char err[ERR_SIZE];
-    bool failed;
-} ThreadData;
 
 int hpgeom_check_nside(int64_t nside, Scheme scheme, char *err);
 int hpgeom_check_theta_phi(double theta, double phi, char *err);
