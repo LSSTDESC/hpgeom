@@ -57,6 +57,7 @@ jobs:
             python -m build --sdist
       - uses: actions/upload-artifact@v6
         with:
+          name: hpgeom-sdist
           path: dist/*
 
   pypi_wheel_build:
@@ -66,11 +67,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: [build_and_test]
     env:
-      CIBW_BUILD: "cp3{10,11,12,13}-{manylinux_x86_64,macosx_arm64,macosx_x86_64,win_amd64}"
+      CIBW_BUILD: "cp3{10,11,12,13,14}-{manylinux_x86_64,manylinux_aarch64,macosx_arm64,macosx_x86_64,win_amd64}"
       CIBW_ARCHS_MACOS: "x86_64 arm64"
-      CIBW_ARCHS_LINUX: "auto"
+      CIBW_ARCHS_LINUX: "auto aarch64"
 
     steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        if: runner.os == 'Linux'
+        with:
+          platforms: arm64
+
       - uses: actions/checkout@v6
         with:
           # Need to clone everything to embed the versiona
@@ -93,6 +100,7 @@ jobs:
         with:
           name: hpgeom-${{ matrix.os }}
           path: dist/*
+
   pypi_upload:
     needs: [pypi_sdist_build, pypi_wheel_build]
     runs-on: ubuntu-latest
