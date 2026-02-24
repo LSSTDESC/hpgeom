@@ -29,6 +29,20 @@
 #include "hpgeom_stack.h"
 #include "hpgeom_utils.h"
 
+typedef struct {
+    NpyIter *iter;
+    npy_intp start_idx;
+    npy_intp end_idx;
+    int lonlat;
+    int nest;
+    int degrees;
+    int step;
+    void *data0;
+    void *data1;
+    char err[ERR_SIZE];
+    bool failed;
+} ThreadData;
+
 #define NSIDE_DOC_PAR                      \
     "nside : `int` or `np.ndarray` (N,)\n" \
     "    HEALPix nside.  Must be power of 2 for nest ordering.\n"
