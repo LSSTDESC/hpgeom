@@ -190,6 +190,49 @@ If called with ring ordering then a :code:`ResourceWarning` is emitted, and the 
    :alt: Demonstration of the pixels returned from :code:`hpgeom.query_ellipse()`.
 
 
+Pixel Ranges And Combining Queries
+----------------------------------
+
+All of the `HPGeom` query routines have an additional option to return pixel ranges instead of pixel lists with the :code:`return_pixel_ranges=True` keyword.
+The pixel range is a :code:`(N, 2)` array with :code:`[start, end)` pixel values in each row.
+In many cases, this is a more compact and convenient way of storing the pixel values (and in fact is the native storage inside before computing pixel values).
+Given a pixel range array, one can easily convert to an array of pixels with :code:`pixels = hpgeom.pixel_ranges_to_pixels(pixel_ranges)`.
+
+Another advantage of using pixel ranges is that they can be more efficiently combined with :code:`hpgeom.pixel_ranges_union()` when looking at the union of multiple queries.
+For example, in the following code block the output is identical but the pixel range method can be 5-10x faster:
+
+.. code-block :: python
+
+    import time
+    import numpy as np
+    import hpgeom as hpg
+
+    n_circle = 500
+
+    lons = np.random.uniform(low=5.0, high=6.0, size=n_circle)
+    lats = np.random.uniform(low=5.0, high=6.0, size=n_circle)
+    radii = np.random.uniform(low=0.001, high=0.1, size=n_circle)
+
+    # Do the slow way.
+    start_time = time.time()
+    pixels_list = []
+    for i in range(n_circle):
+        pixels = hpg.query_circle(2**17, lons[i], lats[i], radii[i])
+        pixels_list.append(pixels)
+    all_pixels = np.unique(np.concatenate(pixels_list))
+    print("Slow way: ", time.time() - start_time, " seconds")
+
+    # Do the fast normalized pixel ranges way.
+    start_time = time.time()
+    pixel_ranges_list = []
+    for i in range(n_circle):
+        pixel_ranges = hpg.query_circle(2**17, lons[i], lats[i], radii[i], return_pixel_ranges=True)
+        pixel_ranges_list.append(pixel_ranges)
+    all_pixels2 = hpg.pixel_ranges_to_pixels(hpg.pixel_ranges_union(pixel_ranges_list))
+    print("Fast way: ", time.time() - start_time, " seconds")
+
+
+
 Pixel Boundaries and Neighbors
 ------------------------------
 
