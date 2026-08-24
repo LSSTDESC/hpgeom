@@ -383,6 +383,63 @@ void i64rangeset_fill_buffer(struct i64rangeset *rangeset, size_t npix, int64_t 
     }
 }
 
+void i64rangeset_concat_raw(struct i64rangeset *rangeset, struct i64rangeset *other,
+                            int *status, char *err) {
+    *status = 1;
+    for (size_t j = 0; j < other->stack->size; j++) {
+        i64stack_push(rangeset->stack, other->stack->data[j], status, err);
+        if (!*status) return;
+    }
+}
+
+typedef struct { int64_t lo, hi; } i64range;
+
+static int compare_i64range(const void *a, const void *b) {
+    int64_t la = ((const i64range *)a)->lo;
+    int64_t lb = ((const i64range *)b)->lo;
+    return (la > lb) - (la < lb);
+}
+
+void i64rangeset_normalize(struct i64rangeset *rangeset, int *status, char *err) {
+    *status = 1;
+    size_t n = rangeset->stack->size;
+    if (n == 0) return;
+
+    size_t nranges = n / 2;
+    i64range *ranges = malloc(nranges * sizeof(i64range));
+    if (ranges == NULL) {
+        *status = 0;
+        snprintf(err, ERR_SIZE, "Could not allocate scratch buffer in i64rangeset_normalize");
+        return;
+    }
+    for (size_t i = 0; i < nranges; i++) {
+        ranges[i].lo = rangeset->stack->data[2 * i];
+        ranges[i].hi = rangeset->stack->data[2 * i + 1];
+    }
+
+    qsort(ranges, nranges, sizeof(i64range), compare_i64range);
+
+    // merge overlapping/adjacent half-open ranges (same convention as i64rangeset_append)
+    size_t out = 0;
+    for (size_t i = 0; i < nranges; i++) {
+        if (out > 0 && ranges[i].lo <= ranges[out - 1].hi) {
+            if (ranges[i].hi > ranges[out - 1].hi) ranges[out - 1].hi = ranges[i].hi;
+        } else {
+            ranges[out++] = ranges[i];
+        }
+    }
+
+    rangeset->stack->size = 0;
+    for (size_t i = 0; i < out; i++) {
+        i64stack_push(rangeset->stack, ranges[i].lo, status, err);
+        if (!*status) { free(ranges); return; }
+        i64stack_push(rangeset->stack, ranges[i].hi, status, err);
+        if (!*status) { free(ranges); return; }
+    }
+
+    free(ranges);
+}
+
 void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod) {
     prod->x = v1->y * v2->z - v1->z * v2->y;
     prod->y = v1->z * v2->x - v1->x * v2->z;

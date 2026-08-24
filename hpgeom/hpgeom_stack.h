@@ -97,6 +97,9 @@ void i64rangeset_fill_buffer(i64rangeset *rangeset, size_t npix, int64_t *buf);
 void i64rangeset_remove(i64rangeset *rangeset, int64_t v1, int64_t v2, int *status, char *err);
 void i64rangeset_intersect(i64rangeset *rangeset, int64_t v1, int64_t v2, int *status,
                            char *err);
+void i64rangeset_concat_raw(struct i64rangeset *rangeset, struct i64rangeset *other,
+                            int *status, char *err);
+void i64rangeset_normalize(struct i64rangeset *rangeset, int *status, char *err);
 
 void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod);
 double vec3_dotprod(vec3 *v1, vec3 *v2);
