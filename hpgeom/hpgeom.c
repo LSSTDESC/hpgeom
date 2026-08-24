@@ -721,32 +721,33 @@ fail:
 
 PyDoc_STRVAR(query_circle_doc,
              "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
-             "lonlat=True, degrees=True)\n"
+             "lonlat=True, degrees=True, return_pixel_ranges=False)\n"
              "--\n\n"
-             "Returns pixels whose centers lie within the circle defined by a, b\n"
+             "Returns pixels whose centers lie within the circle(s) defined by a, b\n"
              "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
              "degrees if lonlat=True and degrees=True, otherwise radians) if\n"
              "inclusive is False, or which overlap with this circle (if inclusive\n"
-             "is True).\n"
+             "is True). If an array of a, b, and radius are specified then unique\n"
+             "list of all the pixels that overlap those circles will be returned.\n"
              "\n"
              "Parameters\n"
-             "----------\n" NSIDE_DOC_PAR "a, b : `float`\n" AB_DOC_DESCR
-             "radius : `float`\n"
-             "    The radius of the circle. Degrees if degrees=True otherwise radians.\n"
+             "----------\n" NSIDE_DOC_PAR "a, b : `float` or `np.ndarray` (N,)\n" AB_DOC_DESCR
+             "radius : `float` or `np.ndarray` (N,)\n"
+             "    The radius of the circle(s). Degrees if degrees=True otherwise radians.\n"
              "inclusive : `bool`, optional\n"
              "    If False, return the exact set of pixels whose pixel centers lie\n"
-             "    within the circle. If True, return all pixels that overlap with\n"
-             "    the circle. This is an approximation and may return a few extra\n"
+             "    within the circle(s). If True, return all pixels that overlap with\n"
+             "    the circle(s). This is an approximation and may return a few extra\n"
              "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
                  DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
-             "pixels : `np.ndarray` (N,)\n"
-             "    Array of pixels (`np.int64`) which cover the circle.\n"
+             "pixels : `np.ndarray` (M,)\n"
+             "    Array of pixels (`np.int64`) which cover the circle(s).\n"
              "    (if return_pixel_ranges is False) or\n"
              "pixel_ranges : `np.ndarray` (M, 2)\n"
-             "    Array of pixel ranges, [lo, high), which cover the circle.\n"
+             "    Array of pixel ranges, [lo, high), which cover the circle(s).\n"
              "\n"
              "Raises\n"
              "------\n"
@@ -764,7 +765,9 @@ PyDoc_STRVAR(query_circle_doc,
 
 static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs) {
     int64_t nside;
-    double a, b, radius;
+    PyObject *a_obj = NULL, *b_obj = NULL, *radius_obj = NULL;
+    PyObject *a_arr = NULL, *b_arr = NULL, *radius_arr = NULL;
+    NpyIter *iter = NULL;
     int inclusive = 0;
     long fact = 4;
     int nest = 1;
@@ -776,11 +779,12 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
                              NULL};
 
     char err[ERR_SIZE];
+    bool loop_failed = false;
     int status = 1;
-    i64rangeset *pixset = NULL;
+    i64rangeset *pixset = NULL, *pixset_iter = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plpppp", kwlist, &nside, &a, &b,
-                                     &radius, &inclusive, &fact, &nest, &lonlat, &degrees,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LOOO|plpppp", kwlist, &nside, &a_obj, &b_obj,
+                                     &radius_obj, &inclusive, &fact, &nest, &lonlat, &degrees,
                                      &return_pixel_ranges))
         goto fail;
 
@@ -790,26 +794,39 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
         goto fail;
     }
 
-    double theta, phi;
-    if (lonlat) {
-        if (!hpgeom_lonlat_to_thetaphi(a, b, &theta, &phi, (bool)degrees, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        if (degrees) {
-            radius *= HPG_D2R;
-        }
-    } else {
-        if (!hpgeom_check_theta_phi(a, b, err)) {
-            PyErr_SetString(PyExc_ValueError, err);
-            goto fail;
-        }
-        theta = a;
-        phi = b;
-    }
+    a_arr = PyArray_FROM_OTF(a_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (a_arr == NULL) goto fail;
+    b_arr = PyArray_FROM_OTF(b_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (b_arr == NULL) goto fail;
+    radius_arr = PyArray_FROM_OTF(radius_obj, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY | NPY_ARRAY_ENSUREARRAY);
+    if (radius_arr == NULL) goto fail;
 
-    if (!hpgeom_check_radius(radius, err)) {
-        PyErr_SetString(PyExc_ValueError, err);
+    // The input arrays are a_arr (double), b_arr (double), radius_arr (double).
+    // There is no output array.
+    PyArrayObject *op[3];
+    npy_uint32 op_flags[3];
+    PyArray_Descr *op_dtypes[3];
+    NpyIter_IterNextFunc *iternext;
+    char **dataptrarray;
+
+    op[0] = (PyArrayObject *)a_arr;
+    op_flags[0] = NPY_ITER_READONLY;
+    op_dtypes[0] = NULL;
+    op[1] = (PyArrayObject *)b_arr;
+    op_flags[1] = NPY_ITER_READONLY;
+    op_dtypes[1] = NULL;
+    op[2] = (PyArrayObject *)radius_arr;
+    op_flags[2] = NPY_ITER_READONLY;
+    op_dtypes[2] = NULL;
+
+    npy_uint32 iter_flags = NPY_ITER_ZEROSIZE_OK | NPY_ITER_RANGED | NPY_ITER_BUFFERED;
+
+    iter = NpyIter_MultiNew(3, op, iter_flags, NPY_KEEPORDER, NPY_NO_CASTING, op_flags,
+                            op_dtypes);
+
+    if (iter == NULL) {
+        PyErr_SetString(PyExc_ValueError,
+                        "a, b, radius arrays could not be broadcast together.");
         goto fail;
     }
 
@@ -825,12 +842,6 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
     }
     healpix_info hpx = healpix_info_from_nside(nside, scheme);
 
-    pixset = i64rangeset_new(&status, err);
-    if (!status) {
-        PyErr_SetString(PyExc_RuntimeError, err);
-        goto fail;
-    }
-
     if (!inclusive) {
         fact = 0;
     } else {
@@ -840,25 +851,111 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
         }
     }
 
-    NPY_BEGIN_ALLOW_THREADS
-
-    query_disc(&hpx, theta, phi, radius, fact, pixset, &status, err);
-
-    NPY_END_ALLOW_THREADS
-
+    pixset_iter = i64rangeset_new(&status, err);
+    if (!status) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        goto fail;
+    }
+    pixset = i64rangeset_new(&status, err);
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
         goto fail;
     }
 
+    if (NpyIter_GetIterSize(iter) == 0) {
+        goto cleanup;
+    }
+
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get iterator next function.");
+        goto fail;
+    }
+    dataptrarray = NpyIter_GetDataPtrArray(iter);
+
+    NPY_BEGIN_ALLOW_THREADS
+
+    do {
+        double *a = (double *)dataptrarray[0];
+        double *b = (double *)dataptrarray[1];
+        double *radius_in = (double *)dataptrarray[2];
+        double radius;
+
+        double theta, phi;
+        if (lonlat) {
+            if (!hpgeom_lonlat_to_thetaphi(*a, *b, &theta, &phi, (bool)degrees, err)) {
+                loop_failed = true;
+                break;
+            }
+            if (degrees) {
+                radius = *radius_in * HPG_D2R;
+            } else {
+                radius = *radius_in;
+            }
+        } else {
+            if (!hpgeom_check_theta_phi(*a, *b, err)) {
+                loop_failed = true;
+                break;
+            }
+            theta = *a;
+            phi = *b;
+        }
+        if (!hpgeom_check_radius(radius, err)) {
+            loop_failed = true;
+            break;
+        }
+
+        query_disc(&hpx, theta, phi, radius, fact, pixset_iter, &status, err);
+        if (!status) {
+            loop_failed = true;
+            break;
+        }
+
+        i64rangeset_concat_raw(pixset, pixset_iter, &status, err);
+        if (!status) {
+            loop_failed = true;
+            break;
+        }
+
+        i64rangeset_clear(pixset_iter, &status, err);
+        if (!status) {
+            loop_failed = true;
+            break;
+        }
+
+    } while (iternext(iter));
+
+    NPY_END_ALLOW_THREADS
+
+    if (loop_failed) {
+        PyErr_SetString(PyExc_ValueError, err);
+        goto fail;
+    } else {
+        i64rangeset_normalize(pixset, &status, err);
+        if (!status) {
+            PyErr_SetString(PyExc_ValueError, err);
+            goto fail;
+        }
+    }
+
+cleanup:
+
     PyObject *return_arr = create_query_return_arr(pixset, return_pixel_ranges, 0, &hpx);
 
     i64rangeset_delete(pixset);
+    i64rangeset_delete(pixset_iter);
 
     return PyArray_Return((PyArrayObject *)return_arr);
 
 fail:
+    Py_XDECREF(a_arr);
+    Py_XDECREF(b_arr);
+    Py_XDECREF(radius_arr);
+    if (iter != NULL) {
+        NpyIter_Deallocate(iter);
+    }
     i64rangeset_delete(pixset);
+    i64rangeset_delete(pixset_iter);
 
     return NULL;
 }
