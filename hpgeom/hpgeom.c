@@ -721,7 +721,7 @@ fail:
 
 PyDoc_STRVAR(query_circle_doc,
              "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
-             "lonlat=True, degrees=True)\n"
+             "lonlat=True, degrees=True, return_pixel_ranges=False)\n"
              "--\n\n"
              "Returns pixels whose centers lie within the circle defined by a, b\n"
              "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
