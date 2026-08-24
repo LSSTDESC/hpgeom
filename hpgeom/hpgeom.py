@@ -50,6 +50,7 @@ __all__ = [
     'reorder',
     'upgrade_pixels',
     'upgrade_pixel_ranges',
+    'pixel_ranges_union',
     'UNSEEN',
 ]
 
@@ -554,3 +555,51 @@ def upgrade_pixels(nside, pixels, nside_upgrade, nest=True):
         pixels_upgrade = nest_to_ring(nside_upgrade, pixels_upgrade)
 
     return pixels_upgrade
+
+
+def pixel_ranges_union(range_list):
+    """Combine a list of pixel range sets into a normalized union.
+
+    This routine can efficiently combine the output from multiple
+    queries with return_pixel_ranges=True into a unique, normalized
+    pixel range that is the union of all the inputs.
+
+    Parameters
+    ----------
+    range_list : `list` [`np.ndarray`]
+        List of pixel ranges, each of which is dimensionality (N,2).
+        Each element does not need to have the same N.
+
+    Returns
+    -------
+    pixel_ranges_union : `np.ndarray` (M,2)
+        Normalized union of input pixel ranges.
+    """
+    # Remove empty lists.
+    arrays = [a for a in range_list if a.size]
+    if not arrays:
+        return np.empty((0, 2), dtype=np.int64)
+
+    all_ranges = np.concatenate(arrays, axis=0)
+    order = np.argsort(all_ranges[:, 0], kind="stable")
+    sorted_ranges = all_ranges[order]
+    starts = sorted_ranges[:, 0]
+    ends = sorted_ranges[:, 1]
+
+    running_max_end = np.maximum.accumulate(ends)
+
+    # A new merged interval starts wherever the next range doesn't
+    # overlap/touch everything merged so far, using the
+    # half-open convention.
+    new_group = np.empty(starts.shape[0], dtype=bool)
+    new_group[0] = True
+    new_group[1:] = starts[1:] > running_max_end[:-1]
+
+    group_end = np.empty_like(new_group)
+    group_end[:-1] = new_group[1:]
+    group_end[-1] = True
+
+    merged_starts = starts[new_group]
+    merged_ends = running_max_end[group_end]
+
+    return np.stack([merged_starts, merged_ends], axis=1)
