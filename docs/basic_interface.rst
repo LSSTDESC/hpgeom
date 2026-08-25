@@ -199,6 +199,7 @@ In many cases, this is a more compact and convenient way of storing the pixel va
 Given a pixel range array, one can easily convert to an array of pixels with :code:`pixels = hpgeom.pixel_ranges_to_pixels(pixel_ranges)`.
 
 Another advantage of using pixel ranges is that they can be more efficiently combined with :code:`hpgeom.pixel_ranges_union()` when looking at the union of multiple queries.
+There is also an analogous :code:`hpgeom.pixel_ranges_intersection()` which will efficiently give the intersection of multiple pixel ranges.
 For example, in the following code block the output is identical but the pixel range method can be 5-10x faster:
 
 .. code-block :: python
@@ -230,7 +231,6 @@ For example, in the following code block the output is identical but the pixel r
         pixel_ranges_list.append(pixel_ranges)
     all_pixels2 = hpg.pixel_ranges_to_pixels(hpg.pixel_ranges_union(pixel_ranges_list))
     print("Fast way: ", time.time() - start_time, " seconds")
-
 
 
 Pixel Boundaries and Neighbors
