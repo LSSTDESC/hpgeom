@@ -51,6 +51,7 @@ __all__ = [
     'upgrade_pixels',
     'upgrade_pixel_ranges',
     'pixel_ranges_union',
+    'pixel_ranges_intersection',
     'UNSEEN',
 ]
 
@@ -603,3 +604,65 @@ def pixel_ranges_union(range_list):
     merged_ends = running_max_end[group_end]
 
     return np.stack([merged_starts, merged_ends], axis=1)
+
+
+def pixel_ranges_intersection(range_list):
+    """Combine a list of pixel range sets into a normalized intersection.
+
+    This routine can efficiently combine the output from multiple queries
+    with return_pixel_ranges=True into a unique, normalized pixel range
+    that is the intersection of all the inputs.
+
+    Parameters
+    ----------
+    range_list : `list` [`np.ndarray`]
+        List of pixel ranges, each of which is dimensionality (N,2).
+        Each element does not need to have the same N.
+
+    Returns
+    -------
+    pixel_ranges_intersection : `np.ndarray` (M,2)
+        Normalized intersection of input pixel ranges.
+    """
+    k = len(range_list)
+    if k == 0:
+        return np.empty((0, 2), dtype=np.int64)
+
+    arrays = [a for a in range_list if a.size]
+    if len(arrays) < k:
+        # at least one set is empty -> intersection with it is empty
+        return np.empty((0, 2), dtype=np.int64)
+
+    starts = np.concatenate([a[:, 0] for a in arrays])
+    ends = np.concatenate([a[:, 1] for a in arrays])
+    positions = np.concatenate([starts, ends])
+    deltas = np.concatenate([
+        np.ones(starts.shape[0], dtype=np.int64),
+        -np.ones(ends.shape[0], dtype=np.int64),
+    ])
+
+    order = np.argsort(positions, kind="stable")
+    sorted_pos = positions[order]
+    sorted_delta = deltas[order]
+
+    unique_pos, first_idx = np.unique(sorted_pos, return_index=True)
+    group_delta = np.add.reduceat(sorted_delta, first_idx)
+    coverage = np.cumsum(group_delta)
+
+    # segment i = [unique_pos[i], unique_pos[i+1]) has coverage[i]
+    in_all = coverage[:-1] == k
+    if not np.any(in_all):
+        return np.empty((0, 2), dtype=np.int64)
+
+    starts_mask = np.empty(in_all.shape[0], dtype=bool)
+    starts_mask[0] = in_all[0]
+    starts_mask[1:] = in_all[1:] & ~in_all[:-1]
+
+    ends_mask = np.empty(in_all.shape[0], dtype=bool)
+    ends_mask[-1] = in_all[-1]
+    ends_mask[:-1] = in_all[:-1] & ~in_all[1:]
+
+    out_starts = unique_pos[:-1][starts_mask]
+    out_ends = unique_pos[1:][ends_mask]
+
+    return np.stack([out_starts, out_ends], axis=1)
