@@ -296,7 +296,7 @@ static PyObject *angle_to_pixel(PyObject *dummy, PyObject *args, PyObject *kwarg
         }
 
         for (int t = 0; t < n_threads; t++) {
-           thread_join(threads[t]);
+            thread_join(threads[t]);
         }
 
         NPY_END_ALLOW_THREADS
@@ -1359,11 +1359,19 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         }
     }
 
-    NPY_BEGIN_ALLOW_THREADS
+    if (!(theta0 == theta1 || (phi0 == phi1 && !full_lon))) {
+        NPY_BEGIN_ALLOW_THREADS
 
-    query_box(&hpx, theta0, theta1, phi0, phi1, full_lon, fact, pixset, &status, err);
+        double p[3] = {0.0, 0.0, 1.0};
+        double n0[3] = {-sin(phi0), cos(phi0), 0.0};
+        double n1[3] = {-sin(phi1), cos(phi1), 0.0};
+        bool lune_union = (fmodulo(phi1 - phi0, HPG_TWO_PI) > HPG_PI);
 
-    NPY_END_ALLOW_THREADS
+        query_box_vec(&hpx, p, theta0, theta1, n0, n1, lune_union, full_lon, fact, pixset,
+                      &status, err);
+
+        NPY_END_ALLOW_THREADS
+    }
 
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
@@ -1580,7 +1588,6 @@ static PyObject *nest_to_ring(PyObject *dummy, PyObject *args, PyObject *kwargs)
         }
 
         NPY_END_ALLOW_THREADS
-
 
         if (thread_creation_failed) {
             PyErr_SetString(PyExc_RuntimeError, err);

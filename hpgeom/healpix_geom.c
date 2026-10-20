@@ -1452,9 +1452,9 @@ cleanup:
     if (stk != NULL) i64stack_delete(stk);
 }
 
-void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double ptg_phi0,
-               double ptg_phi1, bool full_lon, int fact, struct i64rangeset *pixset,
-               int *status, char *err) {
+void query_box_vec(healpix_info *hpx, const double p[3], double ptg_theta0, double ptg_theta1,
+                   const double n0[3], const double n1[3], bool lune_union, bool full_lon,
+                   int fact, struct i64rangeset *pixset, int *status, char *err) {
     if (hpx->scheme == RING) {
         snprintf(err, ERR_SIZE, "query_box only supports nest ordering.");
         *status = 0;
@@ -1468,8 +1468,7 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
     pixset->stack->size = 0;
 
     // First check if we have an empty box
-    if (ptg_theta0 == ptg_theta1) goto cleanup;
-    if (ptg_phi0 == ptg_phi1 && !full_lon) goto cleanup;
+    if (ptg_theta0 >= ptg_theta1) goto cleanup;
 
     // The longitude range [phi0 -> phi1] (increasing phi, possibly wrapping
     // through zero) is a lune bounded by two meridian great circles with
@@ -1479,10 +1478,6 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
     // and |n . v| is the sine of the angular distance to that great circle.
     // If the lune width is <= pi the box is (a >= 0) AND (b >= 0);
     // if the width is > pi it is (a >= 0) OR (b >= 0).
-    double n0[3] = {-sin(ptg_phi0), cos(ptg_phi0), 0.0};
-    double n1[3] = {-sin(ptg_phi1), cos(ptg_phi1), 0.0};
-    double dphi = fmodulo(ptg_phi1 - ptg_phi0, HPG_TWO_PI);
-    bool lune_union = (dphi > HPG_PI);
 
     int oplus = 0;
     if (inclusive) {
