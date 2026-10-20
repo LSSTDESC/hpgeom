@@ -1471,19 +1471,19 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
     if (ptg_theta0 == ptg_theta1) goto cleanup;
     if (ptg_phi0 == ptg_phi1 && !full_lon) goto cleanup;
 
-    // This is the rotation angle to center the phi range and pi radians,
-    // thus normalizing the box. There are two different computations,
-    // depending on whether the box needs an additional pi rotation to
-    // avoid the zero angle.
-    double ptg_phi_rot_angle = 0.0;
-    if (ptg_phi0 < ptg_phi1) {
-        ptg_phi_rot_angle = fmodulo(HPG_PI - (ptg_phi0 + ptg_phi1) / 2., HPG_TWO_PI);
-    } else {
-        ptg_phi_rot_angle = fmodulo(-(ptg_phi0 + ptg_phi1) / 2., HPG_TWO_PI);
-    }
+    // The longitude range [phi0 -> phi1] (increasing phi, possibly wrapping
+    // through zero) is a lune bounded by two meridian great circles with
+    // normals n(phi) = (-sin phi, cos phi, 0).  For a unit vector v:
+    //   a = n0 . v  >= 0  on the "increasing phi" side of meridian phi0
+    //   b = -n1 . v >= 0  on the "decreasing phi" side of meridian phi1
+    // and |n . v| is the sine of the angular distance to that great circle.
+    // If the lune width is <= pi the box is (a >= 0) AND (b >= 0);
+    // if the width is > pi it is (a >= 0) OR (b >= 0).
+    double n0[3] = {-sin(ptg_phi0), cos(ptg_phi0), 0.0};
+    double n1[3] = {-sin(ptg_phi1), cos(ptg_phi1), 0.0};
+    double dphi = fmodulo(ptg_phi1 - ptg_phi0, HPG_TWO_PI);
+    bool lune_union = (dphi > HPG_PI);
 
-    double ptg_phi0_rot = fmodulo(ptg_phi0 + ptg_phi_rot_angle, HPG_TWO_PI);
-    double ptg_phi1_rot = fmodulo(ptg_phi1 + ptg_phi_rot_angle, HPG_TWO_PI);
     int oplus = 0;
     if (inclusive) {
         oplus = ilog2(fact);
@@ -1493,9 +1493,11 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
     // Statically define the array of bases because it's not large.
     struct healpix_info base[MAX_ORDER + 1];
     double dr[MAX_ORDER + 1];
+    double sdr[MAX_ORDER + 1];
     for (int o = 0; o <= omax; o++) {
         base[o] = healpix_info_from_order(o, NEST);
         dr[o] = max_pixrad(&base[o]);  // safety distance
+        sdr[o] = sin(dr[o]);           // dr[o] < pi/2 always
     }
 
     stk = i64stack_new(2 * (12 + 3 * omax), status, err);
@@ -1541,29 +1543,36 @@ void query_box(healpix_info *hpx, double ptg_theta0, double ptg_theta1, double p
             }
         }
 
-        /* Check in the longitude (phi) direction */
+        /* Check in the longitude (phi) direction using the lune */
         if (full_lon) {  // This has the full longitude range, always zone 3.
             zone_phi = 3;
         } else if (zone_theta > 0) {
-            // We need to rotate the pixel to match the rotation of the phi box.
-            // After that, we can trust that the pixel +/- dr will have the
-            // correct "winding" because the pixel itself will never have a
-            // radius larger than ~pi/4.
-            double pix_phi_rot = fmodulo(pix_phi + ptg_phi_rot_angle, HPG_TWO_PI);
-
             double stheta = sin(pix_theta);
-            double pmdr_rot = pix_phi_rot - dr[o] / stheta;
-            double ppdr_rot = pix_phi_rot + dr[o] / stheta;
+            double v[3] = {stheta * cos(pix_phi), stheta * sin(pix_phi), cos(pix_theta)};
+            double a = n0[0] * v[0] + n0[1] * v[1] + n0[2] * v[2];
+            double b = -(n1[0] * v[0] + n1[1] * v[1] + n1[2] * v[2]);
 
             /* Note that the Box shape is inclusive of boundaries. */
-            if (ppdr_rot >= (ptg_phi0_rot - HPG_EPSILON) &&
-                pmdr_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
-                // Check if completely inside
-                if (pmdr_rot >= (ptg_phi0_rot - HPG_EPSILON) &&
-                    ppdr_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
+            double full_lim = sdr[o] - HPG_EPSILON;  // whole pixel on inside of a meridian
+            double out_lim = -sdr[o] - HPG_EPSILON;  // whole pixel on outside of a meridian
+            if (!lune_union) {
+                // Intersection of two hemispheres.
+                if (a < out_lim || b < out_lim) {
+                    zone_phi = 0;
+                } else if (a >= full_lim && b >= full_lim) {
                     zone_phi = 3;
-                } else if (pix_phi_rot >= (ptg_phi0_rot - HPG_EPSILON) &&
-                           pix_phi_rot <= (ptg_phi1_rot + HPG_EPSILON)) {
+                } else if (a >= -HPG_EPSILON && b >= -HPG_EPSILON) {
+                    zone_phi = 2;
+                } else {
+                    zone_phi = 1;
+                }
+            } else {
+                // Union of two hemispheres.
+                if (a >= full_lim || b >= full_lim) {
+                    zone_phi = 3;
+                } else if (a < out_lim && b < out_lim) {
+                    zone_phi = 0;
+                } else if (a >= -HPG_EPSILON || b >= -HPG_EPSILON) {
                     zone_phi = 2;
                 } else {
                     zone_phi = 1;
