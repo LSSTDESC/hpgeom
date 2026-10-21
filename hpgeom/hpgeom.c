@@ -898,13 +898,16 @@ fail:
 
 PyDoc_STRVAR(query_polygon_doc,
              "query_polygon(nside, a, b, inclusive=False, fact=4, nest=True, lonlat=True, "
-             "degrees=True, return_pixel_ranges=False)\n"
+             "degrees=True, query_frame=\"c\", pixel_frame=\"c\", "
+             "return_pixel_ranges=False)\n"
              "--\n\n"
              "Returns pixels whose centers lie within the convex polygon defined by the "
              "points in a, b\n"
              "([lon, lat] if lonlat=True, otherwise [theta, phi]) if inclusive is False, or "
              "which overlap\n"
-             "with this polygon (if inclusive is True).\n"
+             "with this polygon (if inclusive is True). If the ``query_frame`` and\n"
+             "``pixel_frame`` are not the same then the query parameters will be rotated such\n"
+             "that the output pixels are in the desired reference frame.\n"
              "\n"
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR "a, b : `np.ndarray` (N,)\n" AB_DOC_DESCR
@@ -913,7 +916,7 @@ PyDoc_STRVAR(query_polygon_doc,
              "    within the polygon. If True, return all pixels that overlap with\n"
              "    the polygon. This is an approximation and may return a few extra\n"
              "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
-                 DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
+                 DEGREES_DOC_PAR QUERY_FRAME_PAR PIXEL_FRAME_PAR RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -947,22 +950,35 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
     int nest = 1;
     int lonlat = 1;
     int degrees = 1;
+    const char *query_frame_str = "equatorial";
+    const char *pixel_frame_str = "equatorial";
     int return_pixel_ranges = 0;
     static char *kwlist[] = {"nside", "a",      "b",       "inclusive",           "fact",
-                             "nest",  "lonlat", "degrees", "return_pixel_ranges", NULL};
+                             "nest",  "lonlat", "degrees", "query_frame", "pixel_frame",
+                             "return_pixel_ranges", NULL};
     char err[ERR_SIZE];
     int status = 1;
     i64rangeset *pixset = NULL;
     pointingarr *vertices = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LOO|plpppp", kwlist, &nside, &a_obj,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "LOO|plpppssp", kwlist, &nside, &a_obj,
                                      &b_obj, &inclusive, &fact, &nest, &lonlat, &degrees,
-                                     &return_pixel_ranges))
+                                     &query_frame_str, &pixel_frame_str, &return_pixel_ranges))
         goto fail;
 
     if (return_pixel_ranges & ~nest) {
         PyErr_SetString(PyExc_RuntimeError,
                         "Can only use return_pixel_ranges with nest ordering.");
+        goto fail;
+    }
+
+    hpg_frame_t query_frame, pixel_frame;
+    if (!hpg_frame_from_string(query_frame_str, &query_frame)) {
+        PyErr_Format(PyExc_ValueError, "Unknown query_frame '%s'.", query_frame_str);
+        goto fail;
+    }
+    if (!hpg_frame_from_string(pixel_frame_str, &pixel_frame)) {
+        PyErr_Format(PyExc_ValueError, "Unknown pixel_frame '%s'.", pixel_frame_str);
         goto fail;
     }
 
@@ -1052,6 +1068,16 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
     if ((delta_theta < 1e-14) && (delta_phi < 1e-14)) {
         // Skip last coord
         vertices->size--;
+    }
+
+    // Handle rotation if necessary.
+    if (query_frame != pixel_frame) {
+        double R[3][3];
+
+        hpg_frame_rotation(query_frame, pixel_frame, R);
+        for (npy_intp i = 0; i < vertices->size; i++) {
+            hpg_rotate_thetaphi(R, vertices->data[i].theta, vertices->data[i].phi, &vertices->data[i].theta, &vertices->data[i].phi);
+        }
     }
 
     NPY_BEGIN_ALLOW_THREADS
