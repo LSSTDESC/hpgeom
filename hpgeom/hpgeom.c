@@ -1075,7 +1075,7 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
         double R[3][3];
 
         hpg_frame_rotation(query_frame, pixel_frame, R);
-        for (npy_intp i = 0; i < vertices->size; i++) {
+        for (size_t i = 0; i < vertices->size; i++) {
             hpg_rotate_thetaphi(R, vertices->data[i].theta, vertices->data[i].phi, &vertices->data[i].theta, &vertices->data[i].phi);
         }
     }
@@ -1111,7 +1111,8 @@ fail:
 
 PyDoc_STRVAR(query_ellipse_doc,
              "query_ellipse(nside, a, b, semi_major, semi_minor, alpha, inclusive=False, "
-             "fact=4, nest=True, lonlat=True, degrees=True, return_pixel_ranges=False)\n"
+             "fact=4, nest=True, lonlat=True, degrees=True, query_frame=\"c\", "
+             "pixel_frame=\"c\", return_pixel_ranges=False)\n"
              "--\n\n"
              "Returns pixels whose centers lie within an ellipse if inclusive is False,\n"
              "or which overlap with this ellipse if inclusive is True. The ellipse is\n"
@@ -1121,7 +1122,9 @@ PyDoc_STRVAR(query_ellipse_doc,
              "East of North, and is in degrees if lonlat=True and degrees=True,\n"
              "otherwise radians. The shape of the ellipse is defined by the set\n"
              "of points where the sum of the distances from a point to each of the\n"
-             "foci add up to less than twice the semi-major axis.\n"
+             "foci add up to less than twice the semi-major axis. If the ``query_frame``\n"
+             "and ``pixel_frame`` are not the same then the query parameters will be\n"
+             "rotated such that the output pixels are in the desired reference frame.\n"
              "\n"
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR "a, b : `float`\n" AB_DOC_DESCR
@@ -1137,7 +1140,7 @@ PyDoc_STRVAR(query_ellipse_doc,
              "    within the ellipse. If True, return all pixels that overlap with\n"
              "    the ellipse. This is an approximation and may return a few extra\n"
              "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
-                 DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
+                 DEGREES_DOC_PAR QUERY_FRAME_PAR PIXEL_FRAME_PAR RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -1172,23 +1175,37 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
     int nest = 1;
     int lonlat = 1;
     int degrees = 1;
+    const char *query_frame_str = "equatorial";
+    const char *pixel_frame_str = "equatorial";
     int return_pixel_ranges = 0;
     static char *kwlist[] = {
         "nside", "a",    "b",      "semi_major", "semi_minor",          "alpha", "inclusive",
-        "fact",  "nest", "lonlat", "degrees",    "return_pixel_ranges", NULL};
+        "fact",  "nest", "lonlat", "degrees",    "query_frame", "pixel_frame",
+        "return_pixel_ranges", NULL};
 
     char err[ERR_SIZE];
     int status = 1;
     i64rangeset *pixset = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddddd|plpppp", kwlist, &nside, &a, &b,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddddd|plpppssp", kwlist, &nside, &a, &b,
                                      &semi_major, &semi_minor, &alpha, &inclusive, &fact,
-                                     &nest, &lonlat, &degrees, &return_pixel_ranges))
+                                     &nest, &lonlat, &degrees, &query_frame_str, &pixel_frame_str,
+                                     &return_pixel_ranges))
         goto fail;
 
     if (return_pixel_ranges & ~nest) {
         PyErr_SetString(PyExc_RuntimeError,
                         "Can only use return_pixel_ranges with nest ordering.");
+        goto fail;
+    }
+
+    hpg_frame_t query_frame, pixel_frame;
+    if (!hpg_frame_from_string(query_frame_str, &query_frame)) {
+        PyErr_Format(PyExc_ValueError, "Unknown query_frame '%s'.", query_frame_str);
+        goto fail;
+    }
+    if (!hpg_frame_from_string(pixel_frame_str, &pixel_frame)) {
+        PyErr_Format(PyExc_ValueError, "Unknown pixel_frame '%s'.", pixel_frame_str);
         goto fail;
     }
 
@@ -1243,6 +1260,15 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
             PyErr_SetString(PyExc_ValueError, err);
             goto fail;
         }
+    }
+
+    // Handle rotation if necessary.
+    if (query_frame != pixel_frame) {
+        double R[3][3];
+
+        hpg_frame_rotation(query_frame, pixel_frame, R);
+        alpha = hpg_rotate_position_angle(R, theta, phi, alpha);
+        hpg_rotate_thetaphi(R, theta, phi, &theta, &phi);
     }
 
     NPY_BEGIN_ALLOW_THREADS
