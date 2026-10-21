@@ -4,6 +4,12 @@ import warnings
 
 import hpgeom
 
+try:
+    from astropy.coordinates import SkyCoord
+    has_astropy = True
+except ImportError:
+    has_astropy = False
+
 from utils import match_arrays
 
 
@@ -278,6 +284,76 @@ def test_query_ellipse_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
     assert len(pixel_ranges) == 0
+
+
+frames = ["equatorial", "icrs", "c", "galactic", "g", "ecliptic", "barycentricmeanecliptic", "e"]
+
+
+@pytest.mark.skipif(not has_astropy, reason="Skipping test without astropy")
+@pytest.mark.parametrize("query_frame", frames)
+@pytest.mark.parametrize("pixel_frame", frames)
+@pytest.mark.parametrize("alpha", [0.0, 45.0, 90.0])
+def test_query_ellipse_frames(query_frame, pixel_frame, alpha):
+    """Test query_ellipse with frame conversions."""
+    nside = 4096
+    lon_qf = 90.0
+    lat_qf = 70.0
+    major = 3.0
+    minor = 0.2
+
+    if query_frame in ["equatorial", "icrs", "c"]:
+        astropy_qf = "icrs"
+    elif query_frame in ["galactic", "g"]:
+        astropy_qf = "galactic"
+    else:
+        astropy_qf = "barycentricmeanecliptic"
+
+    if pixel_frame in ["equatorial", "icrs", "c"]:
+        astropy_pf = "icrs"
+    elif pixel_frame in ["galactic", "g"]:
+        astropy_pf = "galactic"
+    else:
+        astropy_pf = "barycentricmeanecliptic"
+
+    # Brute-force reference
+    center = SkyCoord(lon_qf, lat_qf, frame=astropy_qf, unit="degree")
+    if astropy_pf == "icrs":
+        lon_pf, lat_pf = center.icrs.ra.degree, center.icrs.dec.degree
+    elif astropy_pf == "galactic":
+        lon_pf, lat_pf = center.galactic.l.degree, center.galactic.b.degree
+    else:
+        lon_pf, lat_pf = center.barycentricmeanecliptic.lon.degree, center.barycentricmeanecliptic.lat.degree
+
+    # Get the candidates within a cirlce and select down.
+    candidates = hpgeom.query_circle(nside, lon_pf, lat_pf, major + 0.1)
+    cand_coord = SkyCoord(*hpgeom.pixel_to_angle(nside, candidates), frame=astropy_pf, unit="degree")
+
+    # Back to original frame.
+    if astropy_qf == "icrs":
+        cand_lon_qf, cand_lat_qf = cand_coord.icrs.ra.degree, cand_coord.icrs.dec.degree
+    elif astropy_qf == "galactic":
+        cand_lon_qf, cand_lat_qf = cand_coord.galactic.l.degree, cand_coord.galactic.b.degree
+    else:
+        eclip = cand_coord.barycentricmeanecliptic
+        cand_lon_qf, cand_lat_qf = eclip.lon.degree, eclip.lat.degree
+
+    pixels1 = np.sort(
+        candidates[_pos_in_ellipse(cand_lon_qf, cand_lat_qf, lon_qf, lat_qf, major, minor, alpha)],
+    )
+
+    # Direct query
+    pixels2 = hpgeom.query_ellipse(
+        nside,
+        lon_qf,
+        lat_qf,
+        major,
+        minor,
+        alpha,
+        query_frame=query_frame,
+        pixel_frame=pixel_frame,
+    )
+
+    np.testing.assert_array_equal(pixels2, pixels1)
 
 
 def test_query_ellipse_badinputs():
