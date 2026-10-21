@@ -28,6 +28,7 @@
 #include "healpix_geom.h"
 #include "hpgeom_stack.h"
 #include "hpgeom_utils.h"
+#include "frames.h"
 
 typedef struct {
     NpyIter *iter;
@@ -70,6 +71,14 @@ typedef struct {
     "    a resolution fact*nside. For nest ordering, fact must be a power\n" \
     "    of 2, and nside*fact must always be <= 2**29.  For ring ordering\n" \
     "    fact may be any positive integer.\n"
+#define QUERY_FRAME_PAR                                                          \
+    "query_frame : `str`, optional\n"                                            \
+    "    Coordinate frame for the query. May be ``equatorial``/``icrs``/``c``\n" \
+    "    or ``galactic``/``g`` or ``ecliptic``/``barycentricmeanecliptic``\n"    \
+    "    /``e``.\n"
+#define PIXEL_FRAME_PAR                                                          \
+    "pixel_frame : `str`, optional\n"                                            \
+    "    Coordinate frame for the output pixels. Same options as query_frame.\n"
 #define RETURN_PIXEL_RANGES_PAR                                                  \
     "return_pixel_ranges : `bool`, optional\n"                                   \
     "    Return an array of pixel ranges instead of a list of pixels.\n"         \
@@ -721,13 +730,16 @@ fail:
 
 PyDoc_STRVAR(query_circle_doc,
              "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
-             "lonlat=True, degrees=True, return_pixel_ranges=False)\n"
+             "lonlat=True, degrees=True, query_frame=\"c\", pixel_frame=\"c\", "
+             "return_pixel_ranges=False,)\n"
              "--\n\n"
              "Returns pixels whose centers lie within the circle defined by a, b\n"
              "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
              "degrees if lonlat=True and degrees=True, otherwise radians) if\n"
              "inclusive is False, or which overlap with this circle (if inclusive\n"
-             "is True).\n"
+             "is True). If the ``query_frame`` and ``pixel_frame`` are not the \n"
+             "same then the query parameters will be rotated such that the output \n"
+             "pixels are in the desired reference frame.\n"
              "\n"
              "Parameters\n"
              "----------\n" NSIDE_DOC_PAR "a, b : `float`\n" AB_DOC_DESCR
@@ -738,7 +750,7 @@ PyDoc_STRVAR(query_circle_doc,
              "    within the circle. If True, return all pixels that overlap with\n"
              "    the circle. This is an approximation and may return a few extra\n"
              "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
-                 DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
+                 DEGREES_DOC_PAR QUERY_FRAME_PAR PIXEL_FRAME_PAR RETURN_PIXEL_RANGES_PAR
              "\n"
              "Returns\n"
              "-------\n"
@@ -770,23 +782,36 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
     int nest = 1;
     int lonlat = 1;
     int degrees = 1;
+    const char *query_frame_str = "equatorial";
+    const char *pixel_frame_str = "equatorial";
     int return_pixel_ranges = 0;
     static char *kwlist[] = {"nside", "a",    "b",      "radius",  "inclusive",
-                             "fact",  "nest", "lonlat", "degrees", "return_pixel_ranges",
+                             "fact",  "nest", "lonlat", "degrees", "query_frame",
+                             "pixel_frame", "return_pixel_ranges",
                              NULL};
 
     char err[ERR_SIZE];
     int status = 1;
     i64rangeset *pixset = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plpppp", kwlist, &nside, &a, &b,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Lddd|plpppssp", kwlist, &nside, &a, &b,
                                      &radius, &inclusive, &fact, &nest, &lonlat, &degrees,
-                                     &return_pixel_ranges))
+                                     &query_frame_str, &pixel_frame_str, &return_pixel_ranges))
         goto fail;
 
     if (return_pixel_ranges & ~nest) {
         PyErr_SetString(PyExc_RuntimeError,
                         "Can only use return_pixel_ranges with nest ordering.");
+        goto fail;
+    }
+
+    hpg_frame_t query_frame, pixel_frame;
+    if (!hpg_frame_from_string(query_frame_str, &query_frame)) {
+        PyErr_Format(PyExc_ValueError, "Unknown query_frame '%s'.", query_frame_str);
+        goto fail;
+    }
+    if (!hpg_frame_from_string(pixel_frame_str, &pixel_frame)) {
+        PyErr_Format(PyExc_ValueError, "Unknown pixel_frame '%s'.", pixel_frame_str);
         goto fail;
     }
 
@@ -838,6 +863,14 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
             PyErr_SetString(PyExc_ValueError, err);
             goto fail;
         }
+    }
+
+    // Handle rotation if necessary.
+    if (query_frame != pixel_frame) {
+        double R[3][3];
+
+        hpg_frame_rotation(query_frame, pixel_frame, R);
+        hpg_rotate_thetaphi(R, theta, phi, &theta, &phi);
     }
 
     NPY_BEGIN_ALLOW_THREADS
