@@ -1297,7 +1297,7 @@ fail:
 PyDoc_STRVAR(
     query_box_doc,
     "query_box(nside, a0, a1, b0, b1, inclusive=False, fact=4, nest=True, lonlat=True, "
-    "degrees=True, return_pixel_ranges=False)\n"
+    "degrees=True, query_frame=\"equatorial\", pixel_frame=\"equatorial\", return_pixel_ranges=False)\n"
     "--\n\n"
     "Returns pixels whose centers lie within a box if inclusive is False,\n"
     "or which overlap with this box if inclusive is True. The box is defined\n"
@@ -1307,7 +1307,9 @@ PyDoc_STRVAR(
     "than great circle boundaries as with query_polygon. If a0 > a1 then the box will\n"
     "wrap around 360 degrees. If a0 == 0.0 and a1 == 360.0 then the box will contain\n"
     "points at all longitudes. If b0 == 90.0 or -90.0 then the box will be an arc\n"
-    "of a circle with the center at the north/south pole.\n"
+    "of a circle with the center at the north/south pole. If the ``query_frame`` and\n"
+    "``pixel_frame`` are not the same then the query parameters will be rotated such\n"
+    "that the output pixels are in the desired reference frame.\n"
     "\n"
     "Parameters\n"
     "----------\n" NSIDE_DOC_PAR "a0, a1, b0, b1 : `float`\n" AB_DOC_DESCR
@@ -1316,7 +1318,7 @@ PyDoc_STRVAR(
     "    within the box. If True, return all pixels that overlap with\n"
     "    the box. This is an approximation and may return a few extra\n"
     "    pixels.\n" FACT_DOC_PAR NEST_DOC_PAR LONLAT_DOC_PAR
-        DEGREES_DOC_PAR RETURN_PIXEL_RANGES_PAR
+        DEGREES_DOC_PAR QUERY_FRAME_PAR PIXEL_FRAME_PAR RETURN_PIXEL_RANGES_PAR
     "\n"
     "Returns\n"
     "-------\n"
@@ -1350,6 +1352,8 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     int nest = 1;
     int lonlat = 1;
     int degrees = 1;
+    const char *query_frame_str = "equatorial";
+    const char *pixel_frame_str = "equatorial";
     int return_pixel_ranges = 0;
     static char *kwlist[] = {"nside",
                              "a0",
@@ -1361,6 +1365,8 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
                              "nest",
                              "lonlat",
                              "degrees",
+                             "query_frame",
+                             "pixel_frame",
                              "return_pixel_ranges",
                              NULL};
 
@@ -1368,14 +1374,24 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
     int status = 1;
     i64rangeset *pixset = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Ldddd|plpppp", kwlist, &nside, &a0, &a1,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Ldddd|plpppssp", kwlist, &nside, &a0, &a1,
                                      &b0, &b1, &inclusive, &fact, &nest, &lonlat, &degrees,
-                                     &return_pixel_ranges))
+                                     &query_frame_str, &pixel_frame_str, &return_pixel_ranges))
         goto fail;
 
     if (return_pixel_ranges & ~nest) {
         PyErr_SetString(PyExc_RuntimeError,
                         "Can only use return_pixel_ranges with nest ordering.");
+        goto fail;
+    }
+
+    hpg_frame_t query_frame, pixel_frame;
+    if (!hpg_frame_from_string(query_frame_str, &query_frame)) {
+        PyErr_Format(PyExc_ValueError, "Unknown query_frame '%s'.", query_frame_str);
+        goto fail;
+    }
+    if (!hpg_frame_from_string(pixel_frame_str, &pixel_frame)) {
+        PyErr_Format(PyExc_ValueError, "Unknown pixel_frame '%s'.", pixel_frame_str);
         goto fail;
     }
 
@@ -1451,6 +1467,16 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         double n0[3] = {-sin(phi0), cos(phi0), 0.0};
         double n1[3] = {-sin(phi1), cos(phi1), 0.0};
         bool lune_union = (fmodulo(phi1 - phi0, HPG_TWO_PI) > HPG_PI);
+
+        // Handle rotation if necessary.
+        if (!hpg_frame_is_identity(query_frame, pixel_frame)) {
+            double R[3][3];
+
+            hpg_frame_rotation(query_frame, pixel_frame, R);
+            hpg_rotate_vec(R, p, p);
+            hpg_rotate_vec(R, n0, n0);
+            hpg_rotate_vec(R, n1, n1);
+        }
 
         query_box_vec(&hpx, p, theta0, theta1, n0, n1, lune_union, full_lon, fact, pixset,
                       &status, err);
