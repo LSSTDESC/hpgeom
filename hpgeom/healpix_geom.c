@@ -1518,8 +1518,16 @@ void query_box_vec(healpix_info *hpx, const double p[3], double ptg_theta0, doub
            2: pixel center is inside the shape, but maybe not the complete pixel
            3: pixel lies completely inside the shape */
 
-        double pix_theta, pix_phi;
-        pix2ang(&base[o], pix, &pix_theta, &pix_phi);
+        // The following code handles rotated frames by moving the pole.
+        vec3 pv = pix2vec(&base[o], pix);
+        double v[3] = {pv.x, pv.y, pv.z};
+
+        /* Colatitude relative to the box pole p. */
+        double cx = p[1] * v[2] - p[2] * v[1];
+        double cy = p[2] * v[0] - p[0] * v[2];
+        double cz = p[0] * v[1] - p[1] * v[0];
+        double pix_theta =
+            atan2(sqrt(cx * cx + cy * cy + cz * cz), p[0] * v[0] + p[1] * v[1] + p[2] * v[2]);
 
         int zone_theta = 0, zone_phi = 0;
 
@@ -1542,8 +1550,6 @@ void query_box_vec(healpix_info *hpx, const double p[3], double ptg_theta0, doub
         if (full_lon) {  // This has the full longitude range, always zone 3.
             zone_phi = 3;
         } else if (zone_theta > 0) {
-            double stheta = sin(pix_theta);
-            double v[3] = {stheta * cos(pix_phi), stheta * sin(pix_phi), cos(pix_theta)};
             double a = n0[0] * v[0] + n0[1] * v[1] + n0[2] * v[2];
             double b = -(n1[0] * v[0] + n1[1] * v[1] + n1[2] * v[2]);
 
