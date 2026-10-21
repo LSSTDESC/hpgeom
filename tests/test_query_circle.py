@@ -7,6 +7,12 @@ try:
 except ImportError:
     has_healpy = False
 
+try:
+    from astropy.coordinates import SkyCoord
+    has_astropy = True
+except ImportError:
+    has_astropy = False
+
 import hpgeom
 
 
@@ -177,6 +183,60 @@ def test_query_circle_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
     assert len(pixel_ranges) == 0
+
+
+frames = ["equatorial", "icrs", "c", "galactic", "g", "ecliptic", "barycentricmeanecliptic", "e"]
+
+
+@pytest.mark.skipif(not has_astropy, reason="Skipping test without astropy")
+@pytest.mark.parametrize("query_frame", frames)
+@pytest.mark.parametrize("pixel_frame", frames)
+def test_query_circle_frames(query_frame, pixel_frame):
+    """Test query_circle with frame conversions."""
+    lon_qf = 10.0
+    lat_qf = 20.0
+    radius = 0.5
+    nside = 4096
+
+    if query_frame in ["equatorial", "icrs", "c"]:
+        astropy_qf = "icrs"
+    elif query_frame in ["galactic", "g"]:
+        astropy_qf = "galactic"
+    else:
+        astropy_qf = "barycentricmeanecliptic"
+
+    if pixel_frame in ["equatorial", "icrs", "c"]:
+        astropy_pf = "icrs"
+    elif pixel_frame in ["galactic", "g"]:
+        astropy_pf = "galactic"
+    else:
+        astropy_pf = "barycentricmeanecliptic"
+
+    # Brute-force reference
+    center = SkyCoord(lon_qf, lat_qf, frame=astropy_qf, unit="degree")
+    if astropy_pf == "icrs":
+        lon_pf, lat_pf = center.icrs.ra.degree, center.icrs.dec.degree
+    elif astropy_pf == "galactic":
+        lon_pf, lat_pf = center.galactic.l.degree, center.galactic.b.degree
+    else:
+        lon_pf, lat_pf = center.barycentricmeanecliptic.lon.degree, center.barycentricmeanecliptic.lat.degree
+
+    candidates = hpgeom.query_circle(nside, lon_pf, lat_pf, radius + 0.1)
+    cand_lon_pf, cand_lat_pf = hpgeom.pixel_to_angle(nside, candidates)
+    sep = SkyCoord(cand_lon_pf, cand_lat_pf, frame=astropy_pf, unit="degree").separation(center).degree
+    pixels1 = np.sort(candidates[sep <= radius])
+
+    # Direct query
+    pixels2 = hpgeom.query_circle(
+        nside,
+        lon_qf,
+        lat_qf,
+        radius,
+        query_frame=query_frame,
+        pixel_frame=pixel_frame,
+    )
+
+    np.testing.assert_array_equal(pixels2, pixels1)
 
 
 def test_query_circle_badinputs():
