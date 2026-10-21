@@ -7,6 +7,12 @@ try:
 except ImportError:
     has_healpy = False
 
+try:
+    from astropy.coordinates import SkyCoord
+    has_astropy = True
+except ImportError:
+    has_astropy = False
+
 import hpgeom
 
 
@@ -233,6 +239,112 @@ def test_query_polygon_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
     assert len(pixel_ranges) == 0
+
+
+def _inside_convex_polygon(lon_v, lat_v, lon, lat):
+    """Test for points inside a convex polygon.
+
+    Parameters
+    ----------
+    lon_v : `np.ndarray`
+        Polygon longitudes, degrees.
+    lat_v : `np.ndarray`
+        Polygon latitudes, degrees.
+    lon : `np.ndarray`
+        Test point longitudes.
+    lat : `np.ndarray`
+        Test point latitudes.
+
+    Returns
+    -------
+    in_polygon : `np.ndarray`
+        Boolean array of which points are in the polygon.
+
+    """
+    V = hpgeom.angle_to_vector(lon_v, lat_v)
+    N = np.cross(V, np.roll(V, -1, axis=0))
+    if np.all(N @ V.sum(axis=0) < 0):
+        N = -N
+    X = hpgeom.angle_to_vector(lon, lat)
+    return np.all(X @ N.T >= 0, axis=1)
+
+
+frames = ["equatorial", "icrs", "c", "galactic", "g", "ecliptic", "barycentricmeanecliptic", "e"]
+
+
+@pytest.mark.skipif(not has_astropy, reason="Skipping test without astropy")
+@pytest.mark.parametrize("query_frame", frames)
+@pytest.mark.parametrize("pixel_frame", frames)
+@pytest.mark.parametrize("closed", [False, True])
+def test_query_polygon_frames(query_frame, pixel_frame, closed):
+    """Test query_polygon with frame conversions."""
+    nside = 4096
+    lon_qf = np.array([30.0, 30.0, 33.0, 36.0, 36.0])
+    lat_qf = np.array([50.0, 53.0, 56.0, 53.0, 50.0])
+
+    if closed:
+        lon_qf_query = np.append(lon_qf, lon_qf[0])
+        lat_qf_query = np.append(lat_qf, lat_qf[0])
+    else:
+        lon_qf_query = lon_qf
+        lat_qf_query = lat_qf
+
+    if query_frame in ["equatorial", "icrs", "c"]:
+        astropy_qf = "icrs"
+    elif query_frame in ["galactic", "g"]:
+        astropy_qf = "galactic"
+    else:
+        astropy_qf = "barycentricmeanecliptic"
+
+    if pixel_frame in ["equatorial", "icrs", "c"]:
+        astropy_pf = "icrs"
+    elif pixel_frame in ["galactic", "g"]:
+        astropy_pf = "galactic"
+    else:
+        astropy_pf = "barycentricmeanecliptic"
+
+    # Brute-force reference
+    # We find the center of the polygon; rotate it; find max radius.
+    cvec = hpgeom.angle_to_vector(lon_qf, lat_qf).sum(axis=0)
+    c_lon_qf = np.degrees(np.arctan2(cvec[1], cvec[0])) % 360
+    c_lat_qf = np.degrees(np.arcsin(cvec[2] / np.linalg.norm(cvec)))
+    center = SkyCoord(c_lon_qf, c_lat_qf, frame=astropy_qf, unit="degree")
+    rmax = center.separation(SkyCoord(lon_qf, lat_qf, frame=astropy_qf, unit="degree")).degree.max()
+
+    # Convert the center to the pixel frame.
+    if astropy_pf == "icrs":
+        c_lon_pf, c_lat_pf = center.icrs.ra.degree, center.icrs.dec.degree
+    elif astropy_pf == "galactic":
+        c_lon_pf, c_lat_pf = center.galactic.l.degree, center.galactic.b.degree
+    else:
+        eclip = center.barycentricmeanecliptic
+        c_lon_pf, c_lat_pf = eclip.lon.degree, eclip.lat.degree
+
+    # Get the candidates within a circle and select down.
+    candidates = hpgeom.query_circle(nside, c_lon_pf, c_lat_pf, rmax + 0.1)
+    cand_coord = SkyCoord(*hpgeom.pixel_to_angle(nside, candidates), frame=astropy_pf, unit="degree")
+
+    # Back to original frame.
+    if astropy_qf == "icrs":
+        cand_lon_qf, cand_lat_qf = cand_coord.icrs.ra.degree, cand_coord.icrs.dec.degree
+    elif astropy_qf == "galactic":
+        cand_lon_qf, cand_lat_qf = cand_coord.galactic.l.degree, cand_coord.galactic.b.degree
+    else:
+        eclip = cand_coord.barycentricmeanecliptic
+        cand_lon_qf, cand_lat_qf = eclip.lon.degree, eclip.lat.degree
+
+    pixels1 = np.sort(candidates[_inside_convex_polygon(lon_qf, lat_qf, cand_lon_qf, cand_lat_qf)])
+
+    # Direct query
+    pixels2 = hpgeom.query_polygon(
+        nside,
+        lon_qf_query,
+        lat_qf_query,
+        query_frame=query_frame,
+        pixel_frame=pixel_frame,
+    )
+
+    np.testing.assert_array_equal(pixels2, pixels1)
 
 
 def test_query_polygon_badinputs():
