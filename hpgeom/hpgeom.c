@@ -730,15 +730,15 @@ fail:
 
 PyDoc_STRVAR(query_circle_doc,
              "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
-             "lonlat=True, degrees=True, query_frame=\"c\", pixel_frame=\"c\", "
+             "lonlat=True, degrees=True, query_frame=\"equatorial\", pixel_frame=\"equatorial\", "
              "return_pixel_ranges=False,)\n"
              "--\n\n"
              "Returns pixels whose centers lie within the circle defined by a, b\n"
              "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
              "degrees if lonlat=True and degrees=True, otherwise radians) if\n"
              "inclusive is False, or which overlap with this circle (if inclusive\n"
-             "is True). If the ``query_frame`` and ``pixel_frame`` are not the \n"
-             "same then the query parameters will be rotated such that the output \n"
+             "is True). If the ``query_frame`` and ``pixel_frame`` are not the\n"
+             "same then the query parameters will be rotated such that the output\n"
              "pixels are in the desired reference frame.\n"
              "\n"
              "Parameters\n"
@@ -866,7 +866,7 @@ static PyObject *query_circle(PyObject *dummy, PyObject *args, PyObject *kwargs)
     }
 
     // Handle rotation if necessary.
-    if (query_frame != pixel_frame) {
+    if (!hpg_frame_is_identity(query_frame, pixel_frame)) {
         double R[3][3];
 
         hpg_frame_rotation(query_frame, pixel_frame, R);
@@ -898,7 +898,7 @@ fail:
 
 PyDoc_STRVAR(query_polygon_doc,
              "query_polygon(nside, a, b, inclusive=False, fact=4, nest=True, lonlat=True, "
-             "degrees=True, query_frame=\"c\", pixel_frame=\"c\", "
+             "degrees=True, query_frame=\"equatorial\", pixel_frame=\"equatorial\", "
              "return_pixel_ranges=False)\n"
              "--\n\n"
              "Returns pixels whose centers lie within the convex polygon defined by the "
@@ -1071,7 +1071,7 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
     }
 
     // Handle rotation if necessary.
-    if (query_frame != pixel_frame) {
+    if (!hpg_frame_is_identity(query_frame, pixel_frame)) {
         double R[3][3];
 
         hpg_frame_rotation(query_frame, pixel_frame, R);
@@ -1111,8 +1111,8 @@ fail:
 
 PyDoc_STRVAR(query_ellipse_doc,
              "query_ellipse(nside, a, b, semi_major, semi_minor, alpha, inclusive=False, "
-             "fact=4, nest=True, lonlat=True, degrees=True, query_frame=\"c\", "
-             "pixel_frame=\"c\", return_pixel_ranges=False)\n"
+             "fact=4, nest=True, lonlat=True, degrees=True, query_frame=\"equatorial\", "
+             "pixel_frame=\"equatorial\", return_pixel_ranges=False)\n"
              "--\n\n"
              "Returns pixels whose centers lie within an ellipse if inclusive is False,\n"
              "or which overlap with this ellipse if inclusive is True. The ellipse is\n"
@@ -1263,7 +1263,7 @@ static PyObject *query_ellipse_meth(PyObject *dummy, PyObject *args, PyObject *k
     }
 
     // Handle rotation if necessary.
-    if (query_frame != pixel_frame) {
+    if (!hpg_frame_is_identity(query_frame, pixel_frame)) {
         double R[3][3];
 
         hpg_frame_rotation(query_frame, pixel_frame, R);
