@@ -2,6 +2,12 @@ import numpy as np
 import pytest
 import warnings
 
+try:
+    from astropy.coordinates import SkyCoord
+    has_astropy = True
+except ImportError:
+    has_astropy = False
+
 import hpgeom
 
 from utils import match_arrays
@@ -435,6 +441,95 @@ def test_query_box_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
     assert len(pixel_ranges) == 0
+
+
+frames = ["equatorial", "icrs", "c", "galactic", "g", "ecliptic", "barycentricmeanecliptic", "e"]
+
+
+@pytest.mark.skipif(not has_astropy, reason="Skipping test without astropy")
+@pytest.mark.parametrize("query_frame", frames)
+@pytest.mark.parametrize("pixel_frame", frames)
+@pytest.mark.parametrize("mode", ["square", "edge", "pole"])
+def test_query_box_frames(query_frame, pixel_frame, mode):
+    """Test query_box with frame conversions."""
+    nside = 4096
+
+    if mode == "square":
+        lon0_qf = 90.0 - 1.0
+        lon1_qf = 90.0 + 1.0
+        lat0_qf = 20.0 - 1.0
+        lat1_qf = 20.0 + 1.0
+    elif mode == "edge":
+        lon0_qf = 0.0
+        lon1_qf = 1.0
+        lat0_qf = 20.0
+        lat1_qf = 21.0
+    elif mode == "pole":
+        lon0_qf = 90.0 - 1.0
+        lon1_qf = 90.0 + 1.0
+        lat0_qf = 88.0
+        lat1_qf = 90.0
+
+    lon_qf = np.asarray([lon0_qf, lon0_qf, lon1_qf, lon1_qf])
+    lat_qf = np.asarray([lat0_qf, lat1_qf, lat1_qf, lat0_qf])
+
+    if query_frame in ["equatorial", "icrs", "c"]:
+        astropy_qf = "icrs"
+    elif query_frame in ["galactic", "g"]:
+        astropy_qf = "galactic"
+    else:
+        astropy_qf = "barycentricmeanecliptic"
+
+    if pixel_frame in ["equatorial", "icrs", "c"]:
+        astropy_pf = "icrs"
+    elif pixel_frame in ["galactic", "g"]:
+        astropy_pf = "galactic"
+    else:
+        astropy_pf = "barycentricmeanecliptic"
+
+    # Brute-force reference
+    # We find the center of the box; rotate it; find max radius.
+    c_lon_qf = (lon0_qf + lon1_qf) / 2.
+    c_lat_qf = (lat0_qf + lat1_qf) / 2.
+    center = SkyCoord(c_lon_qf, c_lat_qf, frame=astropy_qf, unit="degree")
+    rmax = center.separation(SkyCoord(lon_qf, lat_qf, frame=astropy_qf, unit="degree")).degree.max()
+
+    # Convert the center to the pixel frame.
+    if astropy_pf == "icrs":
+        c_lon_pf, c_lat_pf = center.icrs.ra.degree, center.icrs.dec.degree
+    elif astropy_pf == "galactic":
+        c_lon_pf, c_lat_pf = center.galactic.l.degree, center.galactic.b.degree
+    else:
+        eclip = center.barycentricmeanecliptic
+        c_lon_pf, c_lat_pf = eclip.lon.degree, eclip.lat.degree
+
+    # Get the candidates within a large circle and select down.
+    candidates = hpgeom.query_circle(nside, c_lon_pf, c_lat_pf, rmax + 0.5)
+    cand_coord = SkyCoord(*hpgeom.pixel_to_angle(nside, candidates), frame=astropy_pf, unit="degree")
+
+    # Back to original frame.
+    if astropy_qf == "icrs":
+        cand_lon_qf, cand_lat_qf = cand_coord.icrs.ra.degree, cand_coord.icrs.dec.degree
+    elif astropy_qf == "galactic":
+        cand_lon_qf, cand_lat_qf = cand_coord.galactic.l.degree, cand_coord.galactic.b.degree
+    else:
+        eclip = cand_coord.barycentricmeanecliptic
+        cand_lon_qf, cand_lat_qf = eclip.lon.degree, eclip.lat.degree
+
+    pixels1 = np.sort(candidates[_pos_in_box(cand_lon_qf, cand_lat_qf, lon0_qf, lon1_qf, lat0_qf, lat1_qf)])
+
+    # Direct query
+    pixels2 = hpgeom.query_box(
+        nside,
+        lon0_qf,
+        lon1_qf,
+        lat0_qf,
+        lat1_qf,
+        query_frame=query_frame,
+        pixel_frame=pixel_frame,
+    )
+
+    np.testing.assert_array_equal(pixels2, pixels1)
 
 
 def test_query_box_badinputs():

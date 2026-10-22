@@ -19,6 +19,7 @@ ext = Extension(
         "hpgeom/hpgeom_utils.c",
         "hpgeom/healpix_geom.c",
         "hpgeom/hpgeom.c",
+        "hpgeom/frames.c",
     ],
     include_dirs=[numpy.get_include()],
     libraries=libraries,

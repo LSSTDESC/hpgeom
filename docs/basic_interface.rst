@@ -233,6 +233,44 @@ For example, in the following code block the output is identical but the pixel r
     print("Fast way: ", time.time() - start_time, " seconds")
 
 
+Coordinate Rotations For Queries
+--------------------------------
+
+The `HPGeom` query routines all support different coordinate frames for the query and the output pixels.
+In this way, one can query a circle, polygon, ellipse, or box that is defined in Galactic or ecliptic coordinates, and return pixels in equatorial coordinates.
+The frame used for the query is specified with the :code:`query_frame` keyword, and the frame used for the output pixels is specified with the :code:`pixel_frame` keyword.
+
+The frame options are:
+* Equatorial frame (default): Specified with :code:`"equatorial"` or :code:`"icrs"` or :code:`"c"`.
+* Galactic frame: Specified with :code:`"galactic"` or :code:`"g"`.
+* Ecliptic frame: Specified with :code:`"ecliptic"` or :code:`"barycentricmeanecliptic"` or :code:`"e"`.
+
+As an example, this is how one gets a box region with all the pixels that are within +/-25 degrees of the Galactic plane:
+
+.. code-block :: python
+
+    import hpgeom as hpg
+    import matplotlib.pyplot as plt
+
+
+    pixels = hpg.query_box(
+        2048,
+        0.0,
+        360.0,
+        -25.0,
+        25.0,
+        query_frame="galactic",
+    )
+    lon, lat = hpg.pixel_to_angle(2048, pixels)
+
+    plt.plot(lon, lat, 'r.')
+    plt.show()
+
+.. image:: images/query_galactic_box.png
+   :width: 600
+   :alt: Demonstration of the pixels returned from :code:`hpgeom.query_box()` in Galactic coordinates.
+
+
 Pixel Boundaries and Neighbors
 ------------------------------
 
