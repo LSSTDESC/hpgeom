@@ -721,7 +721,7 @@ fail:
 
 PyDoc_STRVAR(query_circle_doc,
              "query_circle(nside, a, b, radius, inclusive=False, fact=4, nest=True, "
-             "lonlat=True, degrees=True)\n"
+             "lonlat=True, degrees=True, return_pixel_ranges=False)\n"
              "--\n\n"
              "Returns pixels whose centers lie within the circle defined by a, b\n"
              "([lon, lat] if lonlat=True otherwise [theta, phi]) and radius (in \n"
@@ -865,7 +865,7 @@ fail:
 
 PyDoc_STRVAR(query_polygon_doc,
              "query_polygon(nside, a, b, inclusive=False, fact=4, nest=True, lonlat=True, "
-             "degrees=True)\n"
+             "degrees=True, return_pixel_ranges=False)\n"
              "--\n\n"
              "Returns pixels whose centers lie within the convex polygon defined by the "
              "points in a, b\n"
@@ -1052,7 +1052,7 @@ fail:
 
 PyDoc_STRVAR(query_ellipse_doc,
              "query_ellipse(nside, a, b, semi_major, semi_minor, alpha, inclusive=False, "
-             "fact=4, nest=True, lonlat=True, degrees=True)\n"
+             "fact=4, nest=True, lonlat=True, degrees=True, return_pixel_ranges=False)\n"
              "--\n\n"
              "Returns pixels whose centers lie within an ellipse if inclusive is False,\n"
              "or which overlap with this ellipse if inclusive is True. The ellipse is\n"
@@ -1212,7 +1212,7 @@ fail:
 PyDoc_STRVAR(
     query_box_doc,
     "query_box(nside, a0, a1, b0, b1, inclusive=False, fact=4, nest=True, lonlat=True, "
-    "degrees=True)\n"
+    "degrees=True, return_pixel_ranges=False)\n"
     "--\n\n"
     "Returns pixels whose centers lie within a box if inclusive is False,\n"
     "or which overlap with this box if inclusive is True. The box is defined\n"

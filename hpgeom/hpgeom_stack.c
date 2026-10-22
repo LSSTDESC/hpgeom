@@ -94,7 +94,7 @@ void i64stack_resize(struct i64stack *stack, size_t newsize, int *status, char *
     *status = 1;
     if (newsize > stack->allocated_size) {
         i64stack_realloc(stack, newsize, status, err);
-        if (!status) {
+        if (!*status) {
             return;
         }
     }
@@ -201,7 +201,7 @@ void i64stack_push(struct i64stack *stack, int64_t val, int *status, char *err) 
         }
 
         i64stack_realloc(stack, newsize, status, err);
-        if (!status) {
+        if (!*status) {
             return;
         }
     }
@@ -220,7 +220,7 @@ struct i64rangeset *i64rangeset_new(int *status, char *err) {
     }
 
     rangeset->stack = i64stack_new(0, status, err);
-    if (!status) {
+    if (!*status) {
         free(rangeset);
         return NULL;
     }
@@ -243,9 +243,9 @@ void i64rangeset_append(struct i64rangeset *rangeset, int64_t v1, int64_t v2, in
         }
     } else {
         i64stack_push(rangeset->stack, v1, status, err);
-        if (!status) return;
+        if (!*status) return;
         i64stack_push(rangeset->stack, v2, status, err);
-        if (!status) return;
+        if (!*status) return;
     }
 }
 
@@ -350,7 +350,7 @@ void i64rangeset_append_i64rangeset(struct i64rangeset *rangeset, struct i64rang
     for (size_t j = 0; j < other->stack->size; j += 2) {
         i64rangeset_append(rangeset, other->stack->data[j], other->stack->data[j + 1], status,
                            err);
-        if (!status) return;
+        if (!*status) return;
     }
 }
 
