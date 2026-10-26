@@ -412,7 +412,7 @@ def _assert_interp_equivalent(pix1, w1, pix2, w2, tol=1e-12):
 
 
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
-@pytest.mark.xfail(strict=False)
+# @pytest.mark.xfail(strict=False)
 def test_get_interp_weights_ring():
     """Test hpgeom.healpy_compat.get_interp_weights"""
     np.random.seed(12345)
@@ -448,7 +448,7 @@ def test_get_interp_weights_ring():
 
 
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
-@pytest.mark.xfail(strict=False)
+# @pytest.mark.xfail(strict=False)
 def test_get_interp_weights_nest():
     """Test hpgeom.healpy_compat.get_interp_weights"""
     np.random.seed(12345)
