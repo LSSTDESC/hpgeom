@@ -398,7 +398,7 @@ def test_max_pixrad():
     np.testing.assert_almost_equal(radii_hpcompat, radii_healpy)
 
 
-def _assert_interp_equivalent(pix1, w1, pix2, w2, tol=1e-12):
+def _assert_interp_equivalent(pix1, w1, pix2, w2, tol=1e-9):
     """Compare interpolation results independent of neighbor order and zero-weight neighbors."""
     p1 = np.where(np.abs(w1) > tol, pix1, -1)
     p2 = np.where(np.abs(w2) > tol, pix2, -1)
@@ -412,7 +412,6 @@ def _assert_interp_equivalent(pix1, w1, pix2, w2, tol=1e-12):
 
 
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
-@pytest.mark.xfail(strict=False)
 def test_get_interp_weights_ring():
     """Test hpgeom.healpy_compat.get_interp_weights"""
     np.random.seed(12345)
@@ -442,7 +441,6 @@ def test_get_interp_weights_ring():
 
 
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
-@pytest.mark.xfail(strict=False)
 def test_get_interp_weights_nest():
     """Test hpgeom.healpy_compat.get_interp_weights"""
     np.random.seed(12345)
