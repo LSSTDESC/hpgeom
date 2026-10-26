@@ -398,6 +398,19 @@ def test_max_pixrad():
     np.testing.assert_almost_equal(radii_hpcompat, radii_healpy)
 
 
+def _assert_interp_equivalent(pix1, w1, pix2, w2, tol=1e-12):
+    """Compare interpolation results independent of neighbor order and zero-weight neighbors."""
+    p1 = np.where(np.abs(w1) > tol, pix1, -1)
+    p2 = np.where(np.abs(w2) > tol, pix2, -1)
+    o1 = np.argsort(p1, axis=0, kind="stable")
+    o2 = np.argsort(p2, axis=0, kind="stable")
+    np.testing.assert_array_equal(np.take_along_axis(p1, o1, axis=0),
+                                  np.take_along_axis(p2, o2, axis=0))
+    np.testing.assert_allclose(np.take_along_axis(np.where(p1 >= 0, w1, 0.0), o1, axis=0),
+                               np.take_along_axis(np.where(p2 >= 0, w2, 0.0), o2, axis=0),
+                               atol=tol)
+
+
 @pytest.mark.skipif(not has_healpy, reason="Skipping test without healpy")
 def test_get_interp_weights():
     """Test hpgeom.healpy_compat.get_interp_weights"""
@@ -410,17 +423,11 @@ def test_get_interp_weights():
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, pix)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, pix)
-
-    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
-    significant = np.abs(weights_healpy) > 1e-12
-    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
+    _assert_interp_equivalent(pixels_hpcompat, weights_hpcompat, pixels_healpy, weights_healpy)
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, pix, nest=True)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, pix, nest=True)
-
-    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
-    significant = np.abs(weights_healpy) > 1e-12
-    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
+    _assert_interp_equivalent(pixels_hpcompat, weights_hpcompat, pixels_healpy, weights_healpy)
 
     # Test position input.
 
@@ -430,21 +437,12 @@ def test_get_interp_weights():
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, theta, phi)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, theta, phi)
-
-    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
-    significant = np.abs(weights_healpy) > 1e-12
-    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
+    _assert_interp_equivalent(pixels_hpcompat, weights_hpcompat, pixels_healpy, weights_healpy)
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, theta, phi, nest=True)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, theta, phi, nest=True)
-
-    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
-    significant = np.abs(weights_healpy) > 1e-12
-    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
+    _assert_interp_equivalent(pixels_hpcompat, weights_hpcompat, pixels_healpy, weights_healpy)
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, lon, lat, lonlat=True)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, lon, lat, lonlat=True)
-
-    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
-    significant = np.abs(weights_healpy) > 1e-12
-    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
+    _assert_interp_equivalent(pixels_hpcompat, weights_hpcompat, pixels_healpy, weights_healpy)
