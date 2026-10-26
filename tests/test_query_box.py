@@ -532,6 +532,61 @@ def test_query_box_frames(query_frame, pixel_frame, mode):
     np.testing.assert_array_equal(pixels2, pixels1)
 
 
+def test_envelope_small():
+    """Test getting an "envelope" with a small box."""
+    # This is adapted from lsst-sphgeom.
+    nside = 2**3
+    bit_shift = 8
+    nside_highres = nside * (2 ** (bit_shift // 2))
+
+    # The box is much smaller than the pixel size.
+    lon1, lon2 = 0.6, 0.61
+    lat1, lat2 = 0.6, 0.61
+
+    pixels_highres = hpgeom.query_box(
+        nside_highres,
+        lon1,
+        lon2,
+        lat1,
+        lat2,
+        inclusive=True,
+    )
+    neighbors = hpgeom.neighbors(nside_highres, pixels_highres).ravel()
+    pixels = np.unique(np.right_shift(neighbors[neighbors >= 0], 8))
+
+    np.testing.assert_array_equal(pixels, [282, 304])
+
+
+def test_envelope_missing_neighbors():
+    """Test getting an "envelope" with missing neighbors."""
+    # This is adapted from lsst-sphgeom.
+    nside = 1
+    bit_shift = 8
+    nside_highres = nside * (2 ** (bit_shift // 2))
+
+    n = hpgeom.neighbors(nside_highres, np.arange(hpgeom.nside_to_npixel(nside_highres)))
+    ind = np.argmin(n)
+
+    assert n.ravel()[ind] == -1
+
+    # This is the pixel with a bad (-1) neighbor.
+    badpix = ind // 8
+    lon, lat = hpgeom.pixel_to_angle(nside_highres, badpix)
+
+    pixels_highres = hpgeom.query_box(
+        nside_highres,
+        lon - 0.1,
+        lon + 0.1,
+        lat - 0.1,
+        lat + 0.1,
+        inclusive=True,
+    )
+    neighbors = hpgeom.neighbors(nside_highres, pixels_highres).ravel()
+    pixels = np.unique(np.right_shift(neighbors[neighbors >= 0], 8))
+
+    np.testing.assert_array_equal(pixels, [0, 1, 5])
+
+
 def test_query_box_badinputs():
     """Test query_box with bad inputs."""
     with pytest.raises(ValueError, match=r"lat .* out of range"):

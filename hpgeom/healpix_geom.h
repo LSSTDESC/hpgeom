@@ -110,8 +110,9 @@ void query_ellipse(healpix_info *hpx, double ptg_theta, double ptg_phi, double s
                    double semi_minor, double alpha, int fact, struct i64rangeset *pixset,
                    int *status, char *err);
 void query_box_vec(healpix_info *hpx, const double p[3], double ptg_theta0, double ptg_theta1,
-                   const double n0[3], const double n1[3], bool lune_union, bool full_lon,
-                   int fact, struct i64rangeset *pixset, int *status, char *err);
+                   const double n0[3], const double n1[3], const double m[3], bool lune_union,
+                   bool full_lon, int fact, struct i64rangeset *pixset, int *status,
+                   char *err);
 
 void xyf2loc(double x, double y, int face, double *z, double *phi, double *sth,
              bool *have_sth);
