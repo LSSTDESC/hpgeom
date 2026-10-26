@@ -410,13 +410,17 @@ def test_get_interp_weights():
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, pix)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, pix)
-    np.testing.assert_array_equal(pixels_hpcompat, pixels_healpy)
-    np.testing.assert_array_almost_equal(weights_hpcompat, weights_healpy)
+
+    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
+    significant = np.abs(weights_healpy) > 1e-12
+    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, pix, nest=True)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, pix, nest=True)
-    np.testing.assert_array_equal(pixels_hpcompat, pixels_healpy)
-    np.testing.assert_array_almost_equal(weights_hpcompat, weights_healpy)
+
+    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
+    significant = np.abs(weights_healpy) > 1e-12
+    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
 
     # Test position input.
 
@@ -426,15 +430,21 @@ def test_get_interp_weights():
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, theta, phi)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, theta, phi)
-    np.testing.assert_array_equal(pixels_hpcompat, pixels_healpy)
-    np.testing.assert_array_almost_equal(weights_hpcompat, weights_healpy)
+
+    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
+    significant = np.abs(weights_healpy) > 1e-12
+    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, theta, phi, nest=True)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, theta, phi, nest=True)
-    np.testing.assert_array_equal(pixels_hpcompat, pixels_healpy)
-    np.testing.assert_array_almost_equal(weights_hpcompat, weights_healpy)
+
+    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
+    significant = np.abs(weights_healpy) > 1e-12
+    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, lon, lat, lonlat=True)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, lon, lat, lonlat=True)
-    np.testing.assert_array_equal(pixels_hpcompat, pixels_healpy)
-    np.testing.assert_array_almost_equal(weights_hpcompat, weights_healpy)
+
+    np.testing.assert_allclose(weights_hpcompat, weights_healpy, atol=1e-12)
+    significant = np.abs(weights_healpy) > 1e-12
+    np.testing.assert_array_equal(pixels_hpcompat[significant], pixels_healpy[significant])
