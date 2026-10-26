@@ -1466,6 +1466,8 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
         double p[3] = {0.0, 0.0, 1.0};
         double n0[3] = {-sin(phi0), cos(phi0), 0.0};
         double n1[3] = {-sin(phi1), cos(phi1), 0.0};
+        double phim = phi0 + 0.5 * fmodulo(phi1 - phi0, HPG_TWO_PI);
+        double m[3] = {cos(phim), sin(phim), 0.0};
         bool lune_union = (fmodulo(phi1 - phi0, HPG_TWO_PI) > HPG_PI);
 
         // Handle rotation if necessary.
@@ -1476,9 +1478,10 @@ static PyObject *query_box_meth(PyObject *dummy, PyObject *args, PyObject *kwarg
             hpg_rotate_vec(R, p, p);
             hpg_rotate_vec(R, n0, n0);
             hpg_rotate_vec(R, n1, n1);
+            hpg_rotate_vec(R, m, m);
         }
 
-        query_box_vec(&hpx, p, theta0, theta1, n0, n1, lune_union, full_lon, fact, pixset,
+        query_box_vec(&hpx, p, theta0, theta1, n0, n1, m, lune_union, full_lon, fact, pixset,
                       &status, err);
 
         NPY_END_ALLOW_THREADS

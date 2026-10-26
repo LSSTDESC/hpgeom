@@ -1453,8 +1453,9 @@ cleanup:
 }
 
 void query_box_vec(healpix_info *hpx, const double p[3], double ptg_theta0, double ptg_theta1,
-                   const double n0[3], const double n1[3], bool lune_union, bool full_lon,
-                   int fact, struct i64rangeset *pixset, int *status, char *err) {
+                   const double n0[3], const double n1[3], const double m[3], bool lune_union,
+                   bool full_lon, int fact, struct i64rangeset *pixset, int *status,
+                   char *err) {
     if (hpx->scheme == RING) {
         snprintf(err, ERR_SIZE, "query_box only supports nest ordering.");
         *status = 0;
@@ -1558,7 +1559,8 @@ void query_box_vec(healpix_info *hpx, const double p[3], double ptg_theta0, doub
             double out_lim = -sdr[o] - HPG_EPSILON;  // whole pixel on outside of a meridian
             if (!lune_union) {
                 // Intersection of two hemispheres.
-                if (a < out_lim || b < out_lim) {
+                double c = m[0] * v[0] + m[1] * v[1] + m[2] * v[2];
+                if (a < out_lim || b < out_lim || c < out_lim) {
                     zone_phi = 0;
                 } else if (a >= full_lim && b >= full_lim) {
                     zone_phi = 3;
