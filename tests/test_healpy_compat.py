@@ -424,6 +424,12 @@ def test_get_interp_weights_ring():
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, pix)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, pix)
+
+    bad = np.where(~np.isclose(np.sort(weights_hpcompat, axis=0),
+                               np.sort(weights_healpy, axis=0), atol=1e-12).all(axis=0))[0]
+    j = bad[0]
+    print(pix[j], pixels_hpcompat[:, j], weights_hpcompat[:, j], pixels_healpy[:, j], weights_healpy[:, j])
+
     _assert_interp_equivalent(pixels_hpcompat, weights_hpcompat, pixels_healpy, weights_healpy)
 
     # Test position input.
@@ -454,6 +460,12 @@ def test_get_interp_weights_nest():
 
     pixels_hpcompat, weights_hpcompat = hpc.get_interp_weights(nside, pix, nest=True)
     pixels_healpy, weights_healpy = hp.get_interp_weights(nside, pix, nest=True)
+
+    bad = np.where(~np.isclose(np.sort(weights_hpcompat, axis=0),
+                               np.sort(weights_healpy, axis=0), atol=1e-12).all(axis=0))[0]
+    j = bad[0]
+    print(pix[j], pixels_hpcompat[:, j], weights_hpcompat[:, j], pixels_healpy[:, j], weights_healpy[:, j])
+
     _assert_interp_equivalent(pixels_hpcompat, weights_hpcompat, pixels_healpy, weights_healpy)
 
     # Test position input.
