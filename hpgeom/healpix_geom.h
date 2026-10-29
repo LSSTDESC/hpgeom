@@ -64,9 +64,6 @@ typedef struct healpix_info {
 healpix_info healpix_info_from_order(int order, enum Scheme scheme);
 healpix_info healpix_info_from_nside(int64_t nside, enum Scheme scheme);
 
-int64_t isqrt(int64_t i);
-int ilog2(int64_t arg);
-int64_t imodulo(int64_t v1, int64_t v2);
 double fmodulo(double v1, double v2);
 
 int64_t ang2pix(healpix_info *hpx, double theta, double phi);

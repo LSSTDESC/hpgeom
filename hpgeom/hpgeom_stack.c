@@ -383,57 +383,7 @@ void i64rangeset_fill_buffer(struct i64rangeset *rangeset, size_t npix, int64_t 
     }
 }
 
-void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod) {
-    prod->x = v1->y * v2->z - v1->z * v2->y;
-    prod->y = v1->z * v2->x - v1->x * v2->z;
-    prod->z = v1->x * v2->y - v1->y * v2->x;
-}
-
-double vec3_dotprod(vec3 *v1, vec3 *v2) {
-    return v1->x * v2->x + v1->y * v2->y + v1->z * v2->z;
-}
-
-double vec3_length(vec3 *v) { return sqrt(v->x * v->x + v->y * v->y + v->z * v->z); }
-
-void vec3_scale(vec3 *a, double s, vec3 *scaled) {
-    scaled->x = a->x * s;
-    scaled->y = a->y * s;
-    scaled->z = a->z * s;
-}
-
-/* Angle between two unit vectors, accurate at all separations. */
-double vec3_angle(vec3 *a, vec3 *b) {
-    vec3 c;
-    vec3_crossprod(a, b, &c);
-    return atan2(vec3_length(&c), vec3_dotprod(a, b));
-}
-
-void vec3_add(vec3 *v1, vec3 *v2, vec3 *sum) {
-    sum->x = v1->x + v2->x;
-    sum->y = v1->y + v2->y;
-    sum->z = v1->z + v2->z;
-}
-
-void vec3_subtract(vec3 *v1, vec3 *v2, vec3 *sub) {
-    sub->x = v1->x - v2->x;
-    sub->y = v1->y - v2->y;
-    sub->z = v1->z - v2->z;
-}
-
-void vec3_normalize(vec3 *v) {
-    double norm = 1. / vec3_length(v);
-    v->x *= norm;
-    v->y *= norm;
-    v->z *= norm;
-}
-
-void vec3_flip(vec3 *v) {
-    v->x *= -1;
-    v->y *= -1;
-    v->z *= -1;
-}
-
-void vec3_from_pointing(pointing *p, vec3 *v) {
+void vec3_from_pointing(const pointing *p, vec3 *v) {
     double st = sin(p->theta);
     v->x = st * cos(p->phi);
     v->y = st * sin(p->phi);
@@ -444,7 +394,7 @@ static inline double safe_atan2(double y, double x) {
     return ((x == 0.) && (y == 0.)) ? 0.0 : atan2(y, x);
 }
 
-void pointing_from_vec3(vec3 *v, pointing *p) {
+void pointing_from_vec3(const vec3 *v, pointing *p) {
     p->theta = atan2(sqrt(v->x * v->x + v->y * v->y), v->z);
     p->phi = safe_atan2(v->y, v->x);
     if (p->phi < 0.) p->phi += HPG_TWO_PI;

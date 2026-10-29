@@ -57,9 +57,9 @@ static const uint16_t ctab[] = {
 static const int jrll[] = {2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4};
 static const int jpll[] = {1, 3, 5, 7, 0, 2, 4, 6, 1, 3, 5, 7};
 
-int64_t isqrt(int64_t i) { return sqrt(((double)(i)) + 0.5); }
+static inline int64_t isqrt(int64_t i) { return sqrt(((double)(i)) + 0.5); }
 
-int ilog2(int64_t arg) {
+static inline int ilog2(int64_t arg) {
     int res = 0;
     while (arg > 0x0000FFFF) {
         res += 16;
@@ -84,7 +84,7 @@ int ilog2(int64_t arg) {
     return res;
 }
 
-int64_t imodulo(int64_t v1, int64_t v2) {
+static inline int64_t imodulo(int64_t v1, int64_t v2) {
     return (v1 >= 0) ? ((v1 < v2) ? v1 : (v1 % v2)) : ((v1 % v2) + v2);
 }
 
@@ -107,6 +107,55 @@ static inline int64_t special_div(int64_t a, int64_t b) {
 
 static inline double safe_atan2(double y, double x) {
     return ((x == 0.) && (y == 0.)) ? 0.0 : atan2(y, x);
+}
+
+static inline void vec3_crossprod(const vec3 *v1, const vec3 *v2, vec3 *prod) {
+    prod->x = v1->y * v2->z - v1->z * v2->y;
+    prod->y = v1->z * v2->x - v1->x * v2->z;
+    prod->z = v1->x * v2->y - v1->y * v2->x;
+}
+
+static inline double vec3_dotprod(const vec3 *v1, const vec3 *v2) {
+    return v1->x * v2->x + v1->y * v2->y + v1->z * v2->z;
+}
+
+static inline double vec3_length(const vec3 *v) { return sqrt(v->x * v->x + v->y * v->y + v->z * v->z); }
+
+static inline void vec3_scale(const vec3 *a, double s, vec3 *scaled) {
+    scaled->x = a->x * s;
+    scaled->y = a->y * s;
+    scaled->z = a->z * s;
+}
+
+static inline double vec3_angle(const vec3 *a, const vec3 *b) {
+    vec3 c;
+    vec3_crossprod(a, b, &c);
+    return atan2(vec3_length(&c), vec3_dotprod(a, b));
+}
+
+static inline void vec3_add(const vec3 *v1, const vec3 *v2, vec3 *sum) {
+    sum->x = v1->x + v2->x;
+    sum->y = v1->y + v2->y;
+    sum->z = v1->z + v2->z;
+}
+
+static inline void vec3_subtract(const vec3 *v1, const vec3 *v2, vec3 *sub) {
+    sub->x = v1->x - v2->x;
+    sub->y = v1->y - v2->y;
+    sub->z = v1->z - v2->z;
+}
+
+static inline void vec3_normalize(vec3 *v) {
+    double norm = 1. / vec3_length(v);
+    v->x *= norm;
+    v->y *= norm;
+    v->z *= norm;
+}
+
+static inline void vec3_flip(vec3 *v) {
+    v->x *= -1;
+    v->y *= -1;
+    v->z *= -1;
 }
 
 double fmodulo(double v1, double v2) {
