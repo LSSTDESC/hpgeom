@@ -901,7 +901,7 @@ PyDoc_STRVAR(query_polygon_doc,
              "degrees=True, query_frame=\"equatorial\", pixel_frame=\"equatorial\", "
              "return_pixel_ranges=False)\n"
              "--\n\n"
-             "Returns pixels whose centers lie within the convex polygon defined by the "
+             "Returns pixels whose centers lie within the polygon defined by the "
              "points in a, b\n"
              "([lon, lat] if lonlat=True, otherwise [theta, phi]) if inclusive is False, or "
              "which overlap\n"
@@ -931,11 +931,16 @@ PyDoc_STRVAR(query_polygon_doc,
              "ValueError\n"
              "    If vertices are out of range.\n"
              "RuntimeError\n"
-             "    If polygon does not have at least 3 vertices, or polygon is not convex,\n"
-             "    or polygon has degenerate corners, or there is an internal error.\n"
+             "    If polygon does not have at least 3 vertices, or polygon is not simple\n"
+             "    (edges cross), or there is an internal error.\n"
              "\n"
              "Notes\n"
              "-----\n"
+             "Polygon edges are great circles. Polygons may be non-convex (but must be\n"
+             "simple/non-crossing). Non-convex polygons are always computed with nest\n"
+             "ordering, and if ring ordering is specified a ResourceWarning will be\n"
+             "emitted. The interior of a polygon is the smaller of the two bounded\n"
+             "regions so the vertex ordering does not matter.\n"
              "This method is more efficient with nest ordering.\n"
              "For inclusive=True, the algorithm may return some pixels which do not overlap\n"
              "with the polygon. Higher fact values result in fewer false positives at the\n"
@@ -1080,18 +1085,34 @@ static PyObject *query_polygon_meth(PyObject *dummy, PyObject *args, PyObject *k
         }
     }
 
+    int convert_back_to_ring = 0;
+
     NPY_BEGIN_ALLOW_THREADS
 
     query_polygon(&hpx, vertices, fact, pixset, &status, err);
 
+    if ((scheme == RING) & (!status) & (strstr(err, "require nest") != NULL)) {
+        convert_back_to_ring = 1;
+        healpix_info hpx2 = healpix_info_from_nside(nside, NEST);
+        status = 1;
+        query_polygon(&hpx2, vertices, fact, pixset, &status, err);
+    }
+
     NPY_END_ALLOW_THREADS
+
+    if (convert_back_to_ring) {
+        PyErr_WarnEx(PyExc_ResourceWarning,
+                     "Non-convex polygon detected, which is only supported with nest ordering. "
+                     "Result will be converted from nest->ring and sorted",
+                     0);
+    }
 
     if (!status) {
         PyErr_SetString(PyExc_RuntimeError, err);
         goto fail;
     }
 
-    PyObject *return_arr = create_query_return_arr(pixset, return_pixel_ranges, 0, &hpx);
+    PyObject *return_arr = create_query_return_arr(pixset, return_pixel_ranges, convert_back_to_ring, &hpx);
 
     Py_DECREF(a_arr);
     Py_DECREF(b_arr);

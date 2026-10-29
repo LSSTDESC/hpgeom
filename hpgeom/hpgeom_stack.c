@@ -395,6 +395,19 @@ double vec3_dotprod(vec3 *v1, vec3 *v2) {
 
 double vec3_length(vec3 *v) { return sqrt(v->x * v->x + v->y * v->y + v->z * v->z); }
 
+void vec3_scale(vec3 *a, double s, vec3 *scaled) {
+    scaled->x = a->x * s;
+    scaled->y = a->y * s;
+    scaled->z = a->z * s;
+}
+
+/* Angle between two unit vectors, accurate at all separations. */
+double vec3_angle(vec3 *a, vec3 *b) {
+    vec3 c;
+    vec3_crossprod(a, b, &c);
+    return atan2(vec3_length(&c), vec3_dotprod(a, b));
+}
+
 void vec3_add(vec3 *v1, vec3 *v2, vec3 *sum) {
     sum->x = v1->x + v2->x;
     sum->y = v1->y + v2->y;

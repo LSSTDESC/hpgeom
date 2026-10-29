@@ -123,6 +123,8 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
                      i64rangeset *pixset, int *status, char *err);
 void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset *pixset,
                    int *status, char *err);
+void query_polygon_simple_nonconvex(healpix_info *hpx, vec3arr *vertices, int fact,
+                                    i64rangeset *pixset, int *status, char *err);
 
 void get_ring_info2(healpix_info *hpx, int64_t ring, int64_t *startpix, int64_t *ringpix,
                     double *theta, bool *shifted);

@@ -101,6 +101,8 @@ void i64rangeset_intersect(i64rangeset *rangeset, int64_t v1, int64_t v2, int *s
 void vec3_crossprod(vec3 *v1, vec3 *v2, vec3 *prod);
 double vec3_dotprod(vec3 *v1, vec3 *v2);
 double vec3_length(vec3 *v);
+double vec3_angle(vec3 *a, vec3 *b);
+void vec3_scale(vec3 *a, double s, vec3 *scaled);
 void vec3_add(vec3 *v1, vec3 *v2, vec3 *sum);
 void vec3_subtract(vec3 *v1, vec3 *v2, vec3 *sum);
 void vec3_normalize(vec3 *v);
