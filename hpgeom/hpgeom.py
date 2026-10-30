@@ -162,8 +162,18 @@ def query_circle_vec(nside, vec, radius, inclusive=False, fact=4, nest=True):
     )
 
 
-def query_polygon_vec(nside, vertices, inclusive=False, fact=4, nest=True):
-    """Returns pixels whose centers lie within the convex polygon defined
+def query_polygon_vec(
+    nside,
+    vertices,
+    inclusive=False,
+    fact=4,
+    nest=True,
+    query_frame="equatorial",
+    pixel_frame="equatorial",
+    return_pixel_ranges=False,
+):
+    """
+    Returns pixels whose centers lie within the convex polygon defined
     by vertices (if inclusive is False), or which overlap with the polygon
     (if inclusive is True).
 
@@ -183,10 +193,50 @@ def query_polygon_vec(nside, vertices, inclusive=False, fact=4, nest=True):
         else it can be any positive integer.
     nest: `bool`, optional
         Use nest ordering scheme?
+    query_frame : `str`, optional
+        Coordinate frame for the query. May be ``equatorial``/``icrs``/``c``
+        or ``galactic``/``g`` or ``ecliptic``/``barycentricmeanecliptic``/``e``.
+    pixel_frame : `str`, optional
+        Coordinate frame for the output pixels. Same options as query_frame.
+    return_pixel_ranges : `bool`, optional
+        Return an array of pixel ranges instead of a list of pixels.
+        The ranges will be sorted, and each range is of the form [lo, high).
+        This option is only compatible with nest ordering.
+
+    Raises
+    ------
+    ValueError
+        If vertices are out of range.
+    RuntimeError
+        If polygon does not have at least 3 vertices, or polygon is not simple (edges cross),
+        or there is an internal error.
+
+    Notes
+    -----
+    Polygon edges are great circles. Polygons may be non-convex (but must be
+    simple/non-crossing). Non-convex polygons are always computed with nest
+    ordering, and if ring ordering is specified a ResourceWarning will be
+    emitted. The interior of a polygon is the smaller of the two bounded
+    regions so the vertex ordering does not matter.
+    This method is more efficient with nest ordering.
+    For inclusive=True, the algorithm may return some pixels which do not overlap
+    with the polygon. Higher fact values result in fewer false positives at the
+    expense of increased run time.
     """
     theta, phi = vector_to_angle(vertices, lonlat=False)
 
-    return query_polygon(nside, theta, phi, inclusive=inclusive, fact=fact, nest=nest, lonlat=False)
+    return query_polygon(
+        nside,
+        theta,
+        phi,
+        inclusive=inclusive,
+        fact=fact,
+        nest=nest,
+        lonlat=False,
+        query_frame=query_frame,
+        pixel_frame=pixel_frame,
+        return_pixel_ranges=return_pixel_ranges,
+    )
 
 
 def nside_to_npixel(nside):

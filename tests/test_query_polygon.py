@@ -228,6 +228,10 @@ def test_query_polygon_return_pixel_ranges():
 
     np.testing.assert_array_equal(pixels, pixels_from_ranges)
 
+    vec = hpgeom.angle_to_vector(lon, lat)
+    pixel_ranges_vec = hpgeom.query_polygon_vec(nside, vec, return_pixel_ranges=True)
+    np.testing.assert_array_equal(pixel_ranges_vec, pixel_ranges)
+
     # And try a tiny polygon that has no pixels.
     delta = 0.001
     lon = np.array([lon_ref, lon_ref + delta, lon_ref + delta, lon_ref])
@@ -345,6 +349,15 @@ def test_query_polygon_frames(query_frame, pixel_frame, closed):
     )
 
     np.testing.assert_array_equal(pixels2, pixels1)
+
+    vec = hpgeom.angle_to_vector(lon_qf_query, lat_qf_query)
+    pixels2_vec = hpgeom.query_polygon_vec(
+        nside,
+        vec,
+        query_frame=query_frame,
+        pixel_frame=pixel_frame,
+    )
+    np.testing.assert_array_equal(pixels2_vec, pixels2)
 
 
 def test_query_polygon_badinputs():
