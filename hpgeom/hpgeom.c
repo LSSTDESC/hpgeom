@@ -901,7 +901,7 @@ PyDoc_STRVAR(query_polygon_doc,
              "degrees=True, query_frame=\"equatorial\", pixel_frame=\"equatorial\", "
              "return_pixel_ranges=False)\n"
              "--\n\n"
-             "Returns pixels whose centers lie within the polygon defined by the "
+             "Returns pixels whose centers lie within the simple polygon defined by the "
              "points in a, b\n"
              "([lon, lat] if lonlat=True, otherwise [theta, phi]) if inclusive is False, or "
              "which overlap\n"

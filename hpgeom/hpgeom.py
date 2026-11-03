@@ -173,7 +173,7 @@ def query_polygon_vec(
     return_pixel_ranges=False,
 ):
     """
-    Returns pixels whose centers lie within the convex polygon defined
+    Returns pixels whose centers lie within the simple polygon defined
     by vertices (if inclusive is False), or which overlap with the polygon
     (if inclusive is True).
 
