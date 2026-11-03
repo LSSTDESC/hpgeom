@@ -64,9 +64,6 @@ typedef struct healpix_info {
 healpix_info healpix_info_from_order(int order, enum Scheme scheme);
 healpix_info healpix_info_from_nside(int64_t nside, enum Scheme scheme);
 
-int64_t isqrt(int64_t i);
-int ilog2(int64_t arg);
-int64_t imodulo(int64_t v1, int64_t v2);
 double fmodulo(double v1, double v2);
 
 int64_t ang2pix(healpix_info *hpx, double theta, double phi);
@@ -123,6 +120,8 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
                      i64rangeset *pixset, int *status, char *err);
 void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset *pixset,
                    int *status, char *err);
+void query_polygon_simple_nonconvex(healpix_info *hpx, vec3arr *vertices, int fact,
+                                    i64rangeset *pixset, int *status, char *err);
 
 void get_ring_info2(healpix_info *hpx, int64_t ring, int64_t *startpix, int64_t *ringpix,
                     double *theta, bool *shifted);

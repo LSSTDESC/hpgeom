@@ -57,9 +57,9 @@ static const uint16_t ctab[] = {
 static const int jrll[] = {2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4};
 static const int jpll[] = {1, 3, 5, 7, 0, 2, 4, 6, 1, 3, 5, 7};
 
-int64_t isqrt(int64_t i) { return sqrt(((double)(i)) + 0.5); }
+static inline int64_t isqrt(int64_t i) { return sqrt(((double)(i)) + 0.5); }
 
-int ilog2(int64_t arg) {
+static inline int ilog2(int64_t arg) {
     int res = 0;
     while (arg > 0x0000FFFF) {
         res += 16;
@@ -84,7 +84,7 @@ int ilog2(int64_t arg) {
     return res;
 }
 
-int64_t imodulo(int64_t v1, int64_t v2) {
+static inline int64_t imodulo(int64_t v1, int64_t v2) {
     return (v1 >= 0) ? ((v1 < v2) ? v1 : (v1 % v2)) : ((v1 % v2) + v2);
 }
 
@@ -107,6 +107,55 @@ static inline int64_t special_div(int64_t a, int64_t b) {
 
 static inline double safe_atan2(double y, double x) {
     return ((x == 0.) && (y == 0.)) ? 0.0 : atan2(y, x);
+}
+
+static inline void vec3_crossprod(const vec3 *v1, const vec3 *v2, vec3 *prod) {
+    prod->x = v1->y * v2->z - v1->z * v2->y;
+    prod->y = v1->z * v2->x - v1->x * v2->z;
+    prod->z = v1->x * v2->y - v1->y * v2->x;
+}
+
+static inline double vec3_dotprod(const vec3 *v1, const vec3 *v2) {
+    return v1->x * v2->x + v1->y * v2->y + v1->z * v2->z;
+}
+
+static inline double vec3_length(const vec3 *v) { return sqrt(vec3_dotprod(v, v)); }
+
+static inline void vec3_scale(const vec3 *a, double s, vec3 *scaled) {
+    scaled->x = a->x * s;
+    scaled->y = a->y * s;
+    scaled->z = a->z * s;
+}
+
+static inline double vec3_angle(const vec3 *a, const vec3 *b) {
+    vec3 c;
+    vec3_crossprod(a, b, &c);
+    return atan2(vec3_length(&c), vec3_dotprod(a, b));
+}
+
+static inline void vec3_add(const vec3 *v1, const vec3 *v2, vec3 *sum) {
+    sum->x = v1->x + v2->x;
+    sum->y = v1->y + v2->y;
+    sum->z = v1->z + v2->z;
+}
+
+static inline void vec3_subtract(const vec3 *v1, const vec3 *v2, vec3 *sub) {
+    sub->x = v1->x - v2->x;
+    sub->y = v1->y - v2->y;
+    sub->z = v1->z - v2->z;
+}
+
+static inline void vec3_normalize(vec3 *v) {
+    double norm = 1.0 / vec3_length(v);
+    v->x *= norm;
+    v->y *= norm;
+    v->z *= norm;
+}
+
+static inline void vec3_flip(vec3 *v) {
+    v->x *= -1;
+    v->y *= -1;
+    v->z *= -1;
 }
 
 double fmodulo(double v1, double v2) {
@@ -159,7 +208,7 @@ int64_t ang2pix(healpix_info *hpx, double theta, double phi) {
 }
 
 int64_t vec2pix(healpix_info *hpx, vec3 *vec) {
-    double xl = 1. / vec3_length(vec);
+    double xl = 1.0 / vec3_length(vec);
     double phi = safe_atan2(vec->y, vec->x);
     double nz = vec->z * xl;
     if (fabs(nz) > 0.99) {
@@ -253,7 +302,7 @@ int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth, bool have_s
             double tp = tt - (int64_t)(tt);
             double tmp = ((za < 0.99) || (!have_sth))
                              ? hpx->nside * sqrt(3 * (1 - za))
-                             : hpx->nside * sth / sqrt((1. + za) / 3.);
+                             : hpx->nside * sth / sqrt((1.0 + za) / 3.);
 
             int64_t jp = (int64_t)(tp * tmp);          // increasing edge line index
             int64_t jm = (int64_t)((1.0 - tp) * tmp);  // decreasing edge line index
@@ -289,7 +338,7 @@ int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth, bool have_s
             double tp = tt - ntt;
             double tmp = ((za < 0.99) || (!have_sth))
                              ? hpx->nside * sqrt(3 * (1 - za))
-                             : hpx->nside * sth / sqrt((1. + za) / 3.);
+                             : hpx->nside * sth / sqrt((1.0 + za) / 3.);
 
             int64_t jp = (int64_t)(tp * tmp);           // increasing edge line index
             int64_t jm = (int64_t)((1.0 - tp) * tmp);   // decreasing edge line index
@@ -486,10 +535,10 @@ double max_pixrad(healpix_info *hpx) {
     va.x = sintheta * cos(phi_a);
     va.y = sintheta * sin(phi_a);
 
-    double t1 = 1. - 1. / hpx->nside;
+    double t1 = 1.0 - 1.0 / hpx->nside;
     t1 *= t1;
 
-    vb.z = 1. - t1 / 3.;
+    vb.z = 1.0 - t1 / 3.;
     sintheta = sqrt((1.0 - vb.z) * (1.0 + vb.z));
     // we set phi_b = 0.0, so cos(phi_b) = 1.0 and sin(phi_b) = 0.0
     vb.x = sintheta;
@@ -528,7 +577,7 @@ void get_ring_info_small(healpix_info *hpx, int64_t ring, int64_t *startpix, int
 }
 
 inline double cosdist_zphi(double z1, double phi1, double z2, double phi2) {
-    return z1 * z2 + cos(phi1 - phi2) * sqrt((1. - z1 * z1) * (1. - z2 * z2));
+    return z1 * z2 + cos(phi1 - phi2) * sqrt((1.0 - z1 * z1) * (1.0 - z2 * z2));
 }
 
 /* Short note on the "zone":
@@ -663,7 +712,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
         double cosrbig = cos(rbig);
 
         double z0 = cos(ptg_theta);
-        double xa = 1. / sqrt((1 - z0) * (1 + z0));
+        double xa = 1.0 / sqrt((1 - z0) * (1 + z0));
 
         int64_t cpix = loc2pix(hpx, z0, ptg_phi, 0., false);
 
@@ -766,8 +815,8 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
         for (int o = 0; o <= omax; o++) {
             base[o] = healpix_info_from_order(o, NEST);
             double dr = max_pixrad(&base[o]);  // safety distance
-            crpdr[o] = ((radius + dr) > HPG_PI) ? -1. : cos(radius + dr);
-            crmdr[o] = ((radius - dr) < 0.) ? 1. : cos(radius - dr);
+            crpdr[o] = ((radius + dr) > HPG_PI) ? -1.0 : cos(radius + dr);
+            crmdr[o] = ((radius - dr) < 0.) ? 1.0 : cos(radius - dr);
         }
 
         stk = i64stack_new(2 * (12 + 3 * omax), status, err);
@@ -1084,7 +1133,7 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
                     cpix->data[counter] = loc2pix(hpx, cth, pnt.phi, 0, false);
                     if (!*status) goto cleanup_ring;
                 }
-                xa->data[counter] = 1. / sqrt((1 - cth) * (1 + cth));
+                xa->data[counter] = 1.0 / sqrt((1 - cth) * (1 + cth));
                 ptg->data[counter].theta = pnt.theta;
                 ptg->data[counter].phi = pnt.phi;
                 counter++;
@@ -1119,7 +1168,7 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
             if (!*status) goto cleanup_ring;
             for (size_t j = 0; j < counter; j++) {
                 double x = (cosrbig->data[j] - z * z0->data[j]) * xa->data[j];
-                double ysq = 1. - z * z - x * x;
+                double ysq = 1.0 - z * z - x * x;
                 if (ysq > 0) {
                     double dphi = atan2(sqrt(ysq), x);
                     int64_t ip_lo =
@@ -1200,9 +1249,9 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
             double dr = max_pixrad(&base[o]);  // safety distance
 
             for (size_t i = 0; i < nv; i++) {
-                crlimit0[o]->data[i] = (rad[i] + dr > HPG_PI) ? -1. : cos(rad[i] + dr);
+                crlimit0[o]->data[i] = (rad[i] + dr > HPG_PI) ? -1.0 : cos(rad[i] + dr);
                 crlimit1[o]->data[i] = (o == 0) ? cos(rad[i]) : crlimit1[0]->data[i];
-                crlimit2[o]->data[i] = (rad[i] - dr < 0.) ? 1. : cos(rad[i] - dr);
+                crlimit2[o]->data[i] = (rad[i] - dr < 0.) ? 1.0 : cos(rad[i] - dr);
             }
         }
 
@@ -1255,6 +1304,509 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
     }
 }
 
+/*
+ * Non-convex (simple) polygon support.
+ *
+ * The polygon is a closed loop of great-circle edges.  The interior is taken to be
+ * the smaller of the two regions bounded by the loop (matching the convex code, which
+ * is independent of vertex ordering).  Internally the vertices are re-ordered so that
+ * the interior lies to the left of each edge, i.e. on the positive side of each edge
+ * normal a x b.
+ *
+ * The search is a NEST-ordered descent as in query_multidisc/query_box_vec, with two
+ * additions that make it fast for polygons with many vertices:
+ *
+ *   1. Each node carries the list of edges that come within max_pixrad of its center
+ *      (exact point-to-arc distance).  Children only test the edges in their parent's
+ *      list, so deep in the tree only a handful of edges are ever examined.  A node
+ *      whose list is empty does not touch the boundary and is fully inside or outside.
+ *
+ *   2. The inside/outside status of a node center is inherited from its parent: the
+ *      status flips once for each edge crossed by the short arc from the parent center
+ *      to the child center.  That arc lies within the parent's safety disc, so only the
+ *      parent's edge list needs to be tested.  The 12 base pixels get their status from
+ *      a reference point known to be inside the polygon.
+ */
+
+typedef struct poly_edge {
+    vec3 a, b;           /* endpoints */
+    vec3 n;              /* unit normal of a x b; interior on the positive side */
+    vec3 ta, tb;         /* v.ta >= 0 && v.tb >= 0  <=>  v projects onto the arc */
+    vec3 mid;            /* a + b (not normalized); the arc lies in the hemisphere mid.v > 0 */
+    vec3 c;              /* normalized mid, center of bounding cap */
+    double cos_h, sin_h; /* cos/sin of the half-length of the arc */
+} poly_edge;
+
+typedef struct poly_node {
+    int64_t pix;
+    int order;
+    bool root;          /* base pixel: status taken from base_inside[] */
+    bool parent_inside; /* status of the parent center */
+    vec3 parent_center;
+    size_t par_off, par_cnt; /* parent's edge list in the edge-index stack */
+} poly_node;
+
+typedef struct poly_nodestack {
+    size_t size, allocated;
+    poly_node *data;
+} poly_nodestack;
+
+static bool poly_nodestack_push(poly_nodestack *stk, const poly_node *node, int *status,
+                                char *err) {
+    if (stk->size == stk->allocated) {
+        size_t newsize = (stk->allocated == 0) ? 64 : 2 * stk->allocated;
+        poly_node *newdata = (poly_node *)realloc(stk->data, newsize * sizeof(poly_node));
+        if (newdata == NULL) {
+            snprintf(err, ERR_SIZE, "Could not allocate polygon node stack.");
+            *status = 0;
+            return false;
+        }
+        stk->data = newdata;
+        stk->allocated = newsize;
+    }
+    stk->data[stk->size++] = *node;
+    return true;
+}
+
+static bool poly_reserve_edges(size_t **elist, size_t *ealloc, size_t need, int *status,
+                               char *err) {
+    if (need <= *ealloc) return true;
+    size_t newsize = *ealloc;
+    while (newsize < need) newsize *= 2;
+    size_t *newdata = (size_t *)realloc(*elist, newsize * sizeof(size_t));
+    if (newdata == NULL) {
+        snprintf(err, ERR_SIZE, "Could not allocate polygon edge list.");
+        *status = 0;
+        return false;
+    }
+    *elist = newdata;
+    *ealloc = newsize;
+    return true;
+}
+
+static void poly_edge_init(poly_edge *e, const vec3 *a, const vec3 *b) {
+    e->a = *a;
+    e->b = *b;
+    vec3_crossprod(a, b, &e->n);
+    double nn = vec3_length(&e->n);
+    vec3_scale(&e->n, 1.0 / nn, &e->n);
+    vec3_crossprod(&e->n, a, &e->ta);
+    vec3_crossprod(b, &e->n, &e->tb);
+    vec3 mid;
+    vec3_add(a, b, &mid);
+    e->mid = mid;
+    vec3_scale(&mid, 1.0 / vec3_length(&mid), &e->c);
+    double half = 0.5 * vec3_angle(a, b);
+    e->cos_h = cos(half);
+    e->sin_h = sin(half);
+}
+
+/* Is the arc within angular distance dr of the unit vector v? */
+static inline bool poly_edge_near(const poly_edge *e, const vec3 *v, double cosdr,
+                                  double sindr) {
+    if (vec3_dotprod(v, &e->ta) >= 0.0 && vec3_dotprod(v, &e->tb) >= 0.0) {
+        return fabs(vec3_dotprod(v, &e->n)) <= sindr;
+    }
+    return (vec3_dotprod(v, &e->a) >= cosdr) || (vec3_dotprod(v, &e->b) >= cosdr);
+}
+
+/* Exact angular distance from v to the arc. */
+static double poly_edge_dist(const poly_edge *e, const vec3 *v) {
+    if (vec3_dotprod(v, &e->ta) >= 0.0 && vec3_dotprod(v, &e->tb) >= 0.0) {
+        double s = fabs(vec3_dotprod(v, &e->n));
+        return asin(s > 1.0 ? 1.0 : s);
+    }
+    double da = vec3_angle(v, &e->a), db = vec3_angle(v, &e->b);
+    return (da < db) ? da : db;
+}
+
+/*
+ * Does the short arc p->q (angle <= pi/2) cross edge e?
+ *
+ * Half-open conventions make the parity consistent when the path passes exactly
+ * through a polygon vertex (a vertex on the path plane counts as the positive side)
+ * or when a point lies exactly on an edge (it counts as outside).
+ */
+static inline bool poly_arc_crosses(const vec3 *p, const vec3 *q, const vec3 *npq,
+                                    const vec3 *mpq, const poly_edge *e) {
+    bool sa = vec3_dotprod(npq, &e->a) >= 0.0, sb = vec3_dotprod(npq, &e->b) >= 0.0;
+    if (sa == sb) return false;
+    /* A point exactly on an edge counts as outside, matching query_multidisc. */
+    bool sp = vec3_dotprod(&e->n, p) > 0.0, sq = vec3_dotprod(&e->n, q) > 0.0;
+    if (sp == sq) return false;
+    /* The two great circles meet at +/- x; each arc contains exactly one of them. */
+    vec3 x;
+    vec3_crossprod(&e->n, npq, &x);
+    return (vec3_dotprod(&x, &e->mid) > 0.0) == (vec3_dotprod(&x, mpq) > 0.0);
+}
+
+/* Parity of edge crossings along p->q (angle <= pi/2) for a set of edges. */
+static bool poly_segment_parity(const vec3 *p, const vec3 *q, const poly_edge *edges,
+                                const size_t *idx, size_t cnt) {
+    vec3 npq;
+    vec3_crossprod(p, q, &npq);
+    vec3 mpq;
+    vec3_add(p, q, &mpq);
+    bool parity = false;
+    for (size_t k = 0; k < cnt; k++) {
+        const poly_edge *e = (idx == NULL) ? &edges[k] : &edges[idx[k]];
+        if (poly_arc_crosses(p, q, &npq, &mpq, e)) parity = !parity;
+    }
+    return parity;
+}
+
+/*
+ * Is the segment p->q (nearly) coplanar with one of the edges?  Then the crossing test
+ * is numerically meaningless.  This happens in practice because HEALPix pixel centers
+ * lie exactly on some meridians (e.g. phi = 0), which are common polygon edges.
+ */
+static bool poly_segment_degenerate(const vec3 *p, const vec3 *q, const poly_edge *edges,
+                                    const size_t *idx, size_t cnt) {
+    vec3 d;
+    vec3_subtract(p, q, &d);
+    double tol = 1e-8 * vec3_length(&d) + 1e-15;
+    for (size_t k = 0; k < cnt; k++) {
+        const poly_edge *e = (idx == NULL) ? &edges[k] : &edges[idx[k]];
+        if (fabs(vec3_dotprod(&e->n, p)) < tol && fabs(vec3_dotprod(&e->n, q)) < tol) return true;
+    }
+    return false;
+}
+
+/*
+ * Robust parity along p->q (angle <= pi/2).  If the direct path is degenerate, go via a
+ * point w offset sideways from the midpoint.  w stays within |p-q| of p, so if p->q lies
+ * in a disc of radius >= |p-q| about p (as for parent->child paths), so does the
+ * dog-leg, and the same edge list applies.  The sign of each edge at w is computed
+ * identically for both legs, so the parity is consistent.
+ */
+static bool poly_path_parity(const vec3 *p, const vec3 *q, const poly_edge *edges,
+                             const size_t *idx, size_t cnt) {
+    if (!poly_segment_degenerate(p, q, edges, idx, cnt))
+        return poly_segment_parity(p, q, edges, idx, cnt);
+
+    vec3 npq;
+    vec3_crossprod(p, q, &npq);
+    double nn = vec3_length(&npq);
+    vec3 dpq;
+    vec3_subtract(p, q, &dpq);
+    double dist = vec3_length(&dpq);
+    vec3 mid;
+    vec3_add(p, q, &mid);
+    vec3_scale(&mid, 0.5, &mid);
+    static const double offsets[4] = {0.25, -0.25, 0.37, -0.37};
+    vec3 w = mid;
+    for (int i = 0; i < 4; i++) {
+        double s = offsets[i] * dist / nn;
+        w.x = mid.x + s * npq.x;
+        w.y = mid.y + s * npq.y;
+        w.z = mid.z + s * npq.z;
+        vec3_scale(&w, 1.0 / vec3_length(&w), &w);
+        if (!poly_segment_degenerate(p, &w, edges, idx, cnt) &&
+            !poly_segment_degenerate(&w, q, edges, idx, cnt))
+            break;
+    }
+    return poly_segment_parity(p, &w, edges, idx, cnt) !=
+           poly_segment_parity(&w, q, edges, idx, cnt);
+}
+
+/* Parity along p->q against all edges, splitting the path if it is longer than pi/2. */
+static bool poly_path_parity_all(const vec3 *p, const vec3 *q, const poly_edge *edges,
+                                 size_t ne) {
+    if (vec3_dotprod(p, q) >= 0.0) return poly_path_parity(p, q, edges, NULL, ne);
+    vec3 m;
+    vec3_add(p, q, &m);
+    double mn = vec3_length(&m);
+    if (mn < 1e-8) {
+        /* (Nearly) antipodal: route through any point perpendicular to p. */
+        vec3 axis = {0.0, 0.0, 0.0};
+        if (fabs(p->x) <= fabs(p->y) && fabs(p->x) <= fabs(p->z))
+            axis.x = 1.0;
+        else if (fabs(p->y) <= fabs(p->z))
+            axis.y = 1.0;
+        else
+            axis.z = 1.0;
+        vec3_crossprod(p, &axis, &m);
+        mn = vec3_length(&m);
+    }
+    vec3_scale(&m, 1.0 / mn, &m);
+    return poly_path_parity(p, &m, edges, NULL, ne) !=
+           poly_path_parity(&m, q, edges, NULL, ne);
+}
+
+/* Strict crossing test between two non-adjacent edges (touching is not flagged). */
+static bool poly_edges_intersect(const poly_edge *e1, const poly_edge *e2) {
+    /* Bounding-cap rejection; each half-length is < pi/2 so h1 + h2 < pi. */
+    double cos_hsum = e1->cos_h * e2->cos_h - e1->sin_h * e2->sin_h;
+    if (vec3_dotprod(&e1->c, &e2->c) < cos_hsum - 1e-15) return false;
+
+    double s1 = vec3_dotprod(&e1->n, &e2->a), s2 = vec3_dotprod(&e1->n, &e2->b);
+    if (!((s1 > 0.0 && s2 < 0.0) || (s1 < 0.0 && s2 > 0.0))) return false;
+    double s3 = vec3_dotprod(&e2->n, &e1->a), s4 = vec3_dotprod(&e2->n, &e1->b);
+    if (!((s3 > 0.0 && s4 < 0.0) || (s3 < 0.0 && s4 > 0.0))) return false;
+    vec3 x;
+    vec3_crossprod(&e1->n, &e2->n, &x);
+    return (vec3_dotprod(&x, &e1->mid) > 0.0) == (vec3_dotprod(&x, &e2->mid) > 0.0);
+}
+
+/* Mirror of check_pixel_nest, using the polygon node stack. */
+static void poly_check_pixel(int o, int order_, int omax, int zone, i64rangeset *pixset,
+                             int64_t pix, poly_nodestack *stk, const poly_node *child_tmpl,
+                             bool inclusive, size_t *stacktop, int *status, char *err) {
+    *status = 1;
+    if (zone == 0) return;
+
+    poly_node child = *child_tmpl;
+    child.order = o + 1;
+
+    if (o < order_) {
+        if (zone >= 3) {
+            int sdist = 2 * (order_ - o);
+            i64rangeset_append(pixset, pix << sdist, (pix + 1) << sdist, status, err);
+        } else {
+            for (int i = 0; i < 4; i++) {
+                child.pix = 4 * pix + 3 - i;
+                if (!poly_nodestack_push(stk, &child, status, err)) return;
+            }
+        }
+    } else if (o > order_) {  // inclusive only
+        if (zone >= 2) {
+            i64rangeset_append_single(pixset, pix >> (2 * (o - order_)), status, err);
+            stk->size = *stacktop;
+        } else {
+            if (o < omax) {
+                for (int i = 0; i < 4; i++) {
+                    child.pix = 4 * pix + 3 - i;
+                    if (!poly_nodestack_push(stk, &child, status, err)) return;
+                }
+            } else {
+                i64rangeset_append_single(pixset, pix >> (2 * (o - order_)), status, err);
+                stk->size = *stacktop;
+            }
+        }
+    } else {  // o == order_
+        if (zone >= 2) {
+            i64rangeset_append_single(pixset, pix, status, err);
+        } else if (inclusive) {
+            if (order_ < omax) {
+                *stacktop = stk->size;
+                for (int i = 0; i < 4; i++) {
+                    child.pix = 4 * pix + 3 - i;
+                    if (!poly_nodestack_push(stk, &child, status, err)) return;
+                }
+            } else {
+                i64rangeset_append_single(pixset, pix, status, err);
+            }
+        }
+    }
+}
+
+void query_polygon_simple_nonconvex(healpix_info *hpx, vec3arr *vertices, int fact,
+                                    i64rangeset *pixset, int *status, char *err) {
+    *status = 1;
+    pixset->stack->size = 0;
+
+    vec3 *vv = NULL;
+    poly_edge *edges = NULL;
+    size_t *elist = NULL;
+    poly_nodestack stk = {0, 0, NULL};
+
+    if (hpx->scheme == RING) {
+        snprintf(err, ERR_SIZE, "Non-convex polygons are only supported with nest ordering.");
+        *status = 0;
+        return;
+    }
+
+    /* Copy vertices, dropping consecutive duplicates (including last == first). */
+    size_t nin = vertices->size;
+    vv = (vec3 *)malloc(nin * sizeof(vec3));
+    if (vv == NULL) {
+        snprintf(err, ERR_SIZE, "Could not allocate array memory.");
+        *status = 0;
+        goto cleanup;
+    }
+    size_t nv = 0;
+    for (size_t i = 0; i < nin; i++) {
+        vec3 v = vertices->data[i];
+        double vn = vec3_length(&v);
+        vec3_scale(&v, 1.0 / vn, &v);
+        if (nv > 0 && vec3_angle(&v, &vv[nv - 1]) < 1e-12) continue;
+        vv[nv++] = v;
+    }
+    while (nv > 1 && vec3_angle(&vv[nv - 1], &vv[0]) < 1e-12) nv--;
+    if (nv < 3) {
+        snprintf(err, ERR_SIZE, "Polygon does not have enough distinct vertices.");
+        *status = 0;
+        goto cleanup;
+    }
+
+    /* Edge validity and orientation from the turning angles (Gauss-Bonnet). */
+    double turn_sum = 0.0;
+    for (size_t i = 0; i < nv; i++) {
+        const vec3 *a = &vv[(i + nv - 1) % nv], *b = &vv[i], *c = &vv[(i + 1) % nv];
+        if (vec3_dotprod(a, b) <= -1.0 + 1e-12) {
+            snprintf(err, ERR_SIZE, "Polygon edge is too long (>= 180 degrees).");
+            *status = 0;
+            goto cleanup;
+        }
+        vec3 nin_, nout, tin, tout, tc;
+        vec3_crossprod(a, b, &nin_);
+        vec3_crossprod(b, c, &nout);
+        vec3_crossprod(&nin_, b, &tin);
+        vec3_crossprod(&nout, b, &tout);
+        vec3_crossprod(&tin, &tout, &tc);
+        double turn = atan2(vec3_dotprod(&tc, b), vec3_dotprod(&tin, &tout));
+        if (fabs(turn) > HPG_PI - 1e-9) {
+            snprintf(err, ERR_SIZE, "Polygon is not simple (edges double back at a vertex).");
+            *status = 0;
+            goto cleanup;
+        }
+        turn_sum += turn;
+    }
+    /* Area to the left is 2*pi - turn_sum; make the interior the smaller region. */
+    if (turn_sum < 0.0) {
+        for (size_t i = 0, j = nv - 1; i < j; i++, j--) {
+            vec3 tmp = vv[i];
+            vv[i] = vv[j];
+            vv[j] = tmp;
+        }
+    }
+
+    size_t ne = nv;
+    edges = (poly_edge *)malloc(ne * sizeof(poly_edge));
+    if (edges == NULL) {
+        snprintf(err, ERR_SIZE, "Could not allocate array memory.");
+        *status = 0;
+        goto cleanup;
+    }
+    for (size_t i = 0; i < ne; i++) poly_edge_init(&edges[i], &vv[i], &vv[(i + 1) % nv]);
+
+    /* Simplicity: no two non-adjacent edges may cross. */
+    for (size_t i = 0; i < ne; i++) {
+        for (size_t j = i + 2; j < ne; j++) {
+            if (i == 0 && j == ne - 1) continue;  // adjacent through the closure
+            if (poly_edges_intersect(&edges[i], &edges[j])) {
+                snprintf(err, ERR_SIZE, "Polygon is not simple (edges %zu and %zu cross).", i,
+                         j);
+                *status = 0;
+                goto cleanup;
+            }
+        }
+    }
+
+    /* Reference point just inside edge 0. */
+    vec3 ref;
+    {
+        vec3 m = edges[0].c;
+        double dmin = HPG_PI;
+        for (size_t k = 1; k < ne; k++) {
+            double d = poly_edge_dist(&edges[k], &m);
+            if (d < dmin) dmin = d;
+        }
+        if (dmin <= 1e-15) {
+            snprintf(err, ERR_SIZE, "Polygon is not simple (edges touch).");
+            *status = 0;
+            goto cleanup;
+        }
+        double delta = 0.5 * dmin;
+        if (delta > 0.1) delta = 0.1;
+        ref.x = cos(delta) * m.x + sin(delta) * edges[0].n.x;
+        ref.y = cos(delta) * m.y + sin(delta) * edges[0].n.y;
+        ref.z = cos(delta) * m.z + sin(delta) * edges[0].n.z;
+    }
+
+    bool inclusive = (fact != 0);
+    int oplus = inclusive ? ilog2(fact) : 0;
+    int omax = hpx->order + oplus;
+
+    struct healpix_info base[MAX_ORDER + 1];
+    double cosdr[MAX_ORDER + 1], sindr[MAX_ORDER + 1];
+    for (int o = 0; o <= omax; o++) {
+        base[o] = healpix_info_from_order(o, NEST);
+        double dr = max_pixrad(&base[o]) * (1.0 + 1e-10) + 1e-15;  // safety distance
+        cosdr[o] = cos(dr);
+        sindr[o] = sin(dr);
+    }
+
+    /* Edge-index stack; the root list is all edges. */
+    size_t ealloc = 4 * ne + 64;
+    elist = (size_t *)malloc(ealloc * sizeof(size_t));
+    if (elist == NULL) {
+        snprintf(err, ERR_SIZE, "Could not allocate polygon edge list.");
+        *status = 0;
+        goto cleanup;
+    }
+    for (size_t k = 0; k < ne; k++) elist[k] = k;
+    size_t esize = ne;
+
+    bool base_inside[12];
+    for (int i = 0; i < 12; i++) {
+        vec3 c = pix2vec(&base[0], i);
+        base_inside[i] = !poly_path_parity_all(&ref, &c, edges, ne);  // ref is inside
+    }
+
+    for (int i = 0; i < 12; i++) {
+        poly_node node = {0};
+        node.pix = 11 - i;
+        node.order = 0;
+        node.root = true;
+        node.par_off = 0;
+        node.par_cnt = ne;
+        if (!poly_nodestack_push(&stk, &node, status, err)) goto cleanup;
+    }
+
+    size_t stacktop = 0;
+    while (stk.size > 0) {
+        poly_node node = stk.data[--stk.size];
+        int o = node.order;
+
+        /* Everything above the parent's list belongs to finished subtrees. */
+        esize = node.par_off + node.par_cnt;
+
+        vec3 v = pix2vec(&base[o], node.pix);
+        bool inside;
+        if (node.root) {
+            inside = base_inside[node.pix];
+        } else {
+            bool flip = poly_path_parity(&node.parent_center, &v, edges, &elist[node.par_off],
+                                         node.par_cnt);
+            inside = node.parent_inside != flip;
+        }
+
+        if (!poly_reserve_edges(&elist, &ealloc, esize + node.par_cnt, status, err))
+            goto cleanup;
+        size_t my_off = esize, my_cnt = 0;
+        for (size_t k = 0; k < node.par_cnt; k++) {
+            size_t ie = elist[node.par_off + k];
+            if (poly_edge_near(&edges[ie], &v, cosdr[o], sindr[o]))
+                elist[my_off + my_cnt++] = ie;
+        }
+        esize = my_off + my_cnt;
+
+        int zone;
+        if (my_cnt == 0)
+            zone = inside ? 3 : 0;
+        else
+            zone = inside ? 2 : 1;
+
+        poly_node child_tmpl = {0};
+        child_tmpl.root = false;
+        child_tmpl.parent_inside = inside;
+        child_tmpl.parent_center = v;
+        child_tmpl.par_off = my_off;
+        child_tmpl.par_cnt = my_cnt;
+
+        poly_check_pixel(o, hpx->order, omax, zone, pixset, node.pix, &stk, &child_tmpl,
+                         inclusive, &stacktop, status, err);
+        if (!*status) goto cleanup;
+    }
+
+cleanup:
+    if (vv != NULL) free(vv);
+    if (edges != NULL) free(edges);
+    if (elist != NULL) free(elist);
+    if (stk.data != NULL) free(stk.data);
+}
+
 void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset *pixset,
                    int *status, char *err) {
     *status = 1;
@@ -1281,25 +1833,36 @@ void query_polygon(healpix_info *hpx, pointingarr *vertex, int fact, i64rangeset
     normal = vec3arr_new(ncirc, status, err);
     if (!*status) goto cleanup;
     int flip = 0;
+    const char *nonconvex_reason = NULL;
     for (size_t i = 0; i < nv; i++) {
         vec3_crossprod(&vv->data[i], &vv->data[(i + 1) % nv], &normal->data[i]);
         vec3_normalize(&normal->data[i]);
         double hnd = vec3_dotprod(&normal->data[i], &vv->data[(i + 2) % nv]);
         if (fabs(hnd) < 1e-10) {
-            snprintf(err, ERR_SIZE, "Polygon has degenerate corner.");
-            *status = 0;
-            goto cleanup;
+            nonconvex_reason = "Polygon has degenerate corner.";
+            break;
         }
         if (i == 0)
             flip = (hnd < 0.) ? -1 : 1;
         else if (flip * hnd < 0) {
-            snprintf(err, ERR_SIZE, "Polygon is not convex.");
-            *status = 0;
-            goto cleanup;
+            nonconvex_reason = "Polygon is not convex.";
+            break;
         }
         normal->data[i].x *= flip;
         normal->data[i].y *= flip;
         normal->data[i].z *= flip;
+    }
+    if (nonconvex_reason != NULL) {
+        if (hpx->scheme == RING) {
+            // Ring ordering only supports convex polygons (original behavior).
+            snprintf(err, ERR_SIZE, "%s Non-convex polygons require nest ordering.",
+                     nonconvex_reason);
+            *status = 0;
+            goto cleanup;
+        }
+        // Non-convex (or degenerate-corner) polygon: general nest search.
+        query_polygon_simple_nonconvex(hpx, vv, fact, pixset, status, err);
+        goto cleanup;
     }
     rad = (double *)calloc(ncirc, sizeof(double));
     if (rad == NULL) {
