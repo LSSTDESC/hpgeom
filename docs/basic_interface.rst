@@ -109,9 +109,11 @@ Note that this function is more efficient with ``ring`` ordering, though it is o
 
 
 The `HPGeom` :code:`query_polygon()` function behaves much the same as the healpy_ :code:`query_polygon()`.
-It returns pixels whose centers lie within the convex polygon defined by the points listed if :code:`inclusive=False`, or which overlap with the polygon if :code:`inclusive=True`.
+It returns pixels whose centers lie within the simple polygon defined by the points listed if :code:`inclusive=False`, or which overlap with the polygon if :code:`inclusive=True`.
 All edges of the polygon will be great circles.
-A key difference is that :code:`hpgeom.query_polygon()` takes as input spherical coordinates rather than unit-vector coordinates.
+There are two key differences with :code:`healpy.query_polygon()`.
+The first is that `HPGeom` takes as input spherical coordinates rather than unit-vector coordinates, although there is a vector interface in :code:`healpy.query_polygon_vec()`.
+The second is that as of version 1.7 `HPGeom` supports simple (non-intersecting) non-convex polygons.
 Note that this function is more efficient with ``nest`` ordering.
 
 .. code-block :: python
@@ -136,6 +138,26 @@ Note that this function is more efficient with ``nest`` ordering.
 .. image:: images/query_polygon.png
    :width: 600
    :alt: Demonstration of the pixels returned from :code:`hpgeom.query_polygon()`.
+
+.. code-block :: python
+
+    import hpgeom as hpg
+    import matplotlib.pyplot as plt
+
+    # Query pixels in a non-convex polygon.
+    pixels = hpg.query_polygon(
+        2048,
+        [10.0, 15.0, 17.0, 19.0, 24.0],
+        [20.0, 15.0, 17.0, 15.0, 20.0],
+    )
+    lon, lat = hpg.pixel_to_angle(2048, pixels)
+
+    plt.plot(lon, lat, 'r.')
+    plt.show()
+
+.. image:: images/query_polygon_nonconvex.png
+   :width: 600
+   :alt: Demonstration of the non-convex pixels returned from :code:`hpgeom.query_polygon()`.
 
 
 The `HPGeom` :code:`query_box()` function does not have a direct analog in healpy_.
