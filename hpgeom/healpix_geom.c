@@ -119,7 +119,7 @@ static inline double vec3_dotprod(const vec3 *v1, const vec3 *v2) {
     return v1->x * v2->x + v1->y * v2->y + v1->z * v2->z;
 }
 
-static inline double vec3_length(const vec3 *v) { return sqrt(v->x * v->x + v->y * v->y + v->z * v->z); }
+static inline double vec3_length(const vec3 *v) { return sqrt(vec3_dotprod(v, v)); }
 
 static inline void vec3_scale(const vec3 *a, double s, vec3 *scaled) {
     scaled->x = a->x * s;
@@ -146,7 +146,7 @@ static inline void vec3_subtract(const vec3 *v1, const vec3 *v2, vec3 *sub) {
 }
 
 static inline void vec3_normalize(vec3 *v) {
-    double norm = 1. / vec3_length(v);
+    double norm = 1.0 / vec3_length(v);
     v->x *= norm;
     v->y *= norm;
     v->z *= norm;
@@ -208,7 +208,7 @@ int64_t ang2pix(healpix_info *hpx, double theta, double phi) {
 }
 
 int64_t vec2pix(healpix_info *hpx, vec3 *vec) {
-    double xl = 1. / vec3_length(vec);
+    double xl = 1.0 / vec3_length(vec);
     double phi = safe_atan2(vec->y, vec->x);
     double nz = vec->z * xl;
     if (fabs(nz) > 0.99) {
@@ -302,7 +302,7 @@ int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth, bool have_s
             double tp = tt - (int64_t)(tt);
             double tmp = ((za < 0.99) || (!have_sth))
                              ? hpx->nside * sqrt(3 * (1 - za))
-                             : hpx->nside * sth / sqrt((1. + za) / 3.);
+                             : hpx->nside * sth / sqrt((1.0 + za) / 3.);
 
             int64_t jp = (int64_t)(tp * tmp);          // increasing edge line index
             int64_t jm = (int64_t)((1.0 - tp) * tmp);  // decreasing edge line index
@@ -338,7 +338,7 @@ int64_t loc2pix(healpix_info *hpx, double z, double phi, double sth, bool have_s
             double tp = tt - ntt;
             double tmp = ((za < 0.99) || (!have_sth))
                              ? hpx->nside * sqrt(3 * (1 - za))
-                             : hpx->nside * sth / sqrt((1. + za) / 3.);
+                             : hpx->nside * sth / sqrt((1.0 + za) / 3.);
 
             int64_t jp = (int64_t)(tp * tmp);           // increasing edge line index
             int64_t jm = (int64_t)((1.0 - tp) * tmp);   // decreasing edge line index
@@ -535,10 +535,10 @@ double max_pixrad(healpix_info *hpx) {
     va.x = sintheta * cos(phi_a);
     va.y = sintheta * sin(phi_a);
 
-    double t1 = 1. - 1. / hpx->nside;
+    double t1 = 1.0 - 1.0 / hpx->nside;
     t1 *= t1;
 
-    vb.z = 1. - t1 / 3.;
+    vb.z = 1.0 - t1 / 3.;
     sintheta = sqrt((1.0 - vb.z) * (1.0 + vb.z));
     // we set phi_b = 0.0, so cos(phi_b) = 1.0 and sin(phi_b) = 0.0
     vb.x = sintheta;
@@ -577,7 +577,7 @@ void get_ring_info_small(healpix_info *hpx, int64_t ring, int64_t *startpix, int
 }
 
 inline double cosdist_zphi(double z1, double phi1, double z2, double phi2) {
-    return z1 * z2 + cos(phi1 - phi2) * sqrt((1. - z1 * z1) * (1. - z2 * z2));
+    return z1 * z2 + cos(phi1 - phi2) * sqrt((1.0 - z1 * z1) * (1.0 - z2 * z2));
 }
 
 /* Short note on the "zone":
@@ -712,7 +712,7 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
         double cosrbig = cos(rbig);
 
         double z0 = cos(ptg_theta);
-        double xa = 1. / sqrt((1 - z0) * (1 + z0));
+        double xa = 1.0 / sqrt((1 - z0) * (1 + z0));
 
         int64_t cpix = loc2pix(hpx, z0, ptg_phi, 0., false);
 
@@ -815,8 +815,8 @@ void query_disc(healpix_info *hpx, double ptg_theta, double ptg_phi, double radi
         for (int o = 0; o <= omax; o++) {
             base[o] = healpix_info_from_order(o, NEST);
             double dr = max_pixrad(&base[o]);  // safety distance
-            crpdr[o] = ((radius + dr) > HPG_PI) ? -1. : cos(radius + dr);
-            crmdr[o] = ((radius - dr) < 0.) ? 1. : cos(radius - dr);
+            crpdr[o] = ((radius + dr) > HPG_PI) ? -1.0 : cos(radius + dr);
+            crmdr[o] = ((radius - dr) < 0.) ? 1.0 : cos(radius - dr);
         }
 
         stk = i64stack_new(2 * (12 + 3 * omax), status, err);
@@ -1133,7 +1133,7 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
                     cpix->data[counter] = loc2pix(hpx, cth, pnt.phi, 0, false);
                     if (!*status) goto cleanup_ring;
                 }
-                xa->data[counter] = 1. / sqrt((1 - cth) * (1 + cth));
+                xa->data[counter] = 1.0 / sqrt((1 - cth) * (1 + cth));
                 ptg->data[counter].theta = pnt.theta;
                 ptg->data[counter].phi = pnt.phi;
                 counter++;
@@ -1168,7 +1168,7 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
             if (!*status) goto cleanup_ring;
             for (size_t j = 0; j < counter; j++) {
                 double x = (cosrbig->data[j] - z * z0->data[j]) * xa->data[j];
-                double ysq = 1. - z * z - x * x;
+                double ysq = 1.0 - z * z - x * x;
                 if (ysq > 0) {
                     double dphi = atan2(sqrt(ysq), x);
                     int64_t ip_lo =
@@ -1249,9 +1249,9 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
             double dr = max_pixrad(&base[o]);  // safety distance
 
             for (size_t i = 0; i < nv; i++) {
-                crlimit0[o]->data[i] = (rad[i] + dr > HPG_PI) ? -1. : cos(rad[i] + dr);
+                crlimit0[o]->data[i] = (rad[i] + dr > HPG_PI) ? -1.0 : cos(rad[i] + dr);
                 crlimit1[o]->data[i] = (o == 0) ? cos(rad[i]) : crlimit1[0]->data[i];
-                crlimit2[o]->data[i] = (rad[i] - dr < 0.) ? 1. : cos(rad[i] - dr);
+                crlimit2[o]->data[i] = (rad[i] - dr < 0.) ? 1.0 : cos(rad[i] - dr);
             }
         }
 
@@ -1329,12 +1329,12 @@ void query_multidisc(healpix_info *hpx, vec3arr *norm, double *rad, int fact,
  */
 
 typedef struct poly_edge {
-    vec3 a, b;         /* endpoints */
-    vec3 n;            /* unit normal of a x b; interior on the positive side */
-    vec3 ta, tb;       /* v.ta >= 0 && v.tb >= 0  <=>  v projects onto the arc */
-    vec3 mid;          /* a + b (not normalized); the arc lies in the hemisphere mid.v > 0 */
-    vec3 c;            /* normalized mid, center of bounding cap */
-    double cosh, sinh; /* cos/sin of the half-length of the arc */
+    vec3 a, b;           /* endpoints */
+    vec3 n;              /* unit normal of a x b; interior on the positive side */
+    vec3 ta, tb;         /* v.ta >= 0 && v.tb >= 0  <=>  v projects onto the arc */
+    vec3 mid;            /* a + b (not normalized); the arc lies in the hemisphere mid.v > 0 */
+    vec3 c;              /* normalized mid, center of bounding cap */
+    double cos_h, sin_h; /* cos/sin of the half-length of the arc */
 } poly_edge;
 
 typedef struct poly_node {
@@ -1392,12 +1392,13 @@ static void poly_edge_init(poly_edge *e, const vec3 *a, const vec3 *b) {
     vec3_scale(&e->n, 1.0 / nn, &e->n);
     vec3_crossprod(&e->n, a, &e->ta);
     vec3_crossprod(b, &e->n, &e->tb);
-    vec3 mid = {a->x + b->x, a->y + b->y, a->z + b->z};
+    vec3 mid;
+    vec3_add(a, b, &mid);
     e->mid = mid;
     vec3_scale(&mid, 1.0 / vec3_length(&mid), &e->c);
     double half = 0.5 * vec3_angle(a, b);
-    e->cosh = cos(half);
-    e->sinh = sin(half);
+    e->cos_h = cos(half);
+    e->sin_h = sin(half);
 }
 
 /* Is the arc within angular distance dr of the unit vector v? */
@@ -1444,7 +1445,8 @@ static bool poly_segment_parity(const vec3 *p, const vec3 *q, const poly_edge *e
                                 const size_t *idx, size_t cnt) {
     vec3 npq;
     vec3_crossprod(p, q, &npq);
-    vec3 mpq = {p->x + q->x, p->y + q->y, p->z + q->z};
+    vec3 mpq;
+    vec3_add(p, q, &mpq);
     bool parity = false;
     for (size_t k = 0; k < cnt; k++) {
         const poly_edge *e = (idx == NULL) ? &edges[k] : &edges[idx[k]];
@@ -1460,7 +1462,8 @@ static bool poly_segment_parity(const vec3 *p, const vec3 *q, const poly_edge *e
  */
 static bool poly_segment_degenerate(const vec3 *p, const vec3 *q, const poly_edge *edges,
                                     const size_t *idx, size_t cnt) {
-    vec3 d = {p->x - q->x, p->y - q->y, p->z - q->z};
+    vec3 d;
+    vec3_subtract(p, q, &d);
     double tol = 1e-8 * vec3_length(&d) + 1e-15;
     for (size_t k = 0; k < cnt; k++) {
         const poly_edge *e = (idx == NULL) ? &edges[k] : &edges[idx[k]];
@@ -1484,9 +1487,12 @@ static bool poly_path_parity(const vec3 *p, const vec3 *q, const poly_edge *edge
     vec3 npq;
     vec3_crossprod(p, q, &npq);
     double nn = vec3_length(&npq);
-    vec3 dpq = {p->x - q->x, p->y - q->y, p->z - q->z};
+    vec3 dpq;
+    vec3_subtract(p, q, &dpq);
     double dist = vec3_length(&dpq);
-    vec3 mid = {0.5 * (p->x + q->x), 0.5 * (p->y + q->y), 0.5 * (p->z + q->z)};
+    vec3 mid;
+    vec3_add(p, q, &mid);
+    vec3_scale(&mid, 0.5, &mid);
     static const double offsets[4] = {0.25, -0.25, 0.37, -0.37};
     vec3 w = mid;
     for (int i = 0; i < 4; i++) {
@@ -1507,7 +1513,8 @@ static bool poly_path_parity(const vec3 *p, const vec3 *q, const poly_edge *edge
 static bool poly_path_parity_all(const vec3 *p, const vec3 *q, const poly_edge *edges,
                                  size_t ne) {
     if (vec3_dotprod(p, q) >= 0.0) return poly_path_parity(p, q, edges, NULL, ne);
-    vec3 m = {p->x + q->x, p->y + q->y, p->z + q->z};
+    vec3 m;
+    vec3_add(p, q, &m);
     double mn = vec3_length(&m);
     if (mn < 1e-8) {
         /* (Nearly) antipodal: route through any point perpendicular to p. */
@@ -1529,7 +1536,7 @@ static bool poly_path_parity_all(const vec3 *p, const vec3 *q, const poly_edge *
 /* Strict crossing test between two non-adjacent edges (touching is not flagged). */
 static bool poly_edges_intersect(const poly_edge *e1, const poly_edge *e2) {
     /* Bounding-cap rejection; each half-length is < pi/2 so h1 + h2 < pi. */
-    double cos_hsum = e1->cosh * e2->cosh - e1->sinh * e2->sinh;
+    double cos_hsum = e1->cos_h * e2->cos_h - e1->sin_h * e2->sin_h;
     if (vec3_dotprod(&e1->c, &e2->c) < cos_hsum - 1e-15) return false;
 
     double s1 = vec3_dotprod(&e1->n, &e2->a), s2 = vec3_dotprod(&e1->n, &e2->b);
